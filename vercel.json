@@ -1,0 +1,9 @@
+{
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/mag7",
+      "schedule": "0 6 * * *"
+    }
+  ]
+}

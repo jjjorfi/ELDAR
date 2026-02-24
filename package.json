@@ -1,0 +1,45 @@
+{
+  "name": "eldar",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "dev:clean": "sh -c 'pids=$(lsof -ti tcp:3000); if [ -n \"$pids\" ]; then kill -9 $pids; fi; next dev'",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test:security": "tsx --test --test-concurrency=1 src/lib/security/guard.test.ts",
+    "security:gate": "bash ./security-gate.sh"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^6.38.1",
+    "@studio-freight/lenis": "^1.0.42",
+    "@vercel/postgres": "^0.10.0",
+    "chart.js": "^4.4.3",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.462.0",
+    "next": "^15.5.10",
+    "react": "18.3.1",
+    "react-chartjs-2": "^5.2.0",
+    "react-dom": "18.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@types/node": "^20.14.11",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^9.39.3",
+    "eslint-config-next": "^15.5.10",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.6",
+    "tsx": "^4.21.0",
+    "typescript": "^5.5.3"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}
