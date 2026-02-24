@@ -1,13 +1,53 @@
-.next
-node_modules
-.env
-.env.*
-!.env.example
-!.env.local.template
-.DS_Store
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js build output
+.next/
+out/
+build/
+
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-.vercel
-coverage
+*.log
+
+# Local env files (never commit secrets)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+!.env.example
+!.env.local.template
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Coverage / test artifacts
+coverage/
+.nyc_output/
+
+# Caches / temp
+.cache/
+.npm-cache/
+*.tmp
+tmp/
+
+# Python artifacts (if present in repo)
+__pycache__/
+*.pyc
+
+# Vercel
+.vercel/
