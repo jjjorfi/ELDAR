@@ -51,3 +51,7 @@ __pycache__/
 
 # Vercel
 .vercel/
+
+# Local backup archives (keep local only)
+ELDAR BACKUP/
+ELDAR VISUALS/
