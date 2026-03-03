@@ -4,6 +4,786 @@
       "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
       "analysis": {
         "modelVersion": "2026-02-17-v5-relative-sector-percentiles",
+        "symbol": "META",
+        "companyName": "Meta Platforms",
+        "sector": "Information Technology",
+        "currency": "USD",
+        "currentPrice": 648.18,
+        "marketCap": 1648258200000,
+        "score": 4.93,
+        "rating": "HOLD",
+        "ratingNote": "Balanced setup, monitor for a directional break",
+        "factors": [
+          {
+            "category": "Fundamental",
+            "factor": "EPS Growth",
+            "weight": 2,
+            "bullishPoints": 2,
+            "bearishPoints": 0,
+            "points": 0.1,
+            "signal": "BEARISH",
+            "ruleMatched": "Relative percentile < P25 (sector P90 25.0%)",
+            "metricValue": "EPS Growth -1.7%"
+          },
+          {
+            "category": "Technical",
+            "factor": "Price > 200SMA",
+            "weight": 1.5,
+            "bullishPoints": 1.5,
+            "bearishPoints": 0,
+            "points": 0.5,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Universal trend model",
+            "metricValue": "Price -6.2% vs 200SMA"
+          },
+          {
+            "category": "Technical",
+            "factor": "RSI",
+            "weight": 1.2,
+            "bullishPoints": 1.2,
+            "bearishPoints": 0,
+            "points": 0.8,
+            "signal": "BULLISH",
+            "ruleMatched": "Universal RSI model",
+            "metricValue": "RSI 49.2"
+          },
+          {
+            "category": "Options",
+            "factor": "Put/Call Ratio",
+            "weight": 1,
+            "bullishPoints": 1,
+            "bearishPoints": 0,
+            "points": 0.4,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Universal PCR model",
+            "metricValue": "PCR 1.00"
+          },
+          {
+            "category": "Fundamental",
+            "factor": "FCF Yield",
+            "weight": 1.5,
+            "bullishPoints": 1.5,
+            "bearishPoints": 0,
+            "points": 0.75,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Relative percentile P50-P75 (sector P90 3.5%)",
+            "metricValue": "FCF Yield 2.8%"
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Short Interest",
+            "weight": 0.8,
+            "bullishPoints": 0.8,
+            "bearishPoints": 0,
+            "points": 0.75,
+            "signal": "BULLISH",
+            "ruleMatched": "Universal short-interest model",
+            "metricValue": "Short Interest 1.3%"
+          },
+          {
+            "category": "Macro",
+            "factor": "VIX",
+            "weight": 0.7,
+            "bullishPoints": 0.7,
+            "bearishPoints": 0,
+            "points": 0.35,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Universal VIX model",
+            "metricValue": "VIX 19.9"
+          },
+          {
+            "category": "Fundamental",
+            "factor": "Revenue Growth",
+            "weight": 0.6,
+            "bullishPoints": 0.6,
+            "bearishPoints": 0,
+            "points": 0.6,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile >= P90 (sector P90 22.0%)",
+            "metricValue": "Revenue Growth 22.2%"
+          },
+          {
+            "category": "Valuation",
+            "factor": "P/E vs Sector",
+            "weight": 0.6,
+            "bullishPoints": 0.6,
+            "bearishPoints": 0,
+            "points": 0.48,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile P25-P50 (sector P90 36.0x)",
+            "metricValue": "P/E 22.0x"
+          },
+          {
+            "category": "Valuation",
+            "factor": "Debt/Equity",
+            "weight": 0.25,
+            "bullishPoints": 0.25,
+            "bearishPoints": 0,
+            "points": 0.2,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile P25-P50 (sector P90 50%)",
+            "metricValue": "Debt/Equity 27.0%"
+          }
+        ],
+        "generatedAt": "2026-03-02T02:05:16.260Z",
+        "id": "6ef5bc31-6ec3-4eb4-8308-2fd17ddc4418",
+        "createdAt": "2026-03-02T02:05:16.260Z"
+      }
+    },
+    {
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "analysis": {
+        "modelVersion": "2026-02-17-v5-relative-sector-percentiles",
+        "symbol": "PANW",
+        "companyName": "Palo Alto Networks",
+        "sector": "Information Technology",
+        "currency": "USD",
+        "currentPrice": 144.84,
+        "marketCap": 118222080000,
+        "score": 4.73,
+        "rating": "HOLD",
+        "ratingNote": "Balanced setup, monitor for a directional break",
+        "factors": [
+          {
+            "category": "Fundamental",
+            "factor": "EPS Growth",
+            "weight": 2,
+            "bullishPoints": 2,
+            "bearishPoints": 0,
+            "points": 0.1,
+            "signal": "BEARISH",
+            "ruleMatched": "Relative percentile < P25 (sector P90 25.0%)",
+            "metricValue": "EPS Growth 2.0%"
+          },
+          {
+            "category": "Technical",
+            "factor": "Price > 200SMA",
+            "weight": 1.5,
+            "bullishPoints": 1.5,
+            "bearishPoints": 0,
+            "points": 0.15,
+            "signal": "BEARISH",
+            "ruleMatched": "Universal trend model",
+            "metricValue": "Price -24.5% vs 200SMA"
+          },
+          {
+            "category": "Technical",
+            "factor": "RSI",
+            "weight": 1.2,
+            "bullishPoints": 1.2,
+            "bearishPoints": 0,
+            "points": 1,
+            "signal": "BULLISH",
+            "ruleMatched": "Universal RSI model",
+            "metricValue": "RSI 28.8"
+          },
+          {
+            "category": "Options",
+            "factor": "Put/Call Ratio",
+            "weight": 1,
+            "bullishPoints": 1,
+            "bearishPoints": 0,
+            "points": 1,
+            "signal": "BULLISH",
+            "ruleMatched": "Universal PCR model",
+            "metricValue": "PCR 0.30 | Calls 32,393 | Puts 20,619"
+          },
+          {
+            "category": "Fundamental",
+            "factor": "FCF Yield",
+            "weight": 1.5,
+            "bullishPoints": 1.5,
+            "bearishPoints": 0,
+            "points": 1.2,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile P75-P90 (sector P90 3.5%)",
+            "metricValue": "FCF Yield 3.0%"
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Short Interest",
+            "weight": 0.8,
+            "bullishPoints": 0.8,
+            "bearishPoints": 0,
+            "points": 0.35,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Universal short-interest model",
+            "metricValue": "Short Interest 5.7%"
+          },
+          {
+            "category": "Macro",
+            "factor": "VIX",
+            "weight": 0.7,
+            "bullishPoints": 0.7,
+            "bearishPoints": 0,
+            "points": 0.35,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Universal VIX model",
+            "metricValue": "VIX 19.9"
+          },
+          {
+            "category": "Fundamental",
+            "factor": "Revenue Growth",
+            "weight": 0.6,
+            "bullishPoints": 0.6,
+            "bearishPoints": 0,
+            "points": 0.3,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Relative percentile P50-P75 (sector P90 22.0%)",
+            "metricValue": "Revenue Growth 15.4%"
+          },
+          {
+            "category": "Valuation",
+            "factor": "P/E vs Sector",
+            "weight": 0.6,
+            "bullishPoints": 0.6,
+            "bearishPoints": 0,
+            "points": 0.03,
+            "signal": "BEARISH",
+            "ruleMatched": "Relative percentile > P90 (sector P90 36.0x)",
+            "metricValue": "P/E 39.0x"
+          },
+          {
+            "category": "Valuation",
+            "factor": "Debt/Equity",
+            "weight": 0.25,
+            "bullishPoints": 0.25,
+            "bearishPoints": 0,
+            "points": 0.25,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile <= P25 (sector P90 50%)",
+            "metricValue": "Debt/Equity 0.0%"
+          }
+        ],
+        "generatedAt": "2026-03-02T02:05:16.194Z",
+        "id": "0f1938de-dace-4572-be5b-f96825bb0292",
+        "createdAt": "2026-03-02T02:05:16.194Z"
+      }
+    },
+    {
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "analysis": {
+        "modelVersion": "2026-02-17-v5-relative-sector-percentiles",
+        "symbol": "ORCL",
+        "companyName": "Oracle Corporation",
+        "sector": "Information Technology",
+        "currency": "USD",
+        "currentPrice": 147.88,
+        "marketCap": 425049300000,
+        "score": 5.59,
+        "rating": "HOLD",
+        "ratingNote": "Balanced setup, monitor for a directional break",
+        "factors": [
+          {
+            "category": "Fundamental",
+            "factor": "EPS Growth",
+            "weight": 2,
+            "bullishPoints": 2,
+            "bearishPoints": 0,
+            "points": 2,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile >= P90 (sector P90 25.0%)",
+            "metricValue": "EPS Growth 30.2%"
+          },
+          {
+            "category": "Technical",
+            "factor": "Price > 200SMA",
+            "weight": 1.5,
+            "bullishPoints": 1.5,
+            "bearishPoints": 0,
+            "points": 0.15,
+            "signal": "BEARISH",
+            "ruleMatched": "Universal trend model",
+            "metricValue": "Price -33.0% vs 200SMA"
+          },
+          {
+            "category": "Technical",
+            "factor": "RSI",
+            "weight": 1.2,
+            "bullishPoints": 1.2,
+            "bearishPoints": 0,
+            "points": 0.95,
+            "signal": "BULLISH",
+            "ruleMatched": "Universal RSI model",
+            "metricValue": "RSI 39.1"
+          },
+          {
+            "category": "Options",
+            "factor": "Put/Call Ratio",
+            "weight": 1,
+            "bullishPoints": 1,
+            "bearishPoints": 0,
+            "points": 0.7,
+            "signal": "BULLISH",
+            "ruleMatched": "Universal PCR model",
+            "metricValue": "PCR 0.76 | Calls 163,327 | Puts 133,224"
+          },
+          {
+            "category": "Fundamental",
+            "factor": "FCF Yield",
+            "weight": 1.5,
+            "bullishPoints": 1.5,
+            "bearishPoints": 0,
+            "points": 0.08,
+            "signal": "BEARISH",
+            "ruleMatched": "Relative percentile < P25 (sector P90 3.5%)",
+            "metricValue": "FCF Yield 1.0%"
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Short Interest",
+            "weight": 0.8,
+            "bullishPoints": 0.8,
+            "bearishPoints": 0,
+            "points": 0.75,
+            "signal": "BULLISH",
+            "ruleMatched": "Universal short-interest model",
+            "metricValue": "Short Interest 1.2%"
+          },
+          {
+            "category": "Macro",
+            "factor": "VIX",
+            "weight": 0.7,
+            "bullishPoints": 0.7,
+            "bearishPoints": 0,
+            "points": 0.35,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Universal VIX model",
+            "metricValue": "VIX 19.9"
+          },
+          {
+            "category": "Fundamental",
+            "factor": "Revenue Growth",
+            "weight": 0.6,
+            "bullishPoints": 0.6,
+            "bearishPoints": 0,
+            "points": 0.12,
+            "signal": "BEARISH",
+            "ruleMatched": "Relative percentile P25-P50 (sector P90 22.0%)",
+            "metricValue": "Revenue Growth 11.1%"
+          },
+          {
+            "category": "Valuation",
+            "factor": "P/E vs Sector",
+            "weight": 0.6,
+            "bullishPoints": 0.6,
+            "bearishPoints": 0,
+            "points": 0.48,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile P25-P50 (sector P90 36.0x)",
+            "metricValue": "P/E 20.0x"
+          },
+          {
+            "category": "Valuation",
+            "factor": "Debt/Equity",
+            "weight": 0.25,
+            "bullishPoints": 0.25,
+            "bearishPoints": 0,
+            "points": 0.01,
+            "signal": "BEARISH",
+            "ruleMatched": "Relative percentile > P90 (sector P90 50%)",
+            "metricValue": "Debt/Equity 377.5%"
+          }
+        ],
+        "generatedAt": "2026-03-02T02:05:16.103Z",
+        "id": "92b3c1be-5ece-4126-acea-6ad3230bb2c0",
+        "createdAt": "2026-03-02T02:05:16.103Z"
+      }
+    },
+    {
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "analysis": {
+        "modelVersion": "2026-02-17-v5-relative-sector-percentiles",
+        "symbol": "MU",
+        "companyName": "Micron Technology",
+        "sector": "Information Technology",
+        "currency": "USD",
+        "currentPrice": 429,
+        "marketCap": 482843500000,
+        "score": 6.88,
+        "rating": "BUY",
+        "ratingNote": "Bullish setup with favorable conditions",
+        "factors": [
+          {
+            "category": "Fundamental",
+            "factor": "EPS Growth",
+            "weight": 2,
+            "bullishPoints": 2,
+            "bearishPoints": 0,
+            "points": 2,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile >= P90 (sector P90 25.0%)",
+            "metricValue": "EPS Growth 205.9%"
+          },
+          {
+            "category": "Technical",
+            "factor": "Price > 200SMA",
+            "weight": 1.5,
+            "bullishPoints": 1.5,
+            "bearishPoints": 0,
+            "points": 1.5,
+            "signal": "BULLISH",
+            "ruleMatched": "Universal trend model",
+            "metricValue": "Price 109.7% vs 200SMA"
+          },
+          {
+            "category": "Technical",
+            "factor": "RSI",
+            "weight": 1.2,
+            "bullishPoints": 1.2,
+            "bearishPoints": 0,
+            "points": 0.45,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Universal RSI model",
+            "metricValue": "RSI 61.0"
+          },
+          {
+            "category": "Options",
+            "factor": "Put/Call Ratio",
+            "weight": 1,
+            "bullishPoints": 1,
+            "bearishPoints": 0,
+            "points": 0.4,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Universal PCR model",
+            "metricValue": "PCR 1.00"
+          },
+          {
+            "category": "Fundamental",
+            "factor": "FCF Yield",
+            "weight": 1.5,
+            "bullishPoints": 1.5,
+            "bearishPoints": 0,
+            "points": 0.08,
+            "signal": "BEARISH",
+            "ruleMatched": "Relative percentile < P25 (sector P90 3.5%)",
+            "metricValue": "FCF Yield 1.0%"
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Short Interest",
+            "weight": 0.8,
+            "bullishPoints": 0.8,
+            "bearishPoints": 0,
+            "points": 0.65,
+            "signal": "BULLISH",
+            "ruleMatched": "Universal short-interest model",
+            "metricValue": "Short Interest 2.7%"
+          },
+          {
+            "category": "Macro",
+            "factor": "VIX",
+            "weight": 0.7,
+            "bullishPoints": 0.7,
+            "bearishPoints": 0,
+            "points": 0.35,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Universal VIX model",
+            "metricValue": "VIX 19.9"
+          },
+          {
+            "category": "Fundamental",
+            "factor": "Revenue Growth",
+            "weight": 0.6,
+            "bullishPoints": 0.6,
+            "bearishPoints": 0,
+            "points": 0.6,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile >= P90 (sector P90 22.0%)",
+            "metricValue": "Revenue Growth 45.4%"
+          },
+          {
+            "category": "Valuation",
+            "factor": "P/E vs Sector",
+            "weight": 0.6,
+            "bullishPoints": 0.6,
+            "bearishPoints": 0,
+            "points": 0.6,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile <= P25 (sector P90 36.0x)",
+            "metricValue": "P/E 12.7x"
+          },
+          {
+            "category": "Valuation",
+            "factor": "Debt/Equity",
+            "weight": 0.25,
+            "bullishPoints": 0.25,
+            "bearishPoints": 0,
+            "points": 0.25,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile <= P25 (sector P90 50%)",
+            "metricValue": "Debt/Equity 20.0%"
+          }
+        ],
+        "generatedAt": "2026-03-02T02:05:15.962Z",
+        "id": "aa3c180b-d1fb-4d36-a5c3-c0e3283dd1d9",
+        "createdAt": "2026-03-02T02:05:15.962Z"
+      }
+    },
+    {
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "analysis": {
+        "modelVersion": "2026-02-17-v5-relative-sector-percentiles",
+        "symbol": "QCOM",
+        "companyName": "Qualcomm",
+        "sector": "Information Technology",
+        "currency": "USD",
+        "currentPrice": 145.82,
+        "marketCap": 154480270000,
+        "score": 5.53,
+        "rating": "HOLD",
+        "ratingNote": "Balanced setup, monitor for a directional break",
+        "factors": [
+          {
+            "category": "Fundamental",
+            "factor": "EPS Growth",
+            "weight": 2,
+            "bullishPoints": 2,
+            "bearishPoints": 0,
+            "points": 0.1,
+            "signal": "BEARISH",
+            "ruleMatched": "Relative percentile < P25 (sector P90 25.0%)",
+            "metricValue": "EPS Growth -48.3%"
+          },
+          {
+            "category": "Technical",
+            "factor": "Price > 200SMA",
+            "weight": 1.5,
+            "bullishPoints": 1.5,
+            "bearishPoints": 0,
+            "points": 0.5,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Universal trend model",
+            "metricValue": "Price -9.3% vs 200SMA"
+          },
+          {
+            "category": "Technical",
+            "factor": "RSI",
+            "weight": 1.2,
+            "bullishPoints": 1.2,
+            "bearishPoints": 0,
+            "points": 0.8,
+            "signal": "BULLISH",
+            "ruleMatched": "Universal RSI model",
+            "metricValue": "RSI 45.9"
+          },
+          {
+            "category": "Options",
+            "factor": "Put/Call Ratio",
+            "weight": 1,
+            "bullishPoints": 1,
+            "bearishPoints": 0,
+            "points": 1,
+            "signal": "BULLISH",
+            "ruleMatched": "Universal PCR model",
+            "metricValue": "PCR 0.42 | Calls 12,916 | Puts 5,676"
+          },
+          {
+            "category": "Fundamental",
+            "factor": "FCF Yield",
+            "weight": 1.5,
+            "bullishPoints": 1.5,
+            "bearishPoints": 0,
+            "points": 1.5,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile >= P90 (sector P90 3.5%)",
+            "metricValue": "FCF Yield 8.4%"
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Short Interest",
+            "weight": 0.8,
+            "bullishPoints": 0.8,
+            "bearishPoints": 0,
+            "points": 0.55,
+            "signal": "BULLISH",
+            "ruleMatched": "Universal short-interest model",
+            "metricValue": "Short Interest 3.2%"
+          },
+          {
+            "category": "Macro",
+            "factor": "VIX",
+            "weight": 0.7,
+            "bullishPoints": 0.7,
+            "bearishPoints": 0,
+            "points": 0.35,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Universal VIX model",
+            "metricValue": "VIX 19.9"
+          },
+          {
+            "category": "Fundamental",
+            "factor": "Revenue Growth",
+            "weight": 0.6,
+            "bullishPoints": 0.6,
+            "bearishPoints": 0,
+            "points": 0.12,
+            "signal": "BEARISH",
+            "ruleMatched": "Relative percentile P25-P50 (sector P90 22.0%)",
+            "metricValue": "Revenue Growth 10.3%"
+          },
+          {
+            "category": "Valuation",
+            "factor": "P/E vs Sector",
+            "weight": 0.6,
+            "bullishPoints": 0.6,
+            "bearishPoints": 0,
+            "points": 0.6,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile <= P25 (sector P90 36.0x)",
+            "metricValue": "P/E 13.0x"
+          },
+          {
+            "category": "Valuation",
+            "factor": "Debt/Equity",
+            "weight": 0.25,
+            "bullishPoints": 0.25,
+            "bearishPoints": 0,
+            "points": 0.01,
+            "signal": "BEARISH",
+            "ruleMatched": "Relative percentile > P90 (sector P90 50%)",
+            "metricValue": "Debt/Equity 64.2%"
+          }
+        ],
+        "generatedAt": "2026-03-02T02:05:15.783Z",
+        "id": "0f5518c8-78ec-4143-bbf1-956e15ad9817",
+        "createdAt": "2026-03-02T02:05:15.783Z"
+      }
+    },
+    {
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "analysis": {
+        "modelVersion": "2026-02-17-v5-relative-sector-percentiles",
+        "symbol": "MSFT",
+        "companyName": "Microsoft",
+        "sector": "Information Technology",
+        "currency": "USD",
+        "currentPrice": 392.74,
+        "marketCap": 2868966000000,
+        "score": 6.48,
+        "rating": "BUY",
+        "ratingNote": "Bullish setup with favorable conditions",
+        "factors": [
+          {
+            "category": "Fundamental",
+            "factor": "EPS Growth",
+            "weight": 2,
+            "bullishPoints": 2,
+            "bearishPoints": 0,
+            "points": 2,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile >= P90 (sector P90 25.0%)",
+            "metricValue": "EPS Growth 28.7%"
+          },
+          {
+            "category": "Technical",
+            "factor": "Price > 200SMA",
+            "weight": 1.5,
+            "bullishPoints": 1.5,
+            "bearishPoints": 0,
+            "points": 0.15,
+            "signal": "BEARISH",
+            "ruleMatched": "Universal trend model",
+            "metricValue": "Price -19.2% vs 200SMA"
+          },
+          {
+            "category": "Technical",
+            "factor": "RSI",
+            "weight": 1.2,
+            "bullishPoints": 1.2,
+            "bearishPoints": 0,
+            "points": 0.95,
+            "signal": "BULLISH",
+            "ruleMatched": "Universal RSI model",
+            "metricValue": "RSI 39.6"
+          },
+          {
+            "category": "Options",
+            "factor": "Put/Call Ratio",
+            "weight": 1,
+            "bullishPoints": 1,
+            "bearishPoints": 0,
+            "points": 0.4,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Universal PCR model",
+            "metricValue": "PCR 1.00"
+          },
+          {
+            "category": "Fundamental",
+            "factor": "FCF Yield",
+            "weight": 1.5,
+            "bullishPoints": 1.5,
+            "bearishPoints": 0,
+            "points": 0.75,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Relative percentile P50-P75 (sector P90 3.5%)",
+            "metricValue": "FCF Yield 2.7%"
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Short Interest",
+            "weight": 0.8,
+            "bullishPoints": 0.8,
+            "bearishPoints": 0,
+            "points": 0.8,
+            "signal": "BULLISH",
+            "ruleMatched": "Universal short-interest model",
+            "metricValue": "Short Interest 0.8%"
+          },
+          {
+            "category": "Macro",
+            "factor": "VIX",
+            "weight": 0.7,
+            "bullishPoints": 0.7,
+            "bearishPoints": 0,
+            "points": 0.45,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Universal VIX model",
+            "metricValue": "VIX 17.9"
+          },
+          {
+            "category": "Fundamental",
+            "factor": "Revenue Growth",
+            "weight": 0.6,
+            "bullishPoints": 0.6,
+            "bearishPoints": 0,
+            "points": 0.3,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Relative percentile P50-P75 (sector P90 22.0%)",
+            "metricValue": "Revenue Growth 16.7%"
+          },
+          {
+            "category": "Valuation",
+            "factor": "P/E vs Sector",
+            "weight": 0.6,
+            "bullishPoints": 0.6,
+            "bearishPoints": 0,
+            "points": 0.48,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile P25-P50 (sector P90 36.0x)",
+            "metricValue": "P/E 24.2x"
+          },
+          {
+            "category": "Valuation",
+            "factor": "Debt/Equity",
+            "weight": 0.25,
+            "bullishPoints": 0.25,
+            "bearishPoints": 0,
+            "points": 0.2,
+            "signal": "BULLISH",
+            "ruleMatched": "Relative percentile P25-P50 (sector P90 50%)",
+            "metricValue": "Debt/Equity 25.7%"
+          }
+        ],
+        "generatedAt": "2026-03-02T02:05:14.593Z",
+        "id": "96f385af-2636-4a0c-a048-5efc610ea7e3",
+        "createdAt": "2026-03-02T02:05:14.594Z"
+      }
+    },
+    {
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "analysis": {
+        "modelVersion": "2026-02-17-v5-relative-sector-percentiles",
         "symbol": "MU",
         "companyName": "Micron Technology",
         "sector": "Information Technology",
