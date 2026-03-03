@@ -1,16 +1,23 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Inter } from "next/font/google";
+import { IBM_Plex_Mono, Syne } from "next/font/google";
 import Script from "next/script";
 
 import { SmoothScrollProvider } from "@/components/SmoothScrollProvider";
 
 import "./globals.css";
 
-const inter = Inter({
+const ibmPlexMono = IBM_Plex_Mono({
   subsets: ["latin"],
-  variable: "--font-body"
+  weight: ["400", "500", "700"],
+  variable: "--font-mono"
+});
+
+const syne = Syne({
+  subsets: ["latin"],
+  weight: ["700", "800"],
+  variable: "--font-display"
 });
 
 const metadataBase = (() => {
@@ -57,7 +64,7 @@ export default function RootLayout({ children }: { children: ReactNode }): JSX.E
 
   const content = (
     <html lang="en">
-      <body className={`${inter.variable} min-h-screen bg-ink text-slate-100`}>
+      <body className={`${ibmPlexMono.variable} ${syne.variable} min-h-screen bg-ink text-slate-100`}>
         <SmoothScrollProvider />
         {children}
         <Script id="rssapp-widget" src="https://widget.rss.app/v1/ticker.js" strategy="afterInteractive" />

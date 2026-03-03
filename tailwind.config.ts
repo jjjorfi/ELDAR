@@ -9,12 +9,12 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bullish: "#10B981",
-        hold: "#F59E0B",
+        bullish: "#22C55E",
+        hold: "#FFBF00",
         bearish: "#EF4444",
-        ink: "#0C1222",
-        panel: "#111A31",
-        panelSoft: "#182441"
+        ink: "#000000",
+        panel: "#1A1A1A",
+        panelSoft: "#242424"
       },
       boxShadow: {
         glow: "0 10px 40px rgba(16, 185, 129, 0.15)",

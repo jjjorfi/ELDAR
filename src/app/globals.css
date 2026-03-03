@@ -10,881 +10,368 @@
   --click-y: 50%;
   --click-burst: 0;
   --scroll-progress: 0;
-  --eldar-bg-0: #090a0c;
-  --eldar-bg-1: #121212;
-  --eldar-bg-2: #1b1b1d;
-  --eldar-border: rgba(229, 231, 235, 0.18);
-  --eldar-card: rgba(15, 23, 42, 0.6);
-  --eldar-card-strong: rgba(15, 23, 42, 0.78);
-  --eldar-green: #d5d9df;
-  --eldar-red: #9ea4ad;
-  --eldar-amber: #737a84;
-  --eldar-blue: #e5e7eb;
-  --eldar-text: #f0f2f5;
-  --eldar-muted: #a6adb7;
-  --eldar-glass-top: rgba(255, 255, 255, 0.22);
-  --eldar-glass-mid: rgba(245, 247, 250, 0.09);
-  --eldar-glass-low: rgba(196, 203, 213, 0.06);
-  --eldar-glass-edge: rgba(255, 255, 255, 0.28);
-  --eldar-glass-shadow: rgba(0, 0, 0, 0.58);
+
+  --eldar-bg-primary: #000000;
+  --eldar-bg-secondary: #0f0f0f;
+  --eldar-bg-surface: #1a1a1a;
+  --eldar-bg-raised: #242424;
+  --eldar-amber-primary: #ffbf00;
+  --eldar-amber-dark: #cc9900;
+  --eldar-amber-subtle: rgba(255, 191, 0, 0.1);
+  --eldar-amber-border: rgba(255, 191, 0, 0.2);
+  --eldar-text-primary: #f5f5f5;
+  --eldar-text-secondary: #999999;
+  --eldar-text-muted: #555555;
+  --eldar-border-default: rgba(255, 255, 255, 0.07);
+  --eldar-success: #22c55e;
+  --eldar-danger: #ef4444;
+}
+
+html[data-theme="light"] {
+  color-scheme: dark;
 }
 
 html,
 body {
   min-height: 100%;
-  background-color: #111317;
+  background: var(--eldar-bg-primary);
+  color: var(--eldar-text-primary);
   overscroll-behavior-y: none;
 }
 
 body {
-  position: relative;
-  min-height: 100vh;
-  overflow-x: hidden;
-  background-image: none;
-  font-family: var(--font-body), "Inter", "Geist", "Avenir Next", "Segoe UI", sans-serif;
+  margin: 0;
+  font-family: var(--font-mono), "IBM Plex Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
   font-size: 18px;
   line-height: 1.6;
   font-variant-numeric: tabular-nums;
-  color: #f9fafb;
 }
 
-body::before {
-  content: none;
-}
-
-body::after {
-  content: "";
-  position: fixed;
-  inset: -20%;
-  pointer-events: none;
-  z-index: -1;
-  background:
-    radial-gradient(
-      520px circle at var(--mouse-x) var(--mouse-y),
-      rgba(229, 231, 235, 0.12) 0%,
-      rgba(255, 255, 255, 0.08) 32%,
-      transparent 60%
-    ),
-    radial-gradient(
-      240px circle at var(--click-x) var(--click-y),
-      rgba(255, 255, 255, var(--click-burst)) 0%,
-      rgba(235, 239, 246, calc(var(--click-burst) * 0.4)) 34%,
-      transparent 72%
-    );
-  transition: background-position 120ms ease-out, opacity 220ms ease;
-}
-
-body > * {
-  position: relative;
-  z-index: 1;
-}
-
-body > *::before {
-  content: none;
-}
-
-html[data-theme="light"] {
-  color-scheme: light;
-}
-
-html[data-theme="light"] body {
-  background-color: #e9eef4;
-  color: #1b2330;
-  transition: background-color 220ms ease, color 220ms ease;
-}
-
-html[data-theme="light"] body::after {
-  background:
-    radial-gradient(
-      560px circle at var(--mouse-x) var(--mouse-y),
-      rgba(148, 163, 184, 0.14) 0%,
-      rgba(203, 213, 225, 0.1) 30%,
-      transparent 62%
-    ),
-    radial-gradient(
-      240px circle at var(--click-x) var(--click-y),
-      rgba(148, 163, 184, calc(var(--click-burst) * 0.6)) 0%,
-      rgba(226, 232, 240, calc(var(--click-burst) * 0.35)) 32%,
-      transparent 74%
-    );
-}
-
-code,
-.mono {
-  font-family: "IBM Plex Mono", "Menlo", "SFMono-Regular", monospace;
-}
-
+h1,
 .eldar-display {
-  font-family: "Geist", var(--font-body), "Inter", "Avenir Next", "Segoe UI", sans-serif;
-  letter-spacing: 0.02em;
-  text-transform: none;
-  font-weight: 650;
+  font-family: var(--font-display), "Syne", "Arial Black", sans-serif;
+  color: var(--eldar-text-primary);
+  letter-spacing: -0.01em;
 }
 
-.eldar-caption {
-  font-family: var(--font-body), "Inter", sans-serif;
-  letter-spacing: 0.14em;
+h1 {
+  font-weight: 700;
+  font-size: clamp(2rem, 3.6vw, 2.5rem);
+}
+
+h2 {
+  font-family: var(--font-mono), "IBM Plex Mono", monospace;
+  font-weight: 700;
+  color: var(--eldar-text-primary);
+  font-size: clamp(1.125rem, 2vw, 1.375rem);
   text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+label,
+.eldar-caption {
+  font-family: var(--font-mono), "IBM Plex Mono", monospace;
+  font-weight: 400;
+  color: var(--eldar-text-secondary);
+  font-size: 0.875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+* {
+  border-color: var(--eldar-border-default);
+}
+
+/* Brand hard rules */
+[class*="rounded"] {
+  border-radius: 0 !important;
+}
+
+[class*="bg-gradient"],
+[class*="from-"],
+[class*="via-"],
+[class*="to-"] {
+  background-image: none !important;
+}
+
+[style*="gradient"] {
+  background-image: none !important;
+}
+
+[class*="shadow"] {
+  --tw-shadow-colored: 0 0 #0000 !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.52) !important;
+}
+
+[class*="border-2"],
+[class*="border-4"] {
+  border-width: 1px !important;
+}
+
+.eldar-home-wordmark,
+.eldar-brand-text {
+  font-family: var(--font-display), "Syne", sans-serif;
+  font-weight: 800;
+  color: var(--eldar-amber-primary);
+  letter-spacing: -0.01em;
+}
+
+.eldar-brand-subtext {
+  font-family: var(--font-mono), "IBM Plex Mono", monospace;
+  color: var(--eldar-text-secondary);
 }
 
 .eldar-panel {
   position: relative;
-  overflow: hidden;
-  border: 1px solid var(--eldar-glass-edge);
-  background:
-    radial-gradient(120% 160% at 6% 0%, var(--eldar-glass-top) 0%, transparent 44%),
-    radial-gradient(140% 180% at 96% 100%, var(--eldar-glass-low) 0%, transparent 46%),
-    linear-gradient(155deg, rgba(20, 22, 27, 0.78) 0%, rgba(13, 15, 18, 0.68) 58%, rgba(24, 27, 32, 0.74) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
-    0 12px 38px var(--eldar-glass-shadow),
-    0 1px 0 rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(22px) saturate(145%);
-  -webkit-backdrop-filter: blur(22px) saturate(145%);
-  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+  border: 1px solid var(--eldar-border-default);
+  background: var(--eldar-bg-surface);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.52);
 }
 
-html[data-theme="light"] .eldar-panel {
-  border-color: rgba(100, 116, 139, 0.28);
-  background:
-    radial-gradient(120% 160% at 6% 0%, rgba(255, 255, 255, 0.82) 0%, transparent 44%),
-    radial-gradient(140% 180% at 96% 100%, rgba(255, 255, 255, 0.45) 0%, transparent 46%),
-    linear-gradient(155deg, rgba(248, 250, 252, 0.92) 0%, rgba(237, 242, 247, 0.86) 58%, rgba(228, 235, 243, 0.9) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    inset 0 -1px 0 rgba(148, 163, 184, 0.16),
-    0 12px 30px rgba(148, 163, 184, 0.16),
-    0 1px 0 rgba(255, 255, 255, 0.6);
+.eldar-btn-silver,
+.eldar-btn-ghost,
+.eldar-theme-toggle,
+button,
+[role="button"] {
+  border: 1px solid var(--eldar-border-default) !important;
+  background: var(--eldar-bg-surface) !important;
+  color: var(--eldar-text-primary) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45) !important;
+  transition-property: background-color, border-color, box-shadow, transform !important;
+  transition-duration: 180ms !important;
+  transition-timing-function: ease !important;
 }
 
-.eldar-panel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      120deg,
-      rgba(255, 255, 255, 0.22) 0%,
-      rgba(255, 255, 255, 0.07) 22%,
-      rgba(255, 255, 255, 0.02) 42%,
-      transparent 65%
-    );
-  mix-blend-mode: screen;
-  opacity: 0.85;
+.eldar-btn-silver:hover,
+.eldar-btn-ghost:hover,
+.eldar-theme-toggle:hover,
+button:hover,
+[role="button"]:hover,
+a:hover {
+  background: var(--eldar-bg-surface) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
 }
 
-.eldar-panel::after {
-  content: "";
-  position: absolute;
-  inset: -45%;
-  pointer-events: none;
-  background:
-    radial-gradient(
-      320px 220px at var(--mouse-x) var(--mouse-y),
-      rgba(255, 255, 255, 0.18) 0%,
-      rgba(255, 255, 255, 0.08) 22%,
-      transparent 62%
-    );
-  transform: translate3d(0, 0, 0);
-  opacity: 0.2;
-  mix-blend-mode: screen;
-  transition: opacity 220ms ease;
+.eldar-btn-ghost,
+.eldar-btn-silver[aria-pressed="true"],
+[aria-current="page"],
+[data-state="active"] {
+  background: var(--eldar-amber-subtle) !important;
+  border: 1px solid var(--eldar-amber-border) !important;
 }
 
-.eldar-panel:hover {
-  border-color: rgba(255, 255, 255, 0.42);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.26),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.09),
-    0 16px 44px rgba(0, 0, 0, 0.62),
-    0 0 28px rgba(226, 231, 239, 0.1);
-  transform: translateY(-1px);
+input,
+select,
+textarea {
+  border: 1px solid var(--eldar-border-default) !important;
+  background: var(--eldar-bg-secondary) !important;
+  color: var(--eldar-text-primary) !important;
+  border-radius: 0 !important;
 }
 
-.eldar-panel:hover::after {
-  opacity: 0.34;
+input::placeholder,
+textarea::placeholder {
+  color: var(--eldar-text-muted) !important;
 }
 
-.eldar-btn-silver {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(234, 238, 244, 0.82);
-  background:
-    radial-gradient(130% 180% at 12% 0%, rgba(255, 255, 255, 0.62) 0%, transparent 44%),
-    linear-gradient(180deg, rgba(249, 250, 252, 0.96) 0%, rgba(213, 219, 228, 0.92) 56%, rgba(169, 176, 186, 0.9) 100%);
-  color: #0b0d10;
-  box-shadow:
-    0 12px 28px rgba(0, 0, 0, 0.52),
-    inset 0 1px 0 rgba(255, 255, 255, 0.86),
-    inset 0 -1px 0 rgba(82, 89, 98, 0.35);
-  transition: box-shadow 180ms ease, transform 180ms ease, background 180ms ease, border-color 180ms ease;
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none !important;
+  border-color: var(--eldar-amber-border) !important;
+  box-shadow: 0 0 0 1px var(--eldar-amber-border) !important;
 }
 
-html[data-theme="light"] .eldar-btn-silver {
-  border-color: rgba(148, 163, 184, 0.48);
-  background:
-    radial-gradient(130% 180% at 12% 0%, rgba(255, 255, 255, 0.9) 0%, transparent 44%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(237, 243, 249, 0.94) 56%, rgba(218, 227, 236, 0.92) 100%);
-  color: #141a24;
-  box-shadow:
-    0 8px 20px rgba(100, 116, 139, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -1px 0 rgba(148, 163, 184, 0.24);
-}
-
-html[data-theme="light"] .eldar-btn-silver:hover {
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.75),
-    0 0 18px rgba(203, 213, 225, 0.55),
-    0 10px 24px rgba(148, 163, 184, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.98);
-}
-
-.eldar-btn-silver:hover {
-  background:
-    radial-gradient(120% 180% at 12% 0%, rgba(255, 255, 255, 0.74) 0%, transparent 42%),
-    linear-gradient(180deg, rgba(252, 253, 255, 0.99) 0%, rgba(222, 228, 236, 0.96) 58%, rgba(181, 188, 198, 0.94) 100%);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.42),
-    0 0 24px rgba(226, 231, 239, 0.28),
-    0 12px 28px rgba(0, 0, 0, 0.62),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-
-.eldar-btn-ghost {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(229, 231, 235, 0.32);
-  background:
-    radial-gradient(120% 180% at 10% 0%, rgba(255, 255, 255, 0.2) 0%, transparent 42%),
-    rgba(17, 19, 23, 0.7);
-  color: var(--eldar-text);
-  backdrop-filter: blur(12px) saturate(130%);
-  -webkit-backdrop-filter: blur(12px) saturate(130%);
-  transition: box-shadow 180ms ease, transform 180ms ease, background 180ms ease, border-color 180ms ease;
-}
-
-html[data-theme="light"] .eldar-btn-ghost {
-  border-color: rgba(100, 116, 139, 0.3);
-  background:
-    radial-gradient(120% 180% at 10% 0%, rgba(255, 255, 255, 0.82) 0%, transparent 42%),
-    rgba(241, 245, 249, 0.86);
-  color: #1f2937;
-}
-
-html[data-theme="light"] .eldar-btn-ghost:hover {
-  border-color: rgba(100, 116, 139, 0.46);
-  background: rgba(236, 243, 250, 0.95);
-  box-shadow:
-    0 0 0 1px rgba(148, 163, 184, 0.2),
-    0 0 14px rgba(203, 213, 225, 0.45),
-    0 10px 20px rgba(148, 163, 184, 0.18);
-}
-
-.eldar-btn-ghost:hover {
-  border-color: rgba(229, 231, 235, 0.58);
-  background: rgba(26, 29, 34, 0.9);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.24),
-    0 0 18px rgba(214, 220, 228, 0.12),
-    0 10px 20px rgba(0, 0, 0, 0.56);
-}
-
-.eldar-btn-silver::after,
-.eldar-btn-ghost::after {
-  content: "";
-  position: absolute;
-  inset: -35%;
-  pointer-events: none;
-  opacity: 0;
-  background: radial-gradient(circle at 50% 50%, rgba(229, 231, 235, 0.36) 0%, rgba(203, 209, 217, 0.14) 25%, transparent 68%);
-  transition: opacity 200ms ease;
-}
-
-.eldar-btn-silver::before,
-.eldar-btn-ghost::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-  pointer-events: none;
-  transform: translate(-50%, -50%) scale(1);
-  opacity: 0;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.75) 0%, rgba(232, 236, 243, 0.35) 40%, transparent 70%);
-}
-
-.eldar-btn-silver:hover::after,
-.eldar-btn-ghost:hover::after {
-  opacity: 1;
-}
-
-.eldar-btn-silver:active,
-.eldar-btn-ghost:active {
-  transform: translateY(1px) scale(0.993);
-}
-
-.eldar-btn-silver:active::before,
-.eldar-btn-ghost:active::before {
-  animation: eldar-click-ripple 420ms ease-out forwards;
-}
-
-.eldar-btn-silver:active::after,
-.eldar-btn-ghost:active::after {
-  opacity: 1;
-  animation: eldar-click-flash 240ms ease-out forwards;
-}
-
-.eldar-theme-toggle {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.26),
-    0 8px 18px rgba(0, 0, 0, 0.24);
+.eldar-rss-shell {
+  border: 1px solid var(--eldar-border-default);
+  background: var(--eldar-bg-secondary);
+  min-height: 24px;
 }
 
 .eldar-theme-glyph {
-  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.18));
+  color: var(--eldar-amber-primary);
 }
 
-html[data-theme="light"] .eldar-theme-toggle {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.62),
-    0 8px 18px rgba(148, 163, 184, 0.24);
+.eldar-status-star {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: var(--eldar-text-muted);
+  animation: eldar-star-flicker 1.2s steps(2, end) infinite;
 }
 
-html[data-theme="light"] .eldar-theme-glyph {
-  filter: drop-shadow(0 0 8px rgba(148, 163, 184, 0.28));
+.eldar-status-live {
+  background: var(--eldar-success);
 }
 
-button:not(:disabled) {
-  transition: box-shadow 180ms ease, border-color 180ms ease, background-color 180ms ease;
-}
-
-button:not(:disabled):focus-visible {
-  outline: none;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.45),
-    0 0 0 4px rgba(255, 255, 255, 0.14);
-}
-
-button:not(:disabled):active {
-  animation: eldar-click-pop 360ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.eldar-processing {
-  box-shadow:
-    0 0 0 1px rgba(236, 239, 244, 0.38),
-    0 0 18px rgba(226, 231, 239, 0.24),
-    0 10px 24px rgba(0, 0, 0, 0.58) !important;
-}
-
-.eldar-processing::after {
-  opacity: 1 !important;
-  animation: eldar-request-sheen 1200ms cubic-bezier(0.22, 1, 0.36, 1) infinite;
+.eldar-status-dead {
+  background: var(--eldar-danger);
 }
 
 .eldar-gold-badge {
-  position: relative;
-  overflow: hidden;
-  border-color: rgba(251, 191, 36, 0.65) !important;
-  background:
-    radial-gradient(130% 180% at 12% 0%, rgba(254, 240, 138, 0.34) 0%, transparent 42%),
-    linear-gradient(165deg, rgba(120, 79, 16, 0.52) 0%, rgba(86, 58, 12, 0.56) 55%, rgba(54, 38, 11, 0.62) 100%) !important;
-  color: #fde68a !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 244, 194, 0.35),
-    0 12px 30px rgba(120, 79, 16, 0.34),
-    0 0 20px rgba(251, 191, 36, 0.22) !important;
-}
-
-.eldar-gold-badge::after {
-  content: "";
-  position: absolute;
-  inset: -60%;
-  pointer-events: none;
-  background: linear-gradient(120deg, transparent 24%, rgba(255, 243, 201, 0.36) 48%, transparent 72%);
-  transform: translateX(-58%);
-  animation: eldar-gold-sheen 4.8s linear infinite;
-  opacity: 0.65;
+  background: rgba(255, 191, 0, 0.14) !important;
+  border: 1px solid var(--eldar-amber-border) !important;
+  color: var(--eldar-amber-primary) !important;
 }
 
 .eldar-red-badge {
-  position: relative;
-  overflow: hidden;
-  border-color: rgba(248, 113, 113, 0.62) !important;
-  background:
-    radial-gradient(130% 180% at 12% 0%, rgba(254, 202, 202, 0.28) 0%, transparent 42%),
-    linear-gradient(165deg, rgba(127, 29, 29, 0.54) 0%, rgba(95, 24, 24, 0.58) 55%, rgba(69, 15, 15, 0.64) 100%) !important;
-  color: #fecaca !important;
-  box-shadow:
-    inset 0 1px 0 rgba(254, 226, 226, 0.3),
-    0 12px 30px rgba(127, 29, 29, 0.34),
-    0 0 20px rgba(248, 113, 113, 0.2) !important;
+  background: rgba(239, 68, 68, 0.12) !important;
+  border: 1px solid rgba(239, 68, 68, 0.24) !important;
+  color: var(--eldar-danger) !important;
 }
 
-.eldar-red-badge::after {
+.eldar-processing {
+  border-color: var(--eldar-amber-border) !important;
+  background: var(--eldar-amber-subtle) !important;
+}
+
+.eldar-processing::after {
   content: "";
   position: absolute;
-  inset: -60%;
-  pointer-events: none;
-  background: linear-gradient(120deg, transparent 24%, rgba(254, 226, 226, 0.32) 48%, transparent 72%);
-  transform: translateX(-58%);
-  animation: eldar-red-sheen 4.8s linear infinite;
-  opacity: 0.58;
+  inset: 0;
+  border: 1px solid var(--eldar-amber-border);
+  animation: eldar-click-ripple 420ms ease-out forwards;
 }
 
 .eldar-radar-overlay {
-  background:
-    radial-gradient(1200px 600px at 50% 55%, rgba(255, 255, 255, 0.08) 0%, transparent 72%),
-    rgba(8, 9, 12, 0.64);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.68);
 }
 
 .eldar-radar-panel {
-  min-width: 290px;
-  background:
-    radial-gradient(120% 140% at 8% 0%, rgba(255, 255, 255, 0.18) 0%, transparent 44%),
-    linear-gradient(160deg, rgba(15, 17, 22, 0.92) 0%, rgba(10, 12, 16, 0.88) 60%, rgba(17, 19, 24, 0.92) 100%);
-  box-shadow:
-    0 18px 48px rgba(0, 0, 0, 0.56),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+  background: var(--eldar-bg-surface);
+  border: 1px solid var(--eldar-border-default);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.62);
 }
 
 .eldar-radar {
   position: relative;
-  width: 150px;
-  height: 150px;
-  border-radius: 9999px;
-  border: 1px solid rgba(226, 232, 240, 0.28);
-  background:
-    radial-gradient(circle at center, rgba(226, 232, 240, 0.12) 0%, rgba(148, 163, 184, 0.06) 42%, rgba(15, 23, 42, 0.08) 70%, transparent 100%);
-  overflow: hidden;
+  width: 110px;
+  height: 110px;
 }
 
 .eldar-radar-ring {
   position: absolute;
-  inset: 50%;
-  transform: translate(-50%, -50%);
-  border-radius: 9999px;
-  border: 1px solid rgba(226, 232, 240, 0.2);
+  inset: 0;
+  border: 1px solid rgba(255, 191, 0, 0.34);
 }
 
 .eldar-radar-ring-1 {
-  width: 48px;
-  height: 48px;
+  animation: eldar-radar-ping 1.4s linear infinite;
 }
 
 .eldar-radar-ring-2 {
-  width: 92px;
-  height: 92px;
+  animation: eldar-radar-ping 1.4s linear 0.2s infinite;
 }
 
 .eldar-radar-ring-3 {
-  width: 136px;
-  height: 136px;
-}
-
-.eldar-radar-sweep {
-  position: absolute;
-  inset: -22%;
-  transform-origin: 50% 50%;
-  background: conic-gradient(from 0deg, rgba(255, 255, 255, 0) 0deg, rgba(226, 232, 240, 0.55) 52deg, rgba(255, 255, 255, 0) 110deg);
-  animation: eldar-radar-sweep 1.2s linear infinite;
-  mix-blend-mode: screen;
+  animation: eldar-radar-ping 1.4s linear 0.4s infinite;
 }
 
 .eldar-radar-core {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   transform: translate(-50%, -50%);
-  border-radius: 9999px;
-  background: rgba(248, 250, 252, 0.94);
-  box-shadow: 0 0 10px rgba(248, 250, 252, 0.8), 0 0 20px rgba(226, 232, 240, 0.46);
-  animation: eldar-radar-ping 1.1s ease-in-out infinite;
+  background: var(--eldar-amber-primary);
 }
 
-@keyframes eldar-click-ripple {
-  0% {
-    opacity: 0.58;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(12);
-  }
+.eldar-radar-sweep {
+  position: absolute;
+  inset: 0;
+  border-top: 1px solid rgba(255, 191, 0, 0.85);
+  transform-origin: center;
+  animation: eldar-radar-ping 1.1s linear infinite;
 }
 
-@keyframes eldar-click-flash {
-  0% {
-    opacity: 0.72;
-    filter: brightness(1.08);
-  }
-  100% {
-    opacity: 0;
-    filter: brightness(1);
-  }
+.reveal-block {
+  opacity: 0;
+  transform: translate3d(0, 14px, 0);
+  transition: opacity 480ms cubic-bezier(0.4, 0, 0.2, 1), transform 480ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes eldar-click-pop {
-  0% {
-    filter: brightness(1.08);
-  }
-  100% {
-    filter: brightness(1);
-  }
+.reveal-block.in-view {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+/* Text tone normalization */
+.text-white,
+.text-slate-100,
+.text-slate-200,
+.text-zinc-100 {
+  color: var(--eldar-text-primary) !important;
+}
+
+.text-white\/80,
+.text-white\/70,
+.text-zinc-400,
+.text-zinc-300,
+.text-slate-300 {
+  color: var(--eldar-text-secondary) !important;
+}
+
+.text-white\/50,
+.text-white\/45,
+.text-zinc-500,
+.text-slate-500 {
+  color: var(--eldar-text-muted) !important;
+}
+
+.text-emerald-300,
+.text-emerald-400 {
+  color: var(--eldar-success) !important;
+}
+
+.text-red-300,
+.text-red-400 {
+  color: var(--eldar-danger) !important;
+}
+
+.text-amber-100,
+.text-amber-300,
+.text-amber-400 {
+  color: var(--eldar-amber-primary) !important;
 }
 
 @keyframes eldar-request-sheen {
   0% {
-    transform: translateX(-30%);
-    opacity: 0.7;
+    transform: translateX(-120%);
   }
   100% {
-    transform: translateX(30%);
-    opacity: 0.2;
+    transform: translateX(340%);
   }
 }
 
-@keyframes eldar-radar-sweep {
+@keyframes eldar-click-ripple {
   0% {
-    transform: rotate(0deg);
-    opacity: 0.9;
+    opacity: 0.55;
+    transform: scale(1);
   }
   100% {
-    transform: rotate(360deg);
-    opacity: 0.94;
+    opacity: 0;
+    transform: scale(1.02);
   }
 }
 
 @keyframes eldar-radar-ping {
-  0%,
-  100% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0.88;
-  }
-  50% {
-    transform: translate(-50%, -50%) scale(1.22);
-    opacity: 1;
-  }
-}
-
-@keyframes eldar-gold-sheen {
   0% {
-    transform: translateX(-58%);
-    opacity: 0.2;
-  }
-  45% {
-    opacity: 0.55;
+    opacity: 0.9;
+    transform: rotate(0deg) scale(1);
   }
   100% {
-    transform: translateX(58%);
-    opacity: 0.18;
-  }
-}
-
-@keyframes eldar-red-sheen {
-  0% {
-    transform: translateX(-58%);
     opacity: 0.2;
+    transform: rotate(360deg) scale(1.03);
   }
-  45% {
-    opacity: 0.52;
-  }
-  100% {
-    transform: translateX(58%);
-    opacity: 0.2;
-  }
-}
-
-.eldar-status-star {
-  position: relative;
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-}
-
-.eldar-status-star::before,
-.eldar-status-star::after {
-  content: "";
-  position: absolute;
-  inset: -5px;
-  border-radius: 999px;
-  pointer-events: none;
-}
-
-.eldar-status-live {
-  background: #22c55e;
-  box-shadow: 0 0 10px rgba(34, 197, 94, 0.55), 0 0 22px rgba(34, 197, 94, 0.25);
-  animation: eldar-star-flicker 2.8s ease-in-out infinite;
-}
-
-.eldar-status-live::before {
-  background: radial-gradient(circle, rgba(34, 197, 94, 0.35) 0%, transparent 68%);
-  filter: blur(4px);
-}
-
-.eldar-status-live::after {
-  background: radial-gradient(circle, rgba(34, 197, 94, 0.2) 0%, transparent 76%);
-  filter: blur(8px);
-}
-
-.eldar-status-dead {
-  background: #ef4444;
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.45), 0 0 18px rgba(239, 68, 68, 0.2);
-  animation: eldar-star-flicker 3.6s ease-in-out infinite;
-}
-
-.eldar-status-dead::before {
-  background: radial-gradient(circle, rgba(239, 68, 68, 0.28) 0%, transparent 68%);
-  filter: blur(4px);
-}
-
-.eldar-status-dead::after {
-  background: radial-gradient(circle, rgba(239, 68, 68, 0.15) 0%, transparent 76%);
-  filter: blur(7px);
 }
 
 @keyframes eldar-star-flicker {
   0%,
   100% {
-    opacity: 0.7;
-    transform: scale(0.96);
+    opacity: 0.85;
   }
-  24% {
-    opacity: 0.98;
-    transform: scale(1.04);
-  }
-  41% {
-    opacity: 0.62;
-    transform: scale(0.92);
-  }
-  67% {
-    opacity: 0.86;
-    transform: scale(1.01);
-  }
-}
-
-.eldar-rule {
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(229, 231, 235, 0.3) 30%, rgba(229, 231, 235, 0.25) 70%, transparent 100%);
-}
-
-html[data-theme="light"] .eldar-rule {
-  background: linear-gradient(90deg, transparent 0%, rgba(71, 85, 105, 0.26) 30%, rgba(71, 85, 105, 0.22) 70%, transparent 100%);
-}
-
-html[data-theme="light"] nav,
-html[data-theme="light"] footer {
-  border-color: rgba(100, 116, 139, 0.24) !important;
-  background: rgba(244, 248, 252, 0.82) !important;
-  box-shadow: 0 12px 32px rgba(148, 163, 184, 0.18) !important;
-}
-
-html[data-theme="light"] .eldar-radar-overlay {
-  background:
-    radial-gradient(1200px 600px at 50% 55%, rgba(148, 163, 184, 0.16) 0%, transparent 72%),
-    rgba(226, 232, 240, 0.58);
-}
-
-html[data-theme="light"] .eldar-radar-panel {
-  border-color: rgba(100, 116, 139, 0.32) !important;
-  background:
-    radial-gradient(120% 140% at 8% 0%, rgba(255, 255, 255, 0.9) 0%, transparent 44%),
-    linear-gradient(160deg, rgba(247, 250, 252, 0.95) 0%, rgba(236, 242, 248, 0.93) 60%, rgba(229, 236, 244, 0.95) 100%);
-  box-shadow:
-    0 18px 48px rgba(100, 116, 139, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -1px 0 rgba(148, 163, 184, 0.2);
-}
-
-html[data-theme="light"] .eldar-radar {
-  border-color: rgba(71, 85, 105, 0.32);
-  background:
-    radial-gradient(circle at center, rgba(148, 163, 184, 0.16) 0%, rgba(203, 213, 225, 0.1) 42%, rgba(226, 232, 240, 0.12) 70%, transparent 100%);
-}
-
-html[data-theme="light"] .eldar-radar-ring {
-  border-color: rgba(71, 85, 105, 0.22);
-}
-
-html[data-theme="light"] .eldar-radar-sweep {
-  background: conic-gradient(from 0deg, rgba(255, 255, 255, 0) 0deg, rgba(71, 85, 105, 0.45) 52deg, rgba(255, 255, 255, 0) 110deg);
-}
-
-html[data-theme="light"] .eldar-radar-core {
-  background: rgba(71, 85, 105, 0.92);
-  box-shadow: 0 0 10px rgba(71, 85, 105, 0.58), 0 0 20px rgba(71, 85, 105, 0.3);
-}
-
-html[data-theme="light"] .text-white {
-  color: #1f2937 !important;
-}
-html[data-theme="light"] .text-white\/90 {
-  color: rgba(31, 41, 55, 0.9) !important;
-}
-html[data-theme="light"] .text-white\/80 {
-  color: rgba(31, 41, 55, 0.8) !important;
-}
-html[data-theme="light"] .text-white\/75 {
-  color: rgba(31, 41, 55, 0.75) !important;
-}
-html[data-theme="light"] .text-white\/70 {
-  color: rgba(31, 41, 55, 0.7) !important;
-}
-html[data-theme="light"] .text-white\/65 {
-  color: rgba(31, 41, 55, 0.65) !important;
-}
-html[data-theme="light"] .text-white\/60 {
-  color: rgba(31, 41, 55, 0.6) !important;
-}
-html[data-theme="light"] .text-white\/55 {
-  color: rgba(31, 41, 55, 0.55) !important;
-}
-html[data-theme="light"] .text-white\/50 {
-  color: rgba(31, 41, 55, 0.5) !important;
-}
-html[data-theme="light"] .text-white\/45 {
-  color: rgba(31, 41, 55, 0.45) !important;
-}
-html[data-theme="light"] .text-white\/40 {
-  color: rgba(31, 41, 55, 0.4) !important;
-}
-
-html[data-theme="light"] .text-zinc-100 {
-  color: #1f2937 !important;
-}
-html[data-theme="light"] .text-zinc-200 {
-  color: #253245 !important;
-}
-html[data-theme="light"] .text-zinc-300 {
-  color: #334155 !important;
-}
-html[data-theme="light"] .text-zinc-400 {
-  color: #475569 !important;
-}
-html[data-theme="light"] .text-zinc-500 {
-  color: #64748b !important;
-}
-html[data-theme="light"] .text-slate-100 {
-  color: #1f2937 !important;
-}
-html[data-theme="light"] .text-slate-200 {
-  color: #253245 !important;
-}
-html[data-theme="light"] .text-slate-300 {
-  color: #334155 !important;
-}
-html[data-theme="light"] .text-slate-400 {
-  color: #475569 !important;
-}
-html[data-theme="light"] .text-slate-500 {
-  color: #64748b !important;
-}
-
-html[data-theme="light"] .bg-zinc-950\/50,
-html[data-theme="light"] .bg-zinc-950\/60,
-html[data-theme="light"] .bg-zinc-950\/70,
-html[data-theme="light"] .bg-zinc-950\/80,
-html[data-theme="light"] .bg-zinc-950\/95,
-html[data-theme="light"] .bg-black\/60,
-html[data-theme="light"] .bg-black\/80 {
-  background-color: rgba(255, 255, 255, 0.64) !important;
-}
-
-html[data-theme="light"] .bg-zinc-200\/10,
-html[data-theme="light"] .bg-zinc-200\/15 {
-  background-color: rgba(148, 163, 184, 0.16) !important;
-}
-
-html[data-theme="light"] .border-white\/10,
-html[data-theme="light"] .border-white\/15,
-html[data-theme="light"] .border-white\/20,
-html[data-theme="light"] .border-white\/25,
-html[data-theme="light"] .border-white\/30,
-html[data-theme="light"] .border-white\/35,
-html[data-theme="light"] .border-white\/40,
-html[data-theme="light"] .border-white\/45,
-html[data-theme="light"] .border-white\/60 {
-  border-color: rgba(100, 116, 139, 0.25) !important;
-}
-
-::selection {
-  background: rgba(229, 231, 235, 0.3);
-  color: white;
-}
-
-rssapp-ticker {
-  display: block;
-  width: 100%;
-  min-height: 22px;
-  transform: translateZ(0);
-  will-change: transform;
-  backface-visibility: hidden;
-  contain: content;
-}
-
-.eldar-rss-shell {
-  contain: layout paint style;
-  transform: translateZ(0);
-  will-change: transform;
-  isolation: isolate;
-}
-
-html[data-theme="light"] .eldar-rss-shell {
-  filter: invert(1) hue-rotate(180deg) saturate(0.55) contrast(1.15) brightness(0.92);
-}
-
-html[data-theme="light"] rssapp-ticker {
-  opacity: 0.98;
-}
-
-html[data-theme="light"] .eldar-brand-text {
-  color: #0f172a !important;
-  text-shadow: none !important;
-}
-
-html[data-theme="light"] .eldar-brand-subtext {
-  color: #475569 !important;
-}
-
-html[data-theme="light"] .eldar-home-wordmark {
-  background-image: linear-gradient(90deg, #0f172a 0%, #334155 52%, #64748b 100%) !important;
-}
-
-
-.reveal-block {
-  opacity: 0;
-  transform: translateY(18px);
-  transition:
-    opacity 500ms cubic-bezier(0.4, 0, 0.2, 1),
-    transform 500ms cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: opacity, transform;
-}
-
-.reveal-block.in-view {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-@media (max-width: 1023px) {
-  body {
-    font-size: 16px;
-    line-height: 1.65;
-  }
-}
-
-@media (max-width: 767px) {
-  body {
-    font-size: 15px;
-    line-height: 1.7;
+  50% {
+    opacity: 0.4;
   }
 }

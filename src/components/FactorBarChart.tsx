@@ -29,11 +29,11 @@ export function FactorBarChart({ factors }: FactorBarChartProps): JSX.Element {
         {
           label: "Factor Points",
           data: factors.map((factor) => factor.points),
-          borderRadius: 6,
+          borderRadius: 0,
           backgroundColor: factors.map((factor) => {
-            if (factor.points > 0) return "rgba(229,231,235,0.86)";
-            if (factor.points < 0) return "rgba(107,114,128,0.75)";
-            return "rgba(148,163,184,0.75)";
+            if (factor.points > 0) return "rgba(34,197,94,0.9)";
+            if (factor.points < 0) return "rgba(239,68,68,0.9)";
+            return "rgba(255,191,0,0.75)";
           })
         }
       ]
@@ -60,23 +60,23 @@ export function FactorBarChart({ factors }: FactorBarChartProps): JSX.Element {
       scales: {
         x: {
           ticks: {
-            color: "#d1d5db",
+            color: "#999999",
             maxRotation: 35,
             minRotation: 35
           },
           grid: {
-            color: "rgba(229,231,235,0.08)"
+            color: "rgba(255,255,255,0.07)"
           }
         },
         y: {
           min: 0,
           max: 2,
           ticks: {
-            color: "#d1d5db",
+            color: "#999999",
             stepSize: 0.5
           },
           grid: {
-            color: "rgba(229,231,235,0.08)"
+            color: "rgba(255,255,255,0.07)"
           }
         }
       }

@@ -84,7 +84,7 @@ export function CompanyLogo({
   return (
     <span
       className={clsx(
-        "inline-flex items-center justify-center overflow-hidden rounded-full border border-white/35 bg-white/90 shadow-sm shadow-black/60",
+        "inline-flex items-center justify-center overflow-hidden border border-white/15 bg-[#1A1A1A] shadow-sm shadow-black/60",
         className
       )}
       style={{ width: size, height: size }}
@@ -104,7 +104,7 @@ export function CompanyLogo({
           unoptimized
         />
       ) : (
-        <Icon className="h-4 w-4 text-zinc-700" aria-hidden="true" />
+        <Icon className="h-4 w-4 text-[#999999]" aria-hidden="true" />
       )}
     </span>
   );

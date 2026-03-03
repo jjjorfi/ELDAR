@@ -29,12 +29,12 @@ export function TradingViewSpxWidget({
   }, []);
 
   return (
-    <div className="relative w-full overflow-hidden rounded-xl" style={{ height }}>
+    <div className="relative w-full overflow-hidden border border-white/15" style={{ height }}>
       {!revealed ? (
-        <div className="absolute inset-0 flex items-center justify-center border border-white/10 bg-[#111317]">
+        <div className="absolute inset-0 flex items-center justify-center border border-white/10 bg-[#0F0F0F]">
           <div className="text-center">
-            <div className="mx-auto mb-3 h-9 w-9 animate-pulse rounded-full border border-zinc-400/40 bg-zinc-300/10" />
-            <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">{loadingLabel}</p>
+            <div className="mx-auto mb-3 h-9 w-9 animate-pulse border border-white/20 bg-[#1A1A1A]" />
+            <p className="text-xs uppercase tracking-[0.2em] text-[#999999]">{loadingLabel}</p>
           </div>
         </div>
       ) : null}
@@ -55,7 +55,7 @@ export function TradingViewSpxWidget({
             setRevealed(true);
           }, 700);
         }}
-        className={`w-full rounded-xl transition-opacity duration-300 ${loaded && revealed ? "opacity-100" : "opacity-0"}`}
+        className={`w-full transition-opacity duration-300 ${loaded && revealed ? "opacity-100" : "opacity-0"}`}
       />
     </div>
   );

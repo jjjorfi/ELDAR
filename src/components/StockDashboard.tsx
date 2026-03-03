@@ -760,7 +760,7 @@ export function StockDashboard({
   const mousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const mouseLastPaintRef = useRef(0);
   const deferredPaletteQuery = useDeferredValue(paletteQuery);
-  const appBackground = themeMode === "light" ? "#E9EEF4" : "#111317";
+  const appBackground = "#000000";
   const portfolioStorageKey = useMemo(
     () => `eldar-portfolio-holdings:${currentUserId ?? "anon"}`,
     [currentUserId]
