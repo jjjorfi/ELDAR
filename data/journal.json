@@ -1,0 +1,73 @@
+{
+  "entries": [
+    {
+      "id": "3b998458-9229-4c2a-ba89-950c7dea3d9b",
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "title": "New freeform",
+      "contentMd": "## Note",
+      "contentPlain": "Note",
+      "entryType": "freeform",
+      "sentiment": null,
+      "conviction": null,
+      "timeHorizon": null,
+      "status": "draft",
+      "symbols": [],
+      "tags": [],
+      "createdAt": "2026-03-04T12:49:23.100Z",
+      "updatedAt": "2026-03-04T12:49:32.567Z",
+      "deletedAt": null
+    },
+    {
+      "id": "7d0b0aec-f092-4ed6-9a6d-a6621b506cd4",
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "title": "New thesis",
+      "contentMd": "## What I think happens\n\n## Why the market is wrong\n\n## Key drivers (3-5)\n- \n- \n- \n\n## What would change my mind\n\n## Catalysts + dates\n- \n\n## Risk checklist\n-",
+      "contentPlain": "What I think happens Why the market is wrong Key drivers (3 5) What would change my mind Catalysts + dates Risk checklist",
+      "entryType": "thesis",
+      "sentiment": null,
+      "conviction": null,
+      "timeHorizon": null,
+      "status": "draft",
+      "symbols": [],
+      "tags": [],
+      "createdAt": "2026-03-04T12:49:20.003Z",
+      "updatedAt": "2026-03-04T12:49:23.118Z",
+      "deletedAt": null
+    },
+    {
+      "id": "6149f1f1-e10b-4ac0-8444-873e813f05dc",
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "title": "New postmortem",
+      "contentMd": "## Original thesis (link entry)\n\n## What actually happened\n\n## My mistake type\n\n## Rule update (1 line)\n\n## Next action",
+      "contentPlain": "Original thesis (link entry) What actually happened My mistake type Rule update (1 line) Next action",
+      "entryType": "postmortem",
+      "sentiment": null,
+      "conviction": null,
+      "timeHorizon": null,
+      "status": "draft",
+      "symbols": [],
+      "tags": [],
+      "createdAt": "2026-03-04T12:49:18.459Z",
+      "updatedAt": "2026-03-04T12:49:20.026Z",
+      "deletedAt": null
+    },
+    {
+      "id": "2c526491-b978-45db-b078-c0a62d81d1c8",
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "title": "New earnings review",
+      "contentMd": "## What mattered this quarter\n\n## KPI delta vs last quarter\n\n## Guidance signal\n\n## Position change (if any)\n\n## 1 thing to re-check next quarter",
+      "contentPlain": "What mattered this quarter KPI delta vs last quarter Guidance signal Position change (if any) 1 thing to re check next quarter",
+      "entryType": "earnings_review",
+      "sentiment": null,
+      "conviction": null,
+      "timeHorizon": null,
+      "status": "draft",
+      "symbols": [],
+      "tags": [],
+      "createdAt": "2026-03-04T12:49:11.756Z",
+      "updatedAt": "2026-03-04T12:49:18.294Z",
+      "deletedAt": null
+    }
+  ],
+  "revisions": []
+}

@@ -426,6 +426,73 @@ function buildEntryAlert(
   };
 }
 
+// ─── Quant calibration layer (v8.q) ─────────────────────────────────────────
+//
+// Applies modest, explainable adjustments after raw factor aggregation to improve:
+// - breadth capture (how many weighted pillars agree)
+// - technical consensus confirmation
+// - macro regime sensitivity (high VIX shrinks conviction)
+// - completeness-aware confidence shrinkage
+//
+// This keeps the same factor universe and rating bands, but improves separation quality
+// while avoiding unstable tail inflation on sparse snapshots.
+function quantCalibrateScore(
+  baseScore: number,
+  factors: FactorResult[],
+  dataCompleteness: number,
+  snapshot: MarketSnapshot
+): number {
+  const available = factors.filter((factor) => factor.hasData);
+  if (available.length === 0) {
+    return baseScore;
+  }
+
+  const totalWeight = available.reduce((sum, factor) => sum + factor.weight, 0);
+  if (totalWeight <= 0) {
+    return baseScore;
+  }
+
+  const bullishWeight = available
+    .filter((factor) => factor.signal === "BULLISH")
+    .reduce((sum, factor) => sum + factor.weight, 0);
+  const bearishWeight = available
+    .filter((factor) => factor.signal === "BEARISH")
+    .reduce((sum, factor) => sum + factor.weight, 0);
+
+  // Breadth in [-1, +1]
+  const breadth = (bullishWeight - bearishWeight) / totalWeight;
+  const breadthAdjustment = Math.max(-0.75, Math.min(0.75, breadth * 0.55));
+
+  const trendSignal = available.find((factor) => factor.factor === "Price vs 200SMA")?.signal ?? "NEUTRAL";
+  const rsSignal = available.find((factor) => factor.factor === "52w Relative Strength")?.signal ?? "NEUTRAL";
+  const z52Signal = available.find((factor) => factor.factor === "52w Price Z-Score")?.signal ?? "NEUTRAL";
+
+  let technicalConsensus = 0;
+  if (trendSignal === "BULLISH") technicalConsensus += 1;
+  if (trendSignal === "BEARISH") technicalConsensus -= 1;
+  if (rsSignal === "BULLISH") technicalConsensus += 1;
+  if (rsSignal === "BEARISH") technicalConsensus -= 1;
+  if (z52Signal === "BULLISH") technicalConsensus += 1;
+  if (z52Signal === "BEARISH") technicalConsensus -= 1;
+  const technicalAdjustment = technicalConsensus * 0.12; // max +/-0.36
+
+  let adjusted = baseScore + breadthAdjustment + technicalAdjustment;
+
+  // Vol regime shrink: when VIX is elevated, reduce directional confidence.
+  const vix = snapshot.macro.vixLevel;
+  if (typeof vix === "number" && Number.isFinite(vix) && vix > 28) {
+    const shrink = Math.min(0.2, (vix - 28) / 100);
+    adjusted = 5 + (adjusted - 5) * (1 - shrink);
+  }
+
+  // Completeness shrink towards neutral for partial snapshots.
+  const completeness = Math.max(0, Math.min(1, dataCompleteness));
+  const confidenceScale = 0.7 + Math.min(0.3, completeness * 0.3);
+  adjusted = 5 + (adjusted - 5) * confidenceScale;
+
+  return Math.max(0, Math.min(10, Math.round(adjusted * 100) / 100));
+}
+
 // ─── Main scoring function ────────────────────────────────────────────────────
 
 export function scoreSnapshot(snapshot: MarketSnapshot): AnalysisResult {
@@ -466,6 +533,7 @@ export function scoreSnapshot(snapshot: MarketSnapshot): AnalysisResult {
   rawScore = Math.round(rawScore * 100) / 100;
 
   const dataCompleteness = Math.round((availableWeight / 10) * 10000) / 10000;
+  rawScore = quantCalibrateScore(rawScore, factors, dataCompleteness, snapshot);
 
   // ── dataCompleteness gate (P0) ────────────────────────────────────────────
   // Scores derived from < 65% of available weight are capped at BUY / SELL.

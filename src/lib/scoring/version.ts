@@ -1,1 +1,1 @@
-export const SCORING_MODEL_VERSION = "2026-02-25-v8-production";
+export const SCORING_MODEL_VERSION = "2026-03-04-v8q-production";

@@ -1,6 +1,1371 @@
 {
   "analyses": [
     {
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "analysis": {
+        "modelVersion": "2026-03-04-v8q-production",
+        "symbol": "XOM",
+        "companyName": "ExxonMobil",
+        "sector": "Energy",
+        "currency": "USD",
+        "currentPrice": 151.83,
+        "marketCap": 640452400000,
+        "score": 5.34,
+        "rating": "HOLD",
+        "ratingNote": "Mixed signals. No statistically significant edge at this composite level. Await a catalyst or clearer directional confirmation.",
+        "factors": [
+          {
+            "category": "Sentiment",
+            "factor": "EPS Estimate Revision",
+            "weight": 1.623,
+            "bullishPoints": 1.623,
+            "bearishPoints": -0.487,
+            "points": 1.623,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≥ P90 (P90 5.5%)",
+            "metricValue": "30d EPS Rev +100.0%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "EPS Growth",
+            "weight": 1.124,
+            "bullishPoints": 1.124,
+            "bearishPoints": -0.337,
+            "points": 0,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative < P25 (P90 18.0%)",
+            "metricValue": "EPS Growth -14.7%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "ROIC",
+            "weight": 0.812,
+            "bullishPoints": 0.812,
+            "bearishPoints": -0.243,
+            "points": 0.325,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Sector-relative P50–P75 (P90 18.0%)",
+            "metricValue": "ROIC 11.0% | Trend -0.1pp YoY",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "FCF Yield",
+            "weight": 0.812,
+            "bullishPoints": 0.812,
+            "bearishPoints": -0.243,
+            "points": 0.325,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Sector-relative P50–P75 (P90 4.8%)",
+            "metricValue": "FCF Yield 3.7%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "Revenue Growth",
+            "weight": 0.749,
+            "bullishPoints": 0.749,
+            "bearishPoints": -0.225,
+            "points": 0,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative < P25 (P90 15.0%)",
+            "metricValue": "Revenue Growth -4.5%",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "P/E vs Sector",
+            "weight": 0.437,
+            "bullishPoints": 0.437,
+            "bearishPoints": -0.131,
+            "points": 0,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative > P90 (very expensive) (P90 16.0x)",
+            "metricValue": "Fwd P/E 17.2x",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "EV/EBITDA",
+            "weight": 0.699,
+            "bullishPoints": 0.699,
+            "bearishPoints": -0.21,
+            "points": 0,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative > P90 (very expensive) (P90 7.5x commodity-adj)",
+            "metricValue": "EV/EBITDA 11.0x",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "Debt/Equity",
+            "weight": 0.375,
+            "bullishPoints": 0.375,
+            "bearishPoints": -0.112,
+            "points": 0.375,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≤ P25 (cheap) (P90 125%)",
+            "metricValue": "D/E 16.8%",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "Price vs 200SMA",
+            "weight": 0.936,
+            "bullishPoints": 0.936,
+            "bearishPoints": -0.281,
+            "points": 0.936,
+            "signal": "BULLISH",
+            "ruleMatched": ">15% above 200SMA (strong uptrend)",
+            "metricValue": "+28.7% vs 200SMA",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "52w Relative Strength",
+            "weight": 0.687,
+            "bullishPoints": 0.687,
+            "bearishPoints": -0.206,
+            "points": 0.275,
+            "signal": "NEUTRAL",
+            "ruleMatched": "RS 1.00–1.18 — outperforming sector (P50–P75)",
+            "metricValue": "RS 1.098 vs sector ETF",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "52w Price Z-Score",
+            "weight": 0.437,
+            "bullishPoints": 0.437,
+            "bearishPoints": -0.131,
+            "points": 0.437,
+            "signal": "BULLISH",
+            "ruleMatched": "Z > 2.0 — strongly extended above 52w mean (momentum)",
+            "metricValue": "Z-Score 2.93",
+            "hasData": true
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Short Interest",
+            "weight": 0.624,
+            "bullishPoints": 0.624,
+            "bearishPoints": -0.187,
+            "points": 0.624,
+            "signal": "BULLISH",
+            "ruleMatched": "SI < 1.5% — bottom quintile (P10–P25)",
+            "metricValue": "SI 1.4%",
+            "hasData": true
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Insider Buy Ratio",
+            "weight": 0.375,
+            "bullishPoints": 0.375,
+            "bearishPoints": -0.112,
+            "points": 0.037,
+            "signal": "BEARISH",
+            "ruleMatched": "Net insider selling 0–0.5% float — mild negative",
+            "metricValue": "Net Insider -0.000% float (90d)",
+            "hasData": true
+          },
+          {
+            "category": "Macro",
+            "factor": "VIX",
+            "weight": 0.312,
+            "bullishPoints": 0.312,
+            "bearishPoints": -0.094,
+            "points": 0.119,
+            "signal": "NEUTRAL",
+            "ruleMatched": "VIX 21–27 — elevated (P75 range)",
+            "metricValue": "VIX 23.6",
+            "hasData": true
+          }
+        ],
+        "dataCompleteness": 1.0002,
+        "entryAlert": {
+          "priceZScore20d": 0.7638144257154861,
+          "signal": "NEUTRAL",
+          "note": "20d Z-Score 0.76: price within normal range vs short-term mean."
+        },
+        "squeezeRisk": false,
+        "generatedAt": "2026-03-04T12:50:03.427Z",
+        "id": "29121b4c-9af4-446a-b328-3755bfbec68c",
+        "createdAt": "2026-03-04T12:50:03.427Z"
+      }
+    },
+    {
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "analysis": {
+        "modelVersion": "2026-03-04-v8q-production",
+        "symbol": "AMZN",
+        "companyName": "Amazon",
+        "sector": "Consumer Discretionary",
+        "currency": "USD",
+        "currentPrice": 208.73,
+        "marketCap": 2222665200000,
+        "score": 4.94,
+        "rating": "HOLD",
+        "ratingNote": "Mixed signals. No statistically significant edge at this composite level. Await a catalyst or clearer directional confirmation.",
+        "factors": [
+          {
+            "category": "Sentiment",
+            "factor": "EPS Estimate Revision",
+            "weight": 1.594,
+            "bullishPoints": 1.594,
+            "bearishPoints": -0.478,
+            "points": 1.594,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≥ P90 (P90 4.2%)",
+            "metricValue": "30d EPS Rev +100.0%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "EPS Growth",
+            "weight": 1.195,
+            "bullishPoints": 1.195,
+            "bearishPoints": -0.359,
+            "points": 1.195,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≥ P90 (P90 20.0%)",
+            "metricValue": "EPS Growth 29.9%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "ROIC",
+            "weight": 0.863,
+            "bullishPoints": 0.863,
+            "bearishPoints": -0.259,
+            "points": 0.622,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative P75–P90 (P90 22.0%)",
+            "metricValue": "ROIC 21.9% | Trend 3.0pp YoY",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "FCF Yield",
+            "weight": 0.664,
+            "bullishPoints": 0.664,
+            "bearishPoints": -0.199,
+            "points": 0,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative < P25 (P90 2.8%)",
+            "metricValue": "FCF Yield 0.3%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "Revenue Growth",
+            "weight": 0.691,
+            "bullishPoints": 0.691,
+            "bearishPoints": -0.207,
+            "points": 0.276,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Sector-relative P50–P75 (P90 18.0%)",
+            "metricValue": "Revenue Growth 12.4%",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "P/E vs Sector",
+            "weight": 0.465,
+            "bullishPoints": 0.465,
+            "bearishPoints": -0.139,
+            "points": 0.046,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative P75–P90 (expensive) (P90 30.0x)",
+            "metricValue": "Fwd P/E 26.9x",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "EV/EBITDA",
+            "weight": 0.465,
+            "bullishPoints": 0.465,
+            "bearishPoints": -0.139,
+            "points": 0.046,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative P75–P90 (expensive) (P90 17.0x)",
+            "metricValue": "EV/EBITDA 14.2x",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "Debt/Equity",
+            "weight": 0.398,
+            "bullishPoints": 0.398,
+            "bearishPoints": -0.12,
+            "points": 0.398,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≤ P25 (cheap) (P90 85%)",
+            "metricValue": "D/E 16.0%",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "Price vs 200SMA",
+            "weight": 0.996,
+            "bullishPoints": 0.996,
+            "bearishPoints": -0.299,
+            "points": 0.149,
+            "signal": "BEARISH",
+            "ruleMatched": "3–8% below 200SMA (confirmed break)",
+            "metricValue": "-7.0% vs 200SMA",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "52w Relative Strength",
+            "weight": 0.73,
+            "bullishPoints": 0.73,
+            "bearishPoints": -0.219,
+            "points": 0.073,
+            "signal": "BEARISH",
+            "ruleMatched": "RS 0.86–1.00 — slight underperformance (P25–P50)",
+            "metricValue": "RS 0.928 vs sector ETF",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "52w Price Z-Score",
+            "weight": 0.465,
+            "bullishPoints": 0.465,
+            "bearishPoints": -0.139,
+            "points": 0.046,
+            "signal": "BEARISH",
+            "ruleMatched": "Z -1.0–0.0 — slightly below 52w mean",
+            "metricValue": "Z-Score -0.49",
+            "hasData": true
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Short Interest",
+            "weight": 0.664,
+            "bullishPoints": 0.664,
+            "bearishPoints": -0.199,
+            "points": 0.664,
+            "signal": "BULLISH",
+            "ruleMatched": "SI < 1.5% — bottom quintile (P10–P25)",
+            "metricValue": "SI 0.8%",
+            "hasData": true
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Insider Buy Ratio",
+            "weight": 0.478,
+            "bullishPoints": 0.478,
+            "bearishPoints": -0.143,
+            "points": 0.048,
+            "signal": "BEARISH",
+            "ruleMatched": "Net insider selling 0–0.5% float — mild negative",
+            "metricValue": "Net Insider -0.001% float (90d)",
+            "hasData": true
+          },
+          {
+            "category": "Macro",
+            "factor": "VIX",
+            "weight": 0.332,
+            "bullishPoints": 0.332,
+            "bearishPoints": -0.1,
+            "points": 0.126,
+            "signal": "NEUTRAL",
+            "ruleMatched": "VIX 21–27 — elevated (P75 range)",
+            "metricValue": "VIX 23.6",
+            "hasData": true
+          }
+        ],
+        "dataCompleteness": 1,
+        "entryAlert": {
+          "priceZScore20d": -0.14464879950795187,
+          "signal": "NEUTRAL",
+          "note": "20d Z-Score -0.14: price within normal range vs short-term mean."
+        },
+        "squeezeRisk": false,
+        "generatedAt": "2026-03-04T12:48:34.425Z",
+        "id": "ecd1d01b-71d0-4c9c-889a-4a0d1d1b0163",
+        "createdAt": "2026-03-04T12:48:34.425Z"
+      }
+    },
+    {
+      "userId": null,
+      "analysis": {
+        "modelVersion": "2026-03-04-v8q-production",
+        "symbol": "META",
+        "companyName": "Meta Platforms",
+        "sector": "Information Technology",
+        "currency": "USD",
+        "currentPrice": 655.08,
+        "marketCap": 1628869200000,
+        "score": 5.06,
+        "rating": "HOLD",
+        "ratingNote": "Mixed signals. No statistically significant edge at this composite level. Await a catalyst or clearer directional confirmation.",
+        "factors": [
+          {
+            "category": "Sentiment",
+            "factor": "EPS Estimate Revision",
+            "weight": 1.547,
+            "bullishPoints": 1.547,
+            "bearishPoints": -0.464,
+            "points": 1.547,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≥ P90 (P90 5.5%)",
+            "metricValue": "30d EPS Rev +100.0%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "EPS Growth",
+            "weight": 1.161,
+            "bullishPoints": 1.161,
+            "bearishPoints": -0.348,
+            "points": 0,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative < P25 (P90 28.0%)",
+            "metricValue": "EPS Growth -1.7%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "ROIC",
+            "weight": 1.09,
+            "bullishPoints": 1.09,
+            "bearishPoints": -0.327,
+            "points": 1.09,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≥ P90 (P90 30.0%)",
+            "metricValue": "ROIC 30.6% | Trend 2.7pp YoY",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "FCF Yield",
+            "weight": 0.967,
+            "bullishPoints": 0.967,
+            "bearishPoints": -0.29,
+            "points": 0.387,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Sector-relative P50–P75 (P90 4.2%)",
+            "metricValue": "FCF Yield 2.8%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "Revenue Growth",
+            "weight": 0.516,
+            "bullishPoints": 0.516,
+            "bearishPoints": -0.155,
+            "points": 0.371,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative P75–P90 (P90 26.0%)",
+            "metricValue": "Revenue Growth 22.2%",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "P/E vs Sector",
+            "weight": 0.451,
+            "bullishPoints": 0.451,
+            "bearishPoints": -0.135,
+            "points": 0.451,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≤ P25 (cheap) (P90 45.0x)",
+            "metricValue": "Fwd P/E 22.0x",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "EV/EBITDA",
+            "weight": 0.451,
+            "bullishPoints": 0.451,
+            "bearishPoints": -0.135,
+            "points": 0.325,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative P25–P50 (P90 28.0x)",
+            "metricValue": "EV/EBITDA 16.1x",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "Debt/Equity",
+            "weight": 0.193,
+            "bullishPoints": 0.193,
+            "bearishPoints": -0.058,
+            "points": 0.193,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≤ P25 (cheap) (P90 55%)",
+            "metricValue": "D/E 27.0%",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "Price vs 200SMA",
+            "weight": 0.967,
+            "bullishPoints": 0.967,
+            "bearishPoints": -0.29,
+            "points": 0.145,
+            "signal": "BEARISH",
+            "ruleMatched": "3–8% below 200SMA (confirmed break)",
+            "metricValue": "-5.2% vs 200SMA",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "52w Relative Strength",
+            "weight": 0.851,
+            "bullishPoints": 0.851,
+            "bearishPoints": -0.255,
+            "points": 0,
+            "signal": "BEARISH",
+            "ruleMatched": "RS 0.65–0.86 — clear underperformance (< P25)",
+            "metricValue": "RS 0.804 vs sector ETF",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "52w Price Z-Score",
+            "weight": 0.451,
+            "bullishPoints": 0.451,
+            "bearishPoints": -0.135,
+            "points": 0.045,
+            "signal": "BEARISH",
+            "ruleMatched": "Z -1.0–0.0 — slightly below 52w mean",
+            "metricValue": "Z-Score -0.19",
+            "hasData": true
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Short Interest",
+            "weight": 0.645,
+            "bullishPoints": 0.645,
+            "bearishPoints": -0.193,
+            "points": 0.645,
+            "signal": "BULLISH",
+            "ruleMatched": "SI < 1.5% — bottom quintile (P10–P25)",
+            "metricValue": "SI 1.1%",
+            "hasData": true
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Insider Buy Ratio",
+            "weight": 0.387,
+            "bullishPoints": 0.387,
+            "bearishPoints": -0.116,
+            "points": 0.039,
+            "signal": "BEARISH",
+            "ruleMatched": "Net insider selling 0–0.5% float — mild negative",
+            "metricValue": "Net Insider -0.001% float (90d)",
+            "hasData": true
+          },
+          {
+            "category": "Macro",
+            "factor": "VIX",
+            "weight": 0.322,
+            "bullishPoints": 0.322,
+            "bearishPoints": -0.097,
+            "points": 0.123,
+            "signal": "NEUTRAL",
+            "ruleMatched": "VIX 21–27 — elevated (P75 range)",
+            "metricValue": "VIX 23.6",
+            "hasData": true
+          }
+        ],
+        "dataCompleteness": 0.9999,
+        "entryAlert": {
+          "priceZScore20d": -0.0840170093578429,
+          "signal": "NEUTRAL",
+          "note": "20d Z-Score -0.08: price within normal range vs short-term mean."
+        },
+        "squeezeRisk": false,
+        "generatedAt": "2026-03-04T12:45:21.249Z",
+        "id": "ad3e171e-801e-49ec-b6a6-140b6f4d04a7",
+        "createdAt": "2026-03-04T12:45:21.249Z"
+      }
+    },
+    {
+      "userId": null,
+      "analysis": {
+        "modelVersion": "2026-03-04-v8q-production",
+        "symbol": "MSFT",
+        "companyName": "Microsoft",
+        "sector": "Information Technology",
+        "currency": "USD",
+        "currentPrice": 403.93,
+        "marketCap": 2987924500000,
+        "score": 5.85,
+        "rating": "HOLD",
+        "ratingNote": "Mixed signals. No statistically significant edge at this composite level. Await a catalyst or clearer directional confirmation.",
+        "factors": [
+          {
+            "category": "Sentiment",
+            "factor": "EPS Estimate Revision",
+            "weight": 1.547,
+            "bullishPoints": 1.547,
+            "bearishPoints": -0.464,
+            "points": 1.547,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≥ P90 (P90 5.5%)",
+            "metricValue": "30d EPS Rev +100.0%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "EPS Growth",
+            "weight": 1.161,
+            "bullishPoints": 1.161,
+            "bearishPoints": -0.348,
+            "points": 1.161,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≥ P90 (P90 28.0%)",
+            "metricValue": "EPS Growth 28.7%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "ROIC",
+            "weight": 1.09,
+            "bullishPoints": 1.09,
+            "bearishPoints": -0.327,
+            "points": 1.09,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≥ P90 (P90 30.0%) [↑ improving]",
+            "metricValue": "ROIC 33.6% | Trend 4.0pp YoY",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "FCF Yield",
+            "weight": 0.967,
+            "bullishPoints": 0.967,
+            "bearishPoints": -0.29,
+            "points": 0.387,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Sector-relative P50–P75 (P90 4.2%)",
+            "metricValue": "FCF Yield 2.6%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "Revenue Growth",
+            "weight": 0.516,
+            "bullishPoints": 0.516,
+            "bearishPoints": -0.155,
+            "points": 0.206,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Sector-relative P50–P75 (P90 26.0%)",
+            "metricValue": "Revenue Growth 16.7%",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "P/E vs Sector",
+            "weight": 0.451,
+            "bullishPoints": 0.451,
+            "bearishPoints": -0.135,
+            "points": 0.325,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative P25–P50 (P90 45.0x)",
+            "metricValue": "Fwd P/E 24.5x",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "EV/EBITDA",
+            "weight": 0.451,
+            "bullishPoints": 0.451,
+            "bearishPoints": -0.135,
+            "points": 0.325,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative P25–P50 (P90 28.0x)",
+            "metricValue": "EV/EBITDA 17.5x",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "Debt/Equity",
+            "weight": 0.193,
+            "bullishPoints": 0.193,
+            "bearishPoints": -0.058,
+            "points": 0.193,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≤ P25 (cheap) (P90 55%)",
+            "metricValue": "D/E 25.7%",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "Price vs 200SMA",
+            "weight": 0.967,
+            "bullishPoints": 0.967,
+            "bearishPoints": -0.29,
+            "points": 0.01,
+            "signal": "BEARISH",
+            "ruleMatched": "15–25% below 200SMA (deep decline)",
+            "metricValue": "-16.8% vs 200SMA",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "52w Relative Strength",
+            "weight": 0.851,
+            "bullishPoints": 0.851,
+            "bearishPoints": -0.255,
+            "points": 0,
+            "signal": "BEARISH",
+            "ruleMatched": "RS 0.65–0.86 — clear underperformance (< P25)",
+            "metricValue": "RS 0.834 vs sector ETF",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "52w Price Z-Score",
+            "weight": 0.451,
+            "bullishPoints": 0.451,
+            "bearishPoints": -0.135,
+            "points": 0,
+            "signal": "BEARISH",
+            "ruleMatched": "Z -1.0–-2.0 — below 52w mean (weak)",
+            "metricValue": "Z-Score -1.25",
+            "hasData": true
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Short Interest",
+            "weight": 0.645,
+            "bullishPoints": 0.645,
+            "bearishPoints": -0.193,
+            "points": 0.645,
+            "signal": "BULLISH",
+            "ruleMatched": "SI < 1.5% — bottom quintile (P10–P25)",
+            "metricValue": "SI 0.8%",
+            "hasData": true
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Insider Buy Ratio",
+            "weight": 0.387,
+            "bullishPoints": 0.387,
+            "bearishPoints": -0.116,
+            "points": 0.039,
+            "signal": "BEARISH",
+            "ruleMatched": "Net insider selling 0–0.5% float — mild negative",
+            "metricValue": "Net Insider -0.000% float (90d)",
+            "hasData": true
+          },
+          {
+            "category": "Macro",
+            "factor": "VIX",
+            "weight": 0.322,
+            "bullishPoints": 0.322,
+            "bearishPoints": -0.097,
+            "points": 0.123,
+            "signal": "NEUTRAL",
+            "ruleMatched": "VIX 21–27 — elevated (P75 range)",
+            "metricValue": "VIX 23.6",
+            "hasData": true
+          }
+        ],
+        "dataCompleteness": 0.9999,
+        "entryAlert": {
+          "priceZScore20d": 0.39369054261563036,
+          "signal": "NEUTRAL",
+          "note": "20d Z-Score 0.39: price within normal range vs short-term mean."
+        },
+        "squeezeRisk": false,
+        "generatedAt": "2026-03-04T12:45:16.502Z",
+        "id": "e222e6f6-7155-4fae-8abf-b6ee407a4b48",
+        "createdAt": "2026-03-04T12:45:16.502Z"
+      }
+    },
+    {
+      "userId": null,
+      "analysis": {
+        "modelVersion": "2026-03-04-v8q-production",
+        "symbol": "TSLA",
+        "companyName": "Tesla, Inc.",
+        "sector": "Consumer Discretionary",
+        "currency": "USD",
+        "currentPrice": 392.43,
+        "marketCap": 1513430900000,
+        "score": 3.43,
+        "rating": "SELL",
+        "ratingNote": "Below-median composite with multiple deteriorating signals. Risk-reward skewed negative. Historical forward α: -3 to -7% annualised.",
+        "factors": [
+          {
+            "category": "Sentiment",
+            "factor": "EPS Estimate Revision",
+            "weight": 1.594,
+            "bullishPoints": 1.594,
+            "bearishPoints": -0.478,
+            "points": 1.594,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≥ P90 (P90 4.2%)",
+            "metricValue": "30d EPS Rev +100.0%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "EPS Growth",
+            "weight": 1.195,
+            "bullishPoints": 1.195,
+            "bearishPoints": -0.359,
+            "points": -0.359,
+            "signal": "BEARISH",
+            "ruleMatched": "Extreme negative outlier (penalty) (P90 20.0%)",
+            "metricValue": "EPS Growth -48.6%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "ROIC",
+            "weight": 0.863,
+            "bullishPoints": 0.863,
+            "bearishPoints": -0.259,
+            "points": 0,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative < P25 (P90 22.0%)",
+            "metricValue": "ROIC 4.8% | Trend 0.2pp YoY",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "FCF Yield",
+            "weight": 0.664,
+            "bullishPoints": 0.664,
+            "bearishPoints": -0.199,
+            "points": 0,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative < P25 (P90 2.8%)",
+            "metricValue": "FCF Yield 0.4%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "Revenue Growth",
+            "weight": 0.691,
+            "bullishPoints": 0.691,
+            "bearishPoints": -0.207,
+            "points": 0,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative < P25 (P90 18.0%)",
+            "metricValue": "Revenue Growth -2.9%",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "P/E vs Sector",
+            "weight": 0.465,
+            "bullishPoints": 0.465,
+            "bearishPoints": -0.139,
+            "points": -0.139,
+            "signal": "BEARISH",
+            "ruleMatched": "Extreme overvaluation (penalty) (P90 30.0x)",
+            "metricValue": "Fwd P/E 196.8x",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "EV/EBITDA",
+            "weight": 0.465,
+            "bullishPoints": 0.465,
+            "bearishPoints": -0.139,
+            "points": -0.139,
+            "signal": "BEARISH",
+            "ruleMatched": "Extreme overvaluation (penalty) (P90 17.0x)",
+            "metricValue": "EV/EBITDA 149.3x",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "Debt/Equity",
+            "weight": 0.398,
+            "bullishPoints": 0.398,
+            "bearishPoints": -0.12,
+            "points": 0.398,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≤ P25 (cheap) (P90 85%)",
+            "metricValue": "D/E 10.2%",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "Price vs 200SMA",
+            "weight": 0.996,
+            "bullishPoints": 0.996,
+            "bearishPoints": -0.299,
+            "points": 0.498,
+            "signal": "NEUTRAL",
+            "ruleMatched": "0–3% above 200SMA (at trend)",
+            "metricValue": "+0.3% vs 200SMA",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "52w Relative Strength",
+            "weight": 0.73,
+            "bullishPoints": 0.73,
+            "bearishPoints": -0.219,
+            "points": 0.526,
+            "signal": "BULLISH",
+            "ruleMatched": "RS 1.18–1.42 — upper-quartile vs sector (P75–P90)",
+            "metricValue": "RS 1.265 vs sector ETF",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "52w Price Z-Score",
+            "weight": 0.465,
+            "bullishPoints": 0.465,
+            "bearishPoints": -0.139,
+            "points": 0.186,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Z 0.0–1.0 — slightly above 52w mean",
+            "metricValue": "Z-Score 0.38",
+            "hasData": true
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Short Interest",
+            "weight": 0.664,
+            "bullishPoints": 0.664,
+            "bearishPoints": -0.199,
+            "points": 0.478,
+            "signal": "BULLISH",
+            "ruleMatched": "SI 1.5–3.5% — P25–P50 (near median)",
+            "metricValue": "SI 1.7%",
+            "hasData": true
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Insider Buy Ratio",
+            "weight": 0.478,
+            "bullishPoints": 0.478,
+            "bearishPoints": -0.143,
+            "points": 0.191,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Net insider buying 0–0.1% float — neutral (routine grants)",
+            "metricValue": "Net Insider +0.004% float (90d)",
+            "hasData": true
+          },
+          {
+            "category": "Macro",
+            "factor": "VIX",
+            "weight": 0.332,
+            "bullishPoints": 0.332,
+            "bearishPoints": -0.1,
+            "points": 0.126,
+            "signal": "NEUTRAL",
+            "ruleMatched": "VIX 21–27 — elevated (P75 range)",
+            "metricValue": "VIX 23.6",
+            "hasData": true
+          }
+        ],
+        "dataCompleteness": 1,
+        "entryAlert": {
+          "priceZScore20d": -2.075811584364887,
+          "signal": "OVERSOLD",
+          "note": "20d Z-Score -2.08: price deeply oversold vs short-term mean — potential tactical entry."
+        },
+        "squeezeRisk": false,
+        "generatedAt": "2026-03-04T12:45:11.767Z",
+        "id": "4531300f-8838-4c96-98ea-c6becb0b3bf4",
+        "createdAt": "2026-03-04T12:45:11.767Z"
+      }
+    },
+    {
+      "userId": null,
+      "analysis": {
+        "modelVersion": "2026-03-04-v8q-production",
+        "symbol": "GOOGL",
+        "companyName": "Alphabet Inc. (Class A)",
+        "sector": "Information Technology",
+        "currency": "USD",
+        "currentPrice": 303.58,
+        "marketCap": 3671545200000,
+        "score": 8.28,
+        "rating": "STRONG_BUY",
+        "ratingNote": "Top-decile composite. Broad confirmation across fundamental quality, valuation, momentum, and sentiment. Historical forward α: +9 to +16% annualised.",
+        "factors": [
+          {
+            "category": "Sentiment",
+            "factor": "EPS Estimate Revision",
+            "weight": 1.547,
+            "bullishPoints": 1.547,
+            "bearishPoints": -0.464,
+            "points": 1.547,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≥ P90 (P90 5.5%)",
+            "metricValue": "30d EPS Rev +100.0%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "EPS Growth",
+            "weight": 1.161,
+            "bullishPoints": 1.161,
+            "bearishPoints": -0.348,
+            "points": 1.161,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≥ P90 (P90 28.0%)",
+            "metricValue": "EPS Growth 36.7%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "ROIC",
+            "weight": 1.09,
+            "bullishPoints": 1.09,
+            "bearishPoints": -0.327,
+            "points": 1.09,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≥ P90 (P90 30.0%) [↑ improving]",
+            "metricValue": "ROIC 35.0% | Trend 3.2pp YoY",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "FCF Yield",
+            "weight": 0.967,
+            "bullishPoints": 0.967,
+            "bearishPoints": -0.29,
+            "points": 0.097,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative P25–P50 (P90 4.2%)",
+            "metricValue": "FCF Yield 2.0%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "Revenue Growth",
+            "weight": 0.516,
+            "bullishPoints": 0.516,
+            "bearishPoints": -0.155,
+            "points": 0.206,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Sector-relative P50–P75 (P90 26.0%)",
+            "metricValue": "Revenue Growth 15.1%",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "P/E vs Sector",
+            "weight": 0.451,
+            "bullishPoints": 0.451,
+            "bearishPoints": -0.135,
+            "points": 0.325,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative P25–P50 (P90 45.0x)",
+            "metricValue": "Fwd P/E 26.5x",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "EV/EBITDA",
+            "weight": 0.451,
+            "bullishPoints": 0.451,
+            "bearishPoints": -0.135,
+            "points": 0.045,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative P75–P90 (expensive) (P90 28.0x)",
+            "metricValue": "EV/EBITDA 26.6x",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "Debt/Equity",
+            "weight": 0.193,
+            "bullishPoints": 0.193,
+            "bearishPoints": -0.058,
+            "points": 0.193,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≤ P25 (cheap) (P90 55%)",
+            "metricValue": "D/E 11.2%",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "Price vs 200SMA",
+            "weight": 0.967,
+            "bullishPoints": 0.967,
+            "bearishPoints": -0.29,
+            "points": 0.967,
+            "signal": "BULLISH",
+            "ruleMatched": ">15% above 200SMA (strong uptrend)",
+            "metricValue": "+20.9% vs 200SMA",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "52w Relative Strength",
+            "weight": 0.851,
+            "bullishPoints": 0.851,
+            "bearishPoints": -0.255,
+            "points": 0.851,
+            "signal": "BULLISH",
+            "ruleMatched": "RS ≥ 1.42 — top-decile vs sector (P90+)",
+            "metricValue": "RS 1.462 vs sector ETF",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "52w Price Z-Score",
+            "weight": 0.451,
+            "bullishPoints": 0.451,
+            "bearishPoints": -0.135,
+            "points": 0.325,
+            "signal": "BULLISH",
+            "ruleMatched": "Z 1.0–2.0 — above 52w mean (constructive)",
+            "metricValue": "Z-Score 1.11",
+            "hasData": true
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Short Interest",
+            "weight": 0.645,
+            "bullishPoints": 0.645,
+            "bearishPoints": -0.193,
+            "points": 0.645,
+            "signal": "BULLISH",
+            "ruleMatched": "SI < 1.5% — bottom quintile (P10–P25)",
+            "metricValue": "SI 0.6%",
+            "hasData": true
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Insider Buy Ratio",
+            "weight": 0.387,
+            "bullishPoints": 0.387,
+            "bearishPoints": -0.116,
+            "points": 0.039,
+            "signal": "BEARISH",
+            "ruleMatched": "Net insider selling 0–0.5% float — mild negative",
+            "metricValue": "Net Insider -0.002% float (90d)",
+            "hasData": true
+          },
+          {
+            "category": "Macro",
+            "factor": "VIX",
+            "weight": 0.322,
+            "bullishPoints": 0.322,
+            "bearishPoints": -0.097,
+            "points": 0.123,
+            "signal": "NEUTRAL",
+            "ruleMatched": "VIX 21–27 — elevated (P75 range)",
+            "metricValue": "VIX 23.6",
+            "hasData": true
+          }
+        ],
+        "dataCompleteness": 0.9999,
+        "entryAlert": {
+          "priceZScore20d": -0.9989207684401918,
+          "signal": "NEUTRAL",
+          "note": "20d Z-Score -1.00: price within normal range vs short-term mean."
+        },
+        "squeezeRisk": false,
+        "generatedAt": "2026-03-04T12:45:06.619Z",
+        "id": "d1d32dd3-c567-4672-8f06-e97d87efb0b3",
+        "createdAt": "2026-03-04T12:45:06.619Z"
+      }
+    },
+    {
+      "userId": null,
+      "analysis": {
+        "modelVersion": "2026-03-04-v8q-production",
+        "symbol": "AMZN",
+        "companyName": "Amazon",
+        "sector": "Consumer Discretionary",
+        "currency": "USD",
+        "currentPrice": 208.73,
+        "marketCap": 2222665200000,
+        "score": 4.94,
+        "rating": "HOLD",
+        "ratingNote": "Mixed signals. No statistically significant edge at this composite level. Await a catalyst or clearer directional confirmation.",
+        "factors": [
+          {
+            "category": "Sentiment",
+            "factor": "EPS Estimate Revision",
+            "weight": 1.594,
+            "bullishPoints": 1.594,
+            "bearishPoints": -0.478,
+            "points": 1.594,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≥ P90 (P90 4.2%)",
+            "metricValue": "30d EPS Rev +100.0%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "EPS Growth",
+            "weight": 1.195,
+            "bullishPoints": 1.195,
+            "bearishPoints": -0.359,
+            "points": 1.195,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≥ P90 (P90 20.0%)",
+            "metricValue": "EPS Growth 29.9%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "ROIC",
+            "weight": 0.863,
+            "bullishPoints": 0.863,
+            "bearishPoints": -0.259,
+            "points": 0.622,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative P75–P90 (P90 22.0%)",
+            "metricValue": "ROIC 21.9% | Trend 3.0pp YoY",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "FCF Yield",
+            "weight": 0.664,
+            "bullishPoints": 0.664,
+            "bearishPoints": -0.199,
+            "points": 0,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative < P25 (P90 2.8%)",
+            "metricValue": "FCF Yield 0.3%",
+            "hasData": true
+          },
+          {
+            "category": "Fundamental",
+            "factor": "Revenue Growth",
+            "weight": 0.691,
+            "bullishPoints": 0.691,
+            "bearishPoints": -0.207,
+            "points": 0.276,
+            "signal": "NEUTRAL",
+            "ruleMatched": "Sector-relative P50–P75 (P90 18.0%)",
+            "metricValue": "Revenue Growth 12.4%",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "P/E vs Sector",
+            "weight": 0.465,
+            "bullishPoints": 0.465,
+            "bearishPoints": -0.139,
+            "points": 0.046,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative P75–P90 (expensive) (P90 30.0x)",
+            "metricValue": "Fwd P/E 26.9x",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "EV/EBITDA",
+            "weight": 0.465,
+            "bullishPoints": 0.465,
+            "bearishPoints": -0.139,
+            "points": 0.046,
+            "signal": "BEARISH",
+            "ruleMatched": "Sector-relative P75–P90 (expensive) (P90 17.0x)",
+            "metricValue": "EV/EBITDA 14.2x",
+            "hasData": true
+          },
+          {
+            "category": "Valuation",
+            "factor": "Debt/Equity",
+            "weight": 0.398,
+            "bullishPoints": 0.398,
+            "bearishPoints": -0.12,
+            "points": 0.398,
+            "signal": "BULLISH",
+            "ruleMatched": "Sector-relative ≤ P25 (cheap) (P90 85%)",
+            "metricValue": "D/E 16.0%",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "Price vs 200SMA",
+            "weight": 0.996,
+            "bullishPoints": 0.996,
+            "bearishPoints": -0.299,
+            "points": 0.149,
+            "signal": "BEARISH",
+            "ruleMatched": "3–8% below 200SMA (confirmed break)",
+            "metricValue": "-7.0% vs 200SMA",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "52w Relative Strength",
+            "weight": 0.73,
+            "bullishPoints": 0.73,
+            "bearishPoints": -0.219,
+            "points": 0.073,
+            "signal": "BEARISH",
+            "ruleMatched": "RS 0.86–1.00 — slight underperformance (P25–P50)",
+            "metricValue": "RS 0.928 vs sector ETF",
+            "hasData": true
+          },
+          {
+            "category": "Technical",
+            "factor": "52w Price Z-Score",
+            "weight": 0.465,
+            "bullishPoints": 0.465,
+            "bearishPoints": -0.139,
+            "points": 0.046,
+            "signal": "BEARISH",
+            "ruleMatched": "Z -1.0–0.0 — slightly below 52w mean",
+            "metricValue": "Z-Score -0.49",
+            "hasData": true
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Short Interest",
+            "weight": 0.664,
+            "bullishPoints": 0.664,
+            "bearishPoints": -0.199,
+            "points": 0.664,
+            "signal": "BULLISH",
+            "ruleMatched": "SI < 1.5% — bottom quintile (P10–P25)",
+            "metricValue": "SI 0.8%",
+            "hasData": true
+          },
+          {
+            "category": "Sentiment",
+            "factor": "Insider Buy Ratio",
+            "weight": 0.478,
+            "bullishPoints": 0.478,
+            "bearishPoints": -0.143,
+            "points": 0.048,
+            "signal": "BEARISH",
+            "ruleMatched": "Net insider selling 0–0.5% float — mild negative",
+            "metricValue": "Net Insider -0.001% float (90d)",
+            "hasData": true
+          },
+          {
+            "category": "Macro",
+            "factor": "VIX",
+            "weight": 0.332,
+            "bullishPoints": 0.332,
+            "bearishPoints": -0.1,
+            "points": 0.126,
+            "signal": "NEUTRAL",
+            "ruleMatched": "VIX 21–27 — elevated (P75 range)",
+            "metricValue": "VIX 22.8",
+            "hasData": true
+          }
+        ],
+        "dataCompleteness": 1,
+        "entryAlert": {
+          "priceZScore20d": -0.14464879950795187,
+          "signal": "NEUTRAL",
+          "note": "20d Z-Score -0.14: price within normal range vs short-term mean."
+        },
+        "squeezeRisk": false,
+        "generatedAt": "2026-03-04T12:45:01.730Z",
+        "id": "7d6aa458-c8a2-4912-adff-61e3fab5f8ca",
+        "createdAt": "2026-03-04T12:45:01.730Z"
+      }
+    },
+    {
       "userId": null,
       "analysis": {
         "modelVersion": "2026-02-25-v8-production",
@@ -57070,6 +58435,1192 @@
       "currentPrice": 312.9,
       "changePercent": 0.6433,
       "updatedAt": "2026-02-25T21:40:28.410Z"
+    }
+  ],
+  "portfolioSnapshots": [
+    {
+      "id": "2e5821e6-2c78-49fa-928d-bfff4e08e7d4",
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "asOfDate": "2026-03-04",
+      "holdings": [
+        {
+          "symbol": "GOOGL",
+          "shares": 6
+        },
+        {
+          "symbol": "NVDA",
+          "shares": 5
+        },
+        {
+          "symbol": "BAC",
+          "shares": 10
+        },
+        {
+          "symbol": "WMT",
+          "shares": 4
+        },
+        {
+          "symbol": "PM",
+          "shares": 1
+        },
+        {
+          "symbol": "XOM",
+          "shares": 1
+        }
+      ],
+      "rating": {
+        "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+        "asOfDate": "2026-03-04",
+        "peerGroup": "Sector: Information Technology",
+        "compositeScore": 5.1,
+        "stars": 3,
+        "rating": "HOLD",
+        "pillars": [
+          {
+            "key": "return",
+            "label": "Return",
+            "score": 43.8,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "cagr": "0.9%",
+              "oneYearReturn": "0.9%",
+              "excessReturn": "+1.5%"
+            },
+            "flags": []
+          },
+          {
+            "key": "risk",
+            "label": "Risk",
+            "score": 41,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "sharpe": "-0.29",
+              "volatility": "12.0%",
+              "sortino": "-0.40"
+            },
+            "flags": []
+          },
+          {
+            "key": "drawdown",
+            "label": "Drawdown",
+            "score": 91.5,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "maxDrawdown": "-2.4%",
+              "currentDrawdown": "-1.7%",
+              "cvar95": "1.8%"
+            },
+            "flags": []
+          },
+          {
+            "key": "diversification",
+            "label": "Diversification",
+            "score": 4.6,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "effectiveN": "3.5",
+              "topFivePct": "96.4%",
+              "sectorHHI": "0.50"
+            },
+            "flags": [
+              "concentrated",
+              "position_risk",
+              "sector_concentration"
+            ]
+          },
+          {
+            "key": "implementability",
+            "label": "Implementability",
+            "score": 83.5,
+            "peerMedian": 50,
+            "weight": 0.1,
+            "hasData": true,
+            "metrics": {
+              "liquidityTier": "Large Cap",
+              "turnover": "24.8%",
+              "tcDrag": "0.1%"
+            },
+            "flags": []
+          },
+          {
+            "key": "eldarTilt",
+            "label": "ELDAR Tilt",
+            "score": 56.5,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "weightedScore": "7.21",
+              "strongBuyPct": "0.0%",
+              "strongSellPct": "0.0%"
+            },
+            "flags": []
+          }
+        ],
+        "holdings": [
+          {
+            "ticker": "GOOGL",
+            "name": "Alphabet Inc. (Class A)",
+            "weight": 0.44714906404318044,
+            "eldarScore": 7.3,
+            "rating": "BUY",
+            "contribution": 3.264188167515217
+          },
+          {
+            "ticker": "NVDA",
+            "name": "Nvidia",
+            "weight": 0.2291443364085289,
+            "eldarScore": 7.23,
+            "rating": "BUY",
+            "contribution": 1.656713552233664
+          },
+          {
+            "ticker": "BAC",
+            "name": "Bank of America",
+            "weight": 0.12218638747463924,
+            "eldarScore": 7.33,
+            "rating": "BUY",
+            "contribution": 0.8956262201891056
+          },
+          {
+            "ticker": "WMT",
+            "name": "Walmart",
+            "weight": 0.12040156184205493,
+            "eldarScore": 7.2,
+            "rating": "BUY",
+            "contribution": 0.8668912452627955
+          },
+          {
+            "ticker": "PM",
+            "name": "Philip Morris International",
+            "weight": 0.04479290280595644,
+            "eldarScore": 7.35,
+            "rating": "BUY",
+            "contribution": 0.32922783562377983
+          },
+          {
+            "ticker": "XOM",
+            "name": "ExxonMobil",
+            "weight": 0.03632574742564025,
+            "eldarScore": 5.34,
+            "rating": "HOLD",
+            "contribution": 0.19397949125291894
+          }
+        ],
+        "dataCompleteness": 1,
+        "monthsOfHistory": 48,
+        "disclaimers": [
+          "Portfolio rating is based on trailing historical performance and current holdings composition.",
+          "This rating is not a forecast of future returns."
+        ],
+        "modelVersion": "portfolio-v1.0",
+        "confidenceFlags": [],
+        "peerPercentile": 51,
+        "riskSeries": {
+          "portfolio": [
+            1.0067219579520963,
+            1.0133305648742919,
+            1.01021740779362,
+            1.0106662982917423,
+            1.017582574271846,
+            1.0195621495026572,
+            1.0179600271109497,
+            1.012905275434097,
+            1.015890996482187,
+            1.0156121683839678,
+            0.9950368811134591,
+            1.006933019489716,
+            1.012828890445969,
+            1.013532477182804,
+            1.0189790355826636,
+            1.023513136045807,
+            1.0238059557967787,
+            1.0228590813336889,
+            1.0188350195153035,
+            1.024702505196401,
+            1.0164677615537332,
+            1.0116856431567278,
+            0.9996635808670822,
+            1.0197204129586213,
+            1.0248790305180515,
+            1.021870010837036,
+            1.0221957753374034,
+            1.0065631546088352,
+            1.0074356811448406,
+            1.0088451343325269,
+            1.0148314843991666,
+            1.012340716529772,
+            1.019738447001204,
+            1.0095227941919471,
+            1.0176185722704278,
+            1.0262725207195769,
+            1.0211434091609657,
+            1.017087851858767,
+            1.0178670344631653,
+            1.0086286431054212
+          ],
+          "benchmark": [
+            1.00635418686675,
+            1.0125902715911856,
+            1.0091069874184766,
+            1.00918426412888,
+            1.0157192493369511,
+            1.0173216475394657,
+            1.015348904347471,
+            1.0099337024146786,
+            1.012539239801297,
+            1.0118889489929972,
+            0.9910169469283967,
+            1.0025005577045611,
+            1.0080017846545952,
+            1.008331304212164,
+            1.0133790772577558,
+            1.0175155683410442,
+            1.017432459426082,
+            1.0161172972980854,
+            1.0117460599813077,
+            1.0172006292948719,
+            1.008652075462895,
+            1.0035357740137378,
+            0.9912414868039081,
+            1.0107647915642992,
+            1.015506373870557,
+            1.0121513981981405,
+            1.0121018244593911,
+            0.9962513505198682,
+            0.996748545958501,
+            0.9977764720119794,
+            1.0033301888030421,
+            1.0004986534897726,
+            1.0074418930169557,
+            0.9969789180385714,
+            1.0046074416014068,
+            1.0127812762904849,
+            1.0073471196928763,
+            1.0029758823760986,
+            1.0033753883883725,
+            0.9938995140315553
+          ],
+          "rollingSharpe": [
+            0,
+            -9.084485037610625,
+            -12.381883767857362,
+            0.49335274469623197,
+            -4.7786275518041395,
+            -6.968349151911037,
+            -9.698983737084848,
+            -0.955148213047656,
+            0.02794608291469472,
+            -0.5271256927056841,
+            -0.4797647453755479,
+            -2.634263635476612,
+            -2.54750505227699,
+            -2.204940736872085,
+            -0.7754200425045895,
+            -1.9717386364962268,
+            0.2344072643189344,
+            -0.5087020840557774,
+            2.36550684049249,
+            0.8354382740293099,
+            -0.9659552215913866,
+            -1.1451376649349352,
+            -1.0648150540154333,
+            0.047461167901693364
+          ]
+        }
+      },
+      "createdAt": "2026-03-04T12:50:04.201Z"
+    },
+    {
+      "id": "d5e72219-fa0a-44b9-9305-a0aecd8fc002",
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "asOfDate": "2026-03-04",
+      "holdings": [
+        {
+          "symbol": "GOOGL",
+          "shares": 6
+        },
+        {
+          "symbol": "NVDA",
+          "shares": 5
+        },
+        {
+          "symbol": "BAC",
+          "shares": 10
+        },
+        {
+          "symbol": "WMT",
+          "shares": 4
+        },
+        {
+          "symbol": "PM",
+          "shares": 1
+        },
+        {
+          "symbol": "XOM",
+          "shares": 1
+        }
+      ],
+      "rating": {
+        "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+        "asOfDate": "2026-03-04",
+        "peerGroup": "Sector: Information Technology",
+        "compositeScore": 5.11,
+        "stars": 3,
+        "rating": "HOLD",
+        "pillars": [
+          {
+            "key": "return",
+            "label": "Return",
+            "score": 43.9,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "cagr": "0.9%",
+              "oneYearReturn": "0.9%",
+              "excessReturn": "+1.5%"
+            },
+            "flags": []
+          },
+          {
+            "key": "risk",
+            "label": "Risk",
+            "score": 41.1,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "sharpe": "-0.28",
+              "volatility": "12.0%",
+              "sortino": "-0.39"
+            },
+            "flags": []
+          },
+          {
+            "key": "drawdown",
+            "label": "Drawdown",
+            "score": 91.5,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "maxDrawdown": "-2.4%",
+              "currentDrawdown": "-1.7%",
+              "cvar95": "1.8%"
+            },
+            "flags": []
+          },
+          {
+            "key": "diversification",
+            "label": "Diversification",
+            "score": 4.5,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "effectiveN": "3.5",
+              "topFivePct": "96.4%",
+              "sectorHHI": "0.50"
+            },
+            "flags": [
+              "concentrated",
+              "position_risk",
+              "sector_concentration"
+            ]
+          },
+          {
+            "key": "implementability",
+            "label": "Implementability",
+            "score": 83.4,
+            "peerMedian": 50,
+            "weight": 0.1,
+            "hasData": true,
+            "metrics": {
+              "liquidityTier": "Large Cap",
+              "turnover": "24.9%",
+              "tcDrag": "0.1%"
+            },
+            "flags": []
+          },
+          {
+            "key": "eldarTilt",
+            "label": "ELDAR Tilt",
+            "score": 56.8,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "weightedScore": "7.28",
+              "strongBuyPct": "0.0%",
+              "strongSellPct": "0.0%"
+            },
+            "flags": []
+          }
+        ],
+        "holdings": [
+          {
+            "ticker": "GOOGL",
+            "name": "Alphabet Inc. (Class A)",
+            "weight": 0.44743278494907773,
+            "eldarScore": 7.3,
+            "rating": "BUY",
+            "contribution": 3.266259330128267
+          },
+          {
+            "ticker": "NVDA",
+            "name": "Nvidia",
+            "weight": 0.22928973096245958,
+            "eldarScore": 7.23,
+            "rating": "BUY",
+            "contribution": 1.6577647548585828
+          },
+          {
+            "ticker": "BAC",
+            "name": "Bank of America",
+            "weight": 0.12226391605588945,
+            "eldarScore": 7.33,
+            "rating": "BUY",
+            "contribution": 0.8961945046896697
+          },
+          {
+            "ticker": "WMT",
+            "name": "Walmart",
+            "weight": 0.12047795793218288,
+            "eldarScore": 7.2,
+            "rating": "BUY",
+            "contribution": 0.8674412971117168
+          },
+          {
+            "ticker": "PM",
+            "name": "Philip Morris International",
+            "weight": 0.04482132438610461,
+            "eldarScore": 7.35,
+            "rating": "BUY",
+            "contribution": 0.32943673423786884
+          },
+          {
+            "ticker": "XOM",
+            "name": "XOM",
+            "weight": 0.03571428571428571,
+            "eldarScore": null,
+            "rating": null,
+            "contribution": 0
+          }
+        ],
+        "dataCompleteness": 1,
+        "monthsOfHistory": 48,
+        "disclaimers": [
+          "Portfolio rating is based on trailing historical performance and current holdings composition.",
+          "This rating is not a forecast of future returns."
+        ],
+        "modelVersion": "portfolio-v1.0",
+        "confidenceFlags": [],
+        "peerPercentile": 51.1,
+        "riskSeries": {
+          "portfolio": [
+            1.006733685048162,
+            1.0133541750152915,
+            1.0102528291012354,
+            1.010713582670807,
+            1.0176420349665993,
+            1.019633659856403,
+            1.018043382436439,
+            1.0130001555454355,
+            1.0159980358199108,
+            1.0157310930495425,
+            0.9951653080602978,
+            1.0070746522408525,
+            1.0129831625571766,
+            1.0136987358138245,
+            1.0191580754029355,
+            1.0237049242953413,
+            1.0240098040015426,
+            1.023074749669286,
+            1.019061837079246,
+            1.02494257964205,
+            1.0167179263063342,
+            1.0119465541221573,
+            0.9999332585699214,
+            1.020007227675511,
+            1.02517925791171,
+            1.022181379146077,
+            1.0225192301275572,
+            1.0068936539289333,
+            1.0077782748927007,
+            1.009200025698914,
+            1.0152003166283927,
+            1.0127205488613618,
+            1.0201329312477383,
+            1.0099252897258217,
+            1.0180361390722572,
+            1.026705577166376,
+            1.0215863415503394,
+            1.01754100534591,
+            1.018332467908573,
+            1.009101794254316
+          ],
+          "benchmark": [
+            1.00635418686675,
+            1.0125902715911856,
+            1.0091069874184766,
+            1.00918426412888,
+            1.0157192493369511,
+            1.0173216475394657,
+            1.015348904347471,
+            1.0099337024146786,
+            1.012539239801297,
+            1.0118889489929972,
+            0.9910169469283967,
+            1.0025005577045611,
+            1.0080017846545952,
+            1.008331304212164,
+            1.0133790772577558,
+            1.0175155683410442,
+            1.017432459426082,
+            1.0161172972980854,
+            1.0117460599813077,
+            1.0172006292948719,
+            1.008652075462895,
+            1.0035357740137378,
+            0.9912414868039081,
+            1.0107647915642992,
+            1.015506373870557,
+            1.0121513981981405,
+            1.0121018244593911,
+            0.9962513505198682,
+            0.996748545958501,
+            0.9977764720119794,
+            1.0033301888030421,
+            1.0004986534897726,
+            1.0074418930169557,
+            0.9969789180385714,
+            1.0046074416014068,
+            1.0127812762904849,
+            1.0073471196928763,
+            1.0029758823760986,
+            1.0033753883883725,
+            0.9938995140315553
+          ],
+          "rollingSharpe": [
+            0,
+            -8.867075054895196,
+            -12.296214601128735,
+            0.5393085426916041,
+            -4.742253830567839,
+            -6.929369261612893,
+            -9.66666100409798,
+            -0.9362411851041625,
+            0.04777228723826076,
+            -0.5062264820446283,
+            -0.4577378061153462,
+            -2.6139770315620985,
+            -2.527242626654533,
+            -2.1847511475603185,
+            -0.755582897625523,
+            -1.951506128646824,
+            0.25465026301716315,
+            -0.4892686926997284,
+            2.3860314455057305,
+            0.8606703892900024,
+            -0.9407693273186131,
+            -1.1200865885208768,
+            -1.0397803644664956,
+            0.07632381258093816
+          ]
+        }
+      },
+      "createdAt": "2026-03-04T12:50:02.026Z"
+    },
+    {
+      "id": "7dfc2a5f-e82e-4834-91d5-9bec9762cf77",
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "asOfDate": "2026-03-04",
+      "holdings": [
+        {
+          "symbol": "GOOGL",
+          "shares": 6
+        },
+        {
+          "symbol": "NVDA",
+          "shares": 5
+        },
+        {
+          "symbol": "BAC",
+          "shares": 10
+        },
+        {
+          "symbol": "WMT",
+          "shares": 4
+        },
+        {
+          "symbol": "PM",
+          "shares": 1
+        }
+      ],
+      "rating": {
+        "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+        "asOfDate": "2026-03-04",
+        "peerGroup": "Sector: Information Technology",
+        "compositeScore": 5.09,
+        "stars": 3,
+        "rating": "HOLD",
+        "pillars": [
+          {
+            "key": "return",
+            "label": "Return",
+            "score": 43.9,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "cagr": "0.9%",
+              "oneYearReturn": "0.9%",
+              "excessReturn": "+1.5%"
+            },
+            "flags": []
+          },
+          {
+            "key": "risk",
+            "label": "Risk",
+            "score": 41.1,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "sharpe": "-0.28",
+              "volatility": "12.0%",
+              "sortino": "-0.39"
+            },
+            "flags": []
+          },
+          {
+            "key": "drawdown",
+            "label": "Drawdown",
+            "score": 91.5,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "maxDrawdown": "-2.4%",
+              "currentDrawdown": "-1.7%",
+              "cvar95": "1.8%"
+            },
+            "flags": []
+          },
+          {
+            "key": "diversification",
+            "label": "Diversification",
+            "score": 2.6,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "effectiveN": "3.3",
+              "topFivePct": "100.0%",
+              "sectorHHI": "0.54"
+            },
+            "flags": [
+              "concentrated",
+              "position_risk",
+              "sector_concentration"
+            ]
+          },
+          {
+            "key": "implementability",
+            "label": "Implementability",
+            "score": 83.8,
+            "peerMedian": 50,
+            "weight": 0.1,
+            "hasData": true,
+            "metrics": {
+              "liquidityTier": "Large Cap",
+              "turnover": "24.4%",
+              "tcDrag": "0.1%"
+            },
+            "flags": []
+          },
+          {
+            "key": "eldarTilt",
+            "label": "ELDAR Tilt",
+            "score": 56.8,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "weightedScore": "7.28",
+              "strongBuyPct": "0.0%",
+              "strongSellPct": "0.0%"
+            },
+            "flags": []
+          }
+        ],
+        "holdings": [
+          {
+            "ticker": "GOOGL",
+            "name": "Alphabet Inc. (Class A)",
+            "weight": 0.46400436957682134,
+            "eldarScore": 7.3,
+            "rating": "BUY",
+            "contribution": 3.387231897910796
+          },
+          {
+            "ticker": "NVDA",
+            "name": "Nvidia",
+            "weight": 0.23778194322032845,
+            "eldarScore": 7.23,
+            "rating": "BUY",
+            "contribution": 1.7191634494829748
+          },
+          {
+            "ticker": "BAC",
+            "name": "Bank of America",
+            "weight": 0.1267922092431446,
+            "eldarScore": 7.33,
+            "rating": "BUY",
+            "contribution": 0.9293868937522499
+          },
+          {
+            "ticker": "WMT",
+            "name": "Walmart",
+            "weight": 0.12494010452226373,
+            "eldarScore": 7.2,
+            "rating": "BUY",
+            "contribution": 0.8995687525602989
+          },
+          {
+            "ticker": "PM",
+            "name": "Philip Morris International",
+            "weight": 0.04648137343744181,
+            "eldarScore": 7.35,
+            "rating": "BUY",
+            "contribution": 0.3416380947651973
+          }
+        ],
+        "dataCompleteness": 1,
+        "monthsOfHistory": 48,
+        "disclaimers": [
+          "Portfolio rating is based on trailing historical performance and current holdings composition.",
+          "This rating is not a forecast of future returns."
+        ],
+        "modelVersion": "portfolio-v1.0",
+        "confidenceFlags": [],
+        "peerPercentile": 50.9,
+        "riskSeries": {
+          "portfolio": [
+            1.006733685048162,
+            1.0133541750152915,
+            1.0102528291012354,
+            1.010713582670807,
+            1.0176420349665993,
+            1.019633659856403,
+            1.018043382436439,
+            1.0130001555454355,
+            1.0159980358199108,
+            1.0157310930495425,
+            0.9951653080602978,
+            1.0070746522408525,
+            1.0129831625571766,
+            1.0136987358138245,
+            1.0191580754029355,
+            1.0237049242953413,
+            1.0240098040015426,
+            1.023074749669286,
+            1.019061837079246,
+            1.02494257964205,
+            1.0167179263063342,
+            1.0119465541221573,
+            0.9999332585699214,
+            1.020007227675511,
+            1.02517925791171,
+            1.022181379146077,
+            1.0225192301275572,
+            1.0068936539289333,
+            1.0077782748927007,
+            1.009200025698914,
+            1.0152003166283927,
+            1.0127205488613618,
+            1.0201329312477383,
+            1.0099252897258217,
+            1.0180361390722572,
+            1.026705577166376,
+            1.0215863415503394,
+            1.01754100534591,
+            1.018332467908573,
+            1.009101794254316
+          ],
+          "benchmark": [
+            1.00635418686675,
+            1.0125902715911856,
+            1.0091069874184766,
+            1.00918426412888,
+            1.0157192493369511,
+            1.0173216475394657,
+            1.015348904347471,
+            1.0099337024146786,
+            1.012539239801297,
+            1.0118889489929972,
+            0.9910169469283967,
+            1.0025005577045611,
+            1.0080017846545952,
+            1.008331304212164,
+            1.0133790772577558,
+            1.0175155683410442,
+            1.017432459426082,
+            1.0161172972980854,
+            1.0117460599813077,
+            1.0172006292948719,
+            1.008652075462895,
+            1.0035357740137378,
+            0.9912414868039081,
+            1.0107647915642992,
+            1.015506373870557,
+            1.0121513981981405,
+            1.0121018244593911,
+            0.9962513505198682,
+            0.996748545958501,
+            0.9977764720119794,
+            1.0033301888030421,
+            1.0004986534897726,
+            1.0074418930169557,
+            0.9969789180385714,
+            1.0046074416014068,
+            1.0127812762904849,
+            1.0073471196928763,
+            1.0029758823760986,
+            1.0033753883883725,
+            0.9938995140315553
+          ],
+          "rollingSharpe": [
+            0,
+            -8.867075054895196,
+            -12.296214601128735,
+            0.5393085426916041,
+            -4.742253830567839,
+            -6.929369261612893,
+            -9.66666100409798,
+            -0.9362411851041625,
+            0.04777228723826076,
+            -0.5062264820446283,
+            -0.4577378061153462,
+            -2.6139770315620985,
+            -2.527242626654533,
+            -2.1847511475603185,
+            -0.755582897625523,
+            -1.951506128646824,
+            0.25465026301716315,
+            -0.4892686926997284,
+            2.3860314455057305,
+            0.8606703892900024,
+            -0.9407693273186131,
+            -1.1200865885208768,
+            -1.0397803644664956,
+            0.07632381258093816
+          ]
+        }
+      },
+      "createdAt": "2026-03-04T12:49:34.585Z"
+    },
+    {
+      "id": "a552da77-3819-458e-b229-8e2b4d1165d4",
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "asOfDate": "2026-03-04",
+      "holdings": [
+        {
+          "symbol": "GOOGL",
+          "shares": 6
+        },
+        {
+          "symbol": "NVDA",
+          "shares": 5
+        },
+        {
+          "symbol": "BAC",
+          "shares": 10
+        },
+        {
+          "symbol": "WMT",
+          "shares": 4
+        },
+        {
+          "symbol": "PM",
+          "shares": 1
+        }
+      ],
+      "rating": {
+        "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+        "asOfDate": "2026-03-04",
+        "peerGroup": "Sector: Information Technology",
+        "compositeScore": 5.09,
+        "stars": 3,
+        "rating": "HOLD",
+        "pillars": [
+          {
+            "key": "return",
+            "label": "Return",
+            "score": 43.9,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "cagr": "0.9%",
+              "oneYearReturn": "0.9%",
+              "excessReturn": "+1.5%"
+            },
+            "flags": []
+          },
+          {
+            "key": "risk",
+            "label": "Risk",
+            "score": 41.1,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "sharpe": "-0.28",
+              "volatility": "12.0%",
+              "sortino": "-0.39"
+            },
+            "flags": []
+          },
+          {
+            "key": "drawdown",
+            "label": "Drawdown",
+            "score": 91.5,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "maxDrawdown": "-2.4%",
+              "currentDrawdown": "-1.7%",
+              "cvar95": "1.8%"
+            },
+            "flags": []
+          },
+          {
+            "key": "diversification",
+            "label": "Diversification",
+            "score": 2.6,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "effectiveN": "3.3",
+              "topFivePct": "100.0%",
+              "sectorHHI": "0.54"
+            },
+            "flags": [
+              "concentrated",
+              "position_risk",
+              "sector_concentration"
+            ]
+          },
+          {
+            "key": "implementability",
+            "label": "Implementability",
+            "score": 83.8,
+            "peerMedian": 50,
+            "weight": 0.1,
+            "hasData": true,
+            "metrics": {
+              "liquidityTier": "Large Cap",
+              "turnover": "24.4%",
+              "tcDrag": "0.1%"
+            },
+            "flags": []
+          },
+          {
+            "key": "eldarTilt",
+            "label": "ELDAR Tilt",
+            "score": 56.8,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "weightedScore": "7.28",
+              "strongBuyPct": "0.0%",
+              "strongSellPct": "0.0%"
+            },
+            "flags": []
+          }
+        ],
+        "holdings": [
+          {
+            "ticker": "GOOGL",
+            "name": "Alphabet Inc. (Class A)",
+            "weight": 0.46400436957682134,
+            "eldarScore": 7.3,
+            "rating": "BUY",
+            "contribution": 3.387231897910796
+          },
+          {
+            "ticker": "NVDA",
+            "name": "Nvidia",
+            "weight": 0.23778194322032845,
+            "eldarScore": 7.23,
+            "rating": "BUY",
+            "contribution": 1.7191634494829748
+          },
+          {
+            "ticker": "BAC",
+            "name": "Bank of America",
+            "weight": 0.1267922092431446,
+            "eldarScore": 7.33,
+            "rating": "BUY",
+            "contribution": 0.9293868937522499
+          },
+          {
+            "ticker": "WMT",
+            "name": "Walmart",
+            "weight": 0.12494010452226373,
+            "eldarScore": 7.2,
+            "rating": "BUY",
+            "contribution": 0.8995687525602989
+          },
+          {
+            "ticker": "PM",
+            "name": "Philip Morris International",
+            "weight": 0.04648137343744181,
+            "eldarScore": 7.35,
+            "rating": "BUY",
+            "contribution": 0.3416380947651973
+          }
+        ],
+        "dataCompleteness": 1,
+        "monthsOfHistory": 48,
+        "disclaimers": [
+          "Portfolio rating is based on trailing historical performance and current holdings composition.",
+          "This rating is not a forecast of future returns."
+        ],
+        "modelVersion": "portfolio-v1.0",
+        "confidenceFlags": [],
+        "peerPercentile": 50.9,
+        "riskSeries": {
+          "portfolio": [
+            1.006733685048162,
+            1.0133541750152915,
+            1.0102528291012354,
+            1.010713582670807,
+            1.0176420349665993,
+            1.019633659856403,
+            1.018043382436439,
+            1.0130001555454355,
+            1.0159980358199108,
+            1.0157310930495425,
+            0.9951653080602978,
+            1.0070746522408525,
+            1.0129831625571766,
+            1.0136987358138245,
+            1.0191580754029355,
+            1.0237049242953413,
+            1.0240098040015426,
+            1.023074749669286,
+            1.019061837079246,
+            1.02494257964205,
+            1.0167179263063342,
+            1.0119465541221573,
+            0.9999332585699214,
+            1.020007227675511,
+            1.02517925791171,
+            1.022181379146077,
+            1.0225192301275572,
+            1.0068936539289333,
+            1.0077782748927007,
+            1.009200025698914,
+            1.0152003166283927,
+            1.0127205488613618,
+            1.0201329312477383,
+            1.0099252897258217,
+            1.0180361390722572,
+            1.026705577166376,
+            1.0215863415503394,
+            1.01754100534591,
+            1.018332467908573,
+            1.009101794254316
+          ],
+          "benchmark": [
+            1.00635418686675,
+            1.0125902715911856,
+            1.0091069874184766,
+            1.00918426412888,
+            1.0157192493369511,
+            1.0173216475394657,
+            1.015348904347471,
+            1.0099337024146786,
+            1.012539239801297,
+            1.0118889489929972,
+            0.9910169469283967,
+            1.0025005577045611,
+            1.0080017846545952,
+            1.008331304212164,
+            1.0133790772577558,
+            1.0175155683410442,
+            1.017432459426082,
+            1.0161172972980854,
+            1.0117460599813077,
+            1.0172006292948719,
+            1.008652075462895,
+            1.0035357740137378,
+            0.9912414868039081,
+            1.0107647915642992,
+            1.015506373870557,
+            1.0121513981981405,
+            1.0121018244593911,
+            0.9962513505198682,
+            0.996748545958501,
+            0.9977764720119794,
+            1.0033301888030421,
+            1.0004986534897726,
+            1.0074418930169557,
+            0.9969789180385714,
+            1.0046074416014068,
+            1.0127812762904849,
+            1.0073471196928763,
+            1.0029758823760986,
+            1.0033753883883725,
+            0.9938995140315553
+          ],
+          "rollingSharpe": [
+            0,
+            -8.867075054895196,
+            -12.296214601128735,
+            0.5393085426916041,
+            -4.742253830567839,
+            -6.929369261612893,
+            -9.66666100409798,
+            -0.9362411851041625,
+            0.04777228723826076,
+            -0.5062264820446283,
+            -0.4577378061153462,
+            -2.6139770315620985,
+            -2.527242626654533,
+            -2.1847511475603185,
+            -0.755582897625523,
+            -1.951506128646824,
+            0.25465026301716315,
+            -0.4892686926997284,
+            2.3860314455057305,
+            0.8606703892900024,
+            -0.9407693273186131,
+            -1.1200865885208768,
+            -1.0397803644664956,
+            0.07632381258093816
+          ]
+        }
+      },
+      "createdAt": "2026-03-04T12:48:33.678Z"
     }
   ]
 }

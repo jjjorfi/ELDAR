@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 
 import { CompanyLogo } from "@/components/CompanyLogo";
-import { HeaderFeedStrip } from "@/components/HeaderFeedStrip";
 import { PortfolioRatingPanel } from "@/components/portfolio";
 import { RATING_BANDS, toRating } from "@/lib/rating";
 import { scorePortfolio } from "@/lib/scoring/portfolio-engine";
@@ -244,7 +243,6 @@ function NavigationBar({
       <div className="container mx-auto px-6">
         <div className="flex h-16 items-center justify-between gap-3">
           <EldarLogo onClick={onHome} />
-          <HeaderFeedStrip wrapperClassName="relative hidden flex-1 items-center px-2 xl:flex" />
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -795,11 +793,12 @@ export function StockDashboard({
     router.push("/macro");
   }
 
-  function openJournalPage(options?: { symbol?: string; type?: string }): void {
+  function openJournalPage(options?: { symbol?: string; type?: string; entryId?: string }): void {
     saveReturnState();
     const params = new URLSearchParams();
     if (options?.symbol) params.set("symbol", options.symbol.toUpperCase());
     if (options?.type) params.set("type", options.type);
+    if (options?.entryId) params.set("entryId", options.entryId);
     const query = params.toString();
     router.push(query ? `/journal?${query}` : "/journal");
   }
@@ -3642,7 +3641,7 @@ export function StockDashboard({
                         <button
                           key={`journal-${entry.id}`}
                           type="button"
-                          onClick={() => openJournalPage({ symbol: currentRating.symbol })}
+                          onClick={() => openJournalPage({ symbol: currentRating.symbol, entryId: entry.id })}
                           className="w-full rounded-xl border border-white/15 bg-zinc-950/45 px-3 py-2 text-left transition hover:border-white/30"
                         >
                           <p className="truncate text-xs font-semibold text-white">{entry.title}</p>
