@@ -6,9 +6,8 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bookmark, BriefcaseBusiness, CircleUserRound, Grid2x2, Home, LineChart, Moon, Search, Sun } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { HeaderFeedStrip } from "@/components/HeaderFeedStrip";
 
-const RSS_TICKER_ID = "_TY28wH8o2RkP29Ic";
-const RSS_PARKING_ID = "eldar-rss-parking";
 const ELDAR_BRAND_LOGO = "/brand/eldar-logo.png";
 const DASHBOARD_RETURN_STATE_KEY = "eldar:dashboard:return-state";
 
@@ -22,69 +21,6 @@ interface MacroIndicatorSnapshot {
   date: string | null;
   change: number | null;
   changeMode: "yoy_pct" | "qoq_pct" | "mom_pct" | "delta_pp" | "delta_abs";
-}
-
-function ensureRssParkingNode(): HTMLDivElement {
-  const existing = document.getElementById(RSS_PARKING_ID);
-  if (existing && existing instanceof HTMLDivElement) {
-    return existing;
-  }
-
-  const parking = document.createElement("div");
-  parking.id = RSS_PARKING_ID;
-  parking.style.position = "fixed";
-  parking.style.left = "-99999px";
-  parking.style.top = "0";
-  parking.style.width = "1px";
-  parking.style.height = "1px";
-  parking.style.overflow = "hidden";
-  parking.style.pointerEvents = "none";
-  parking.style.opacity = "0";
-  document.body.appendChild(parking);
-  return parking;
-}
-
-function ensureRssTickerElement(): HTMLElement {
-  const parking = ensureRssParkingNode();
-  const existing = document.querySelector(`rssapp-ticker[data-eldar-rss="1"]`);
-  if (existing instanceof HTMLElement) {
-    return existing;
-  }
-
-  const ticker = document.createElement("rssapp-ticker");
-  ticker.setAttribute("id", RSS_TICKER_ID);
-  ticker.setAttribute("data-eldar-rss", "1");
-  parking.appendChild(ticker);
-  return ticker;
-}
-
-function NewsTickerBar(): JSX.Element {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-
-    const ticker = ensureRssTickerElement();
-    if (ticker.parentElement !== host) {
-      host.appendChild(ticker);
-    }
-
-    return () => {
-      const parking = ensureRssParkingNode();
-      if (ticker.parentElement !== parking) {
-        parking.appendChild(ticker);
-      }
-    };
-  }, []);
-
-  return (
-    <div className="relative hidden flex-1 items-center px-2 md:flex">
-      <div className="eldar-rss-shell w-full [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
-        <div ref={hostRef} className="min-h-[24px]" />
-      </div>
-    </div>
-  );
 }
 
 function formatValue(value: number | null, unit: string): string {
@@ -255,17 +191,19 @@ export default function MacroPage(): JSX.Element {
     };
   }, [indicators]);
 
+  const appBackground = themeMode === "dark" ? "#000000" : "#f3f4f6";
+
   return (
-    <main className="min-h-screen overflow-x-hidden text-white" style={{ background: "#000000" }}>
+    <main className="min-h-screen overflow-x-hidden text-white" style={{ background: appBackground }}>
       <nav className="fixed left-0 right-0 top-0 z-50 border-b border-white/15 bg-zinc-950/80 shadow-2xl shadow-black/50 backdrop-blur-2xl">
         <div className="container mx-auto px-6">
           <div className="flex h-16 items-center justify-between gap-3">
-            <button type="button" onClick={() => openDashboardView("home")} className="flex cursor-pointer items-center gap-3">
+            <button type="button" onClick={() => openDashboardView("home")} className="eldar-logo-button flex cursor-pointer items-center gap-3">
               <div className="relative h-10 w-10 overflow-hidden">
                 <Image src={ELDAR_BRAND_LOGO} alt="ELDAR logo" fill sizes="40px" className="object-contain" priority />
               </div>
             </button>
-            <NewsTickerBar />
+            <HeaderFeedStrip wrapperClassName="relative hidden flex-1 items-center px-2 md:flex" />
             <div className="flex items-center gap-2">
               <button
                 type="button"

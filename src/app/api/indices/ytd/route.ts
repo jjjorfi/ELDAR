@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { isNySessionOpen } from "@/lib/market/ny-session";
+import { publishIndicesYtd } from "@/lib/realtime/publisher";
 import guard, { isGuardBlockedError } from "@/lib/security/guard";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 
@@ -13,6 +14,7 @@ interface IndexConfig {
   code: IndexCode;
   label: string;
   symbol: string;
+  yahooSymbol: string;
 }
 
 interface IndexYtdRow {
@@ -31,16 +33,20 @@ interface CacheState {
 }
 
 const INDEX_CONFIGS: IndexConfig[] = [
-  { code: "US30", label: "US30", symbol: "^dji" },
-  { code: "US100", label: "US100", symbol: "^ndx" },
-  { code: "US500", label: "US500", symbol: "^spx" }
+  { code: "US30", label: "US30", symbol: "^dji", yahooSymbol: "^DJI" },
+  { code: "US100", label: "US100", symbol: "^ndx", yahooSymbol: "^NDX" },
+  { code: "US500", label: "US500", symbol: "^spx", yahooSymbol: "^GSPC" }
 ];
 
 const CACHE_HEADER_OPEN = "public, max-age=120, s-maxage=300, stale-while-revalidate=600";
 const CACHE_HEADER_CLOSED = "public, max-age=300, s-maxage=900, stale-while-revalidate=1800";
 const MAX_POINTS = 42;
+const CURRENT_YEAR = new Date().getUTCFullYear();
+const YAHOO_RANGE = "1y";
+const YAHOO_INTERVAL = "1d";
 
 let indicesCache: CacheState | null = null;
+const lastGoodByCode: Partial<Record<IndexCode, IndexYtdRow>> = {};
 
 function parseCsvNumber(value: string | undefined): number | null {
   if (!value) return null;
@@ -186,6 +192,104 @@ async function fetchStooqYtdRow(config: IndexConfig): Promise<IndexYtdRow> {
   }
 }
 
+async function fetchYahooYtdRow(config: IndexConfig): Promise<IndexYtdRow> {
+  const baseUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(config.yahooSymbol)}`;
+  const url = `${baseUrl}?interval=${YAHOO_INTERVAL}&range=${YAHOO_RANGE}`;
+
+  try {
+    const response = await fetch(url, {
+      cache: "no-store",
+      headers: { "User-Agent": "Mozilla/5.0" }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Yahoo chart failed with status ${response.status}`);
+    }
+
+    const payload = (await response.json()) as {
+      chart?: {
+        result?: Array<{
+          timestamp?: number[];
+          indicators?: {
+            quote?: Array<{
+              close?: Array<number | null>;
+            }>;
+          };
+          meta?: {
+            regularMarketPrice?: number;
+            symbol?: string;
+          };
+        }>;
+      };
+    };
+
+    const result = payload.chart?.result?.[0];
+    const timestamps = Array.isArray(result?.timestamp) ? result.timestamp : [];
+    const closes = result?.indicators?.quote?.[0]?.close ?? [];
+
+    const rows = timestamps
+      .map((ts, idx) => {
+        const close = closes[idx];
+        if (typeof close !== "number" || !Number.isFinite(close)) return null;
+        const date = new Date(ts * 1000);
+        if (Number.isNaN(date.getTime())) return null;
+        return {
+          isoDate: date.toISOString().slice(0, 10),
+          close
+        };
+      })
+      .filter((row): row is { isoDate: string; close: number } => row !== null);
+
+    if (rows.length === 0) {
+      throw new Error("Yahoo chart returned no usable rows.");
+    }
+
+    const latest = rows[rows.length - 1];
+    const ytdRows = rows.filter((row) => row.isoDate.startsWith(`${CURRENT_YEAR}-`));
+    const effectiveRows = ytdRows.length >= 2 ? ytdRows : rows;
+    const startClose = effectiveRows[0]?.close ?? null;
+    const latestClose = latest?.close ?? result?.meta?.regularMarketPrice ?? null;
+    const ytdChangePercent =
+      typeof latestClose === "number" && startClose !== null && startClose !== 0
+        ? ((latestClose - startClose) / startClose) * 100
+        : null;
+
+    return {
+      code: config.code,
+      label: config.label,
+      symbol: result?.meta?.symbol ?? config.yahooSymbol,
+      current: typeof latestClose === "number" ? latestClose : null,
+      ytdChangePercent,
+      asOf: latest?.isoDate ?? null,
+      points: downsample(effectiveRows.map((row) => row.close), MAX_POINTS)
+    };
+  } catch {
+    return {
+      code: config.code,
+      label: config.label,
+      symbol: config.yahooSymbol,
+      current: null,
+      ytdChangePercent: null,
+      asOf: null,
+      points: []
+    };
+  }
+}
+
+async function fetchRobustIndexRow(config: IndexConfig): Promise<IndexYtdRow> {
+  const stooq = await fetchStooqYtdRow(config);
+  if (stooq.current !== null && stooq.points.length > 0) {
+    return stooq;
+  }
+
+  const yahoo = await fetchYahooYtdRow(config);
+  if (yahoo.current !== null && yahoo.points.length > 0) {
+    return yahoo;
+  }
+
+  return stooq.current !== null || stooq.points.length > 0 ? stooq : yahoo;
+}
+
 export async function GET(request: Request): Promise<NextResponse> {
   try {
     // Shared security gate: protected-route policy + global rolling per-IP limit.
@@ -212,12 +316,20 @@ export async function GET(request: Request): Promise<NextResponse> {
       return NextResponse.json(indicesCache.payload, { headers: { "Cache-Control": cacheHeader } });
     }
 
-    const indices = await Promise.all(INDEX_CONFIGS.map((config) => fetchStooqYtdRow(config)));
+    const fetchedRows = await Promise.all(INDEX_CONFIGS.map((config) => fetchRobustIndexRow(config)));
+    const indices = fetchedRows.map((row) => {
+      if (row.current !== null && row.points.length > 0) {
+        lastGoodByCode[row.code] = row;
+        return row;
+      }
+      return lastGoodByCode[row.code] ?? row;
+    });
     const payload = { indices };
     indicesCache = {
       expiresAt: Date.now() + (liveOpen ? 5 * 60 * 1000 : 15 * 60 * 1000),
       payload
     };
+    await publishIndicesYtd(payload);
 
     return NextResponse.json(payload, { headers: { "Cache-Control": cacheHeader } });
   } catch (error) {

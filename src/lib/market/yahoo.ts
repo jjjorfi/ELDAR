@@ -7,6 +7,7 @@ import { fetchEodhdFallbackData, fetchEodhdQuoteSnapshot } from "@/lib/market/eo
 import { fetchFmpFallbackData, fetchFmpQuoteSnapshot } from "@/lib/market/fmp";
 import {
   fetchFinnhubLatestEarnings,
+  fetchFinnhubInsiderSignal,
   fetchFinnhubMetrics,
   fetchFinnhubOptionFlow,
   fetchFinnhubQuoteSnapshot,
@@ -16,7 +17,7 @@ import {
 import { extractFinnhubMetrics } from "@/lib/market/finnhub-metrics";
 import { fetchMassiveOptionFlow, fetchMassiveQuoteSnapshot, fetchMassiveShortInterest } from "@/lib/market/massive";
 import { mergePriceObservations } from "@/lib/market/price-merge";
-import { monthSeasonalityRatio, rsi, sma } from "@/lib/market/indicators";
+import { rsi, sma } from "@/lib/market/indicators";
 import { fetchMacroSignals } from "@/lib/market/macro";
 import { fetchSP500Directory } from "@/lib/market/sp500";
 import { getLastKnownPrice } from "@/lib/storage";
@@ -50,6 +51,25 @@ interface YahooChartResponse {
   };
 }
 
+const SECTOR_ETF_MAP: Record<string, string> = {
+  "Information Technology": "XLK",
+  Financials: "XLF",
+  "Health Care": "XLV",
+  "Consumer Discretionary": "XLY",
+  "Communication Services": "XLC",
+  Industrials: "XLI",
+  "Consumer Staples": "XLP",
+  Energy: "XLE",
+  Utilities: "XLU",
+  "Real Estate": "XLRE",
+  Materials: "XLB"
+};
+
+const COMMODITY_SYMBOL_BY_SECTOR: Record<string, string> = {
+  Energy: "CL=F",
+  Materials: "HG=F"
+};
+
 export interface YahooQuoteSnapshot {
   price: number | null;
   asOfMs: number | null;
@@ -65,6 +85,28 @@ function filterCloses(history: HistoryPoint[]): number[] {
   return history
     .map((item) => item.close)
     .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+}
+
+function trailingReturn(closes: number[], lookback: number): number | null {
+  if (closes.length <= lookback) return null;
+  const latest = closes[closes.length - 1];
+  const base = closes[closes.length - 1 - lookback];
+  if (!Number.isFinite(latest) || !Number.isFinite(base) || base <= 0) return null;
+  return latest / base - 1;
+}
+
+function rollingZScore(closes: number[], window: number): number | null {
+  if (closes.length < window) return null;
+  const slice = closes.slice(-window);
+  if (slice.length === 0) return null;
+
+  const mean = slice.reduce((sum, value) => sum + value, 0) / slice.length;
+  const variance = slice.reduce((sum, value) => sum + (value - mean) ** 2, 0) / slice.length;
+  const std = Math.sqrt(variance);
+  if (!Number.isFinite(std) || std <= 0) return null;
+
+  const latest = closes[closes.length - 1];
+  return (latest - mean) / std;
 }
 
 /**
@@ -180,6 +222,21 @@ function hasOptionFlowData(flow: {
   totalPutVolume: number | null;
 }): boolean {
   return flow.putCallRatio !== null || flow.totalCallVolume !== null || flow.totalPutVolume !== null;
+}
+
+/**
+ * Converts raw share/volume fields that may be represented in millions into absolute shares.
+ *
+ * @param value Raw provider value.
+ * @param millionThreshold Values at or below this threshold are treated as "millions".
+ * @returns Absolute share count or null.
+ */
+function normalizeShareUnits(value: number | null, millionThreshold: number): number | null {
+  if (value === null || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+
+  return value <= millionThreshold ? value * 1_000_000 : value;
 }
 
 /**
@@ -316,7 +373,17 @@ export async function fetchYahooQuoteSnapshot(symbol: string): Promise<YahooQuot
 export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapshot> {
   const normalizedSymbol = symbol.toUpperCase();
 
-  const [summaryResult, dailyResult, monthlyResult, macroResult, finnhubMetricsResult, finnhubEarningsResult, finnhubProfileResult, sp500DirectoryResult] =
+  const [
+    summaryResult,
+    dailyResult,
+    monthlyResult,
+    macroResult,
+    finnhubMetricsResult,
+    finnhubEarningsResult,
+    finnhubProfileResult,
+    finnhubInsiderResult,
+    sp500DirectoryResult
+  ] =
     await Promise.allSettled([
       fetchQuoteSummary(normalizedSymbol),
       fetchChartHistory(normalizedSymbol, "2y", "1d"),
@@ -325,6 +392,7 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
       fetchFinnhubMetrics(normalizedSymbol),
       fetchFinnhubLatestEarnings(normalizedSymbol),
       fetchFinnhubCompanyProfile(normalizedSymbol),
+      fetchFinnhubInsiderSignal(normalizedSymbol),
       fetchSP500Directory()
     ]);
 
@@ -349,7 +417,17 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
       ? finnhubProfileResult.value
       : {
           sector: null,
-          industry: null
+          industry: null,
+          shareOutstanding: null
+        };
+  const finnhubInsider =
+    finnhubInsiderResult.status === "fulfilled"
+      ? finnhubInsiderResult.value
+      : {
+          netChangeShares90d: null,
+          buyShares90d: 0,
+          sellShares90d: 0,
+          transactionCount90d: 0
         };
   const sp500Directory = sp500DirectoryResult.status === "fulfilled" ? sp500DirectoryResult.value : {};
   const canonicalCompanyName =
@@ -636,23 +714,29 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
       avFallback.revenueGrowth ??
       finnhubMetrics.revenueGrowth
   );
-  const profitMargin = normalizeRatio(
-    eodhdFallback.profitMargin ??
-    fromRawNumber(financialData.profitMargins) ??
-      safeNumber(financialData.profitMargins) ??
-      fromRawNumber(keyStats.profitMargins) ??
-      safeNumber(keyStats.profitMargins) ??
-      fmpFallback.profitMargin ??
-      avFallback.profitMargin ??
-      finnhubMetrics.profitMargin
-  );
 
   const closes = filterCloses(dailyHistory);
-  const sma20 = sma(closes, 20);
-  const sma50 = sma(closes, 50);
   const sma200 = sma(closes, 200);
   const rsi14 = rsi(closes, 14);
-  const seasonality = monthSeasonalityRatio(monthlyHistory);
+
+  const sectorEtfSymbol = SECTOR_ETF_MAP[resolvedSector] ?? null;
+  const commoditySymbol = COMMODITY_SYMBOL_BY_SECTOR[resolvedSector] ?? null;
+  const [sectorHistory, commodityHistory] = await Promise.all([
+    sectorEtfSymbol ? fetchChartHistory(sectorEtfSymbol, "2y", "1d").catch(() => []) : Promise.resolve([]),
+    commoditySymbol ? fetchChartHistory(commoditySymbol, "2y", "1d").catch(() => []) : Promise.resolve([])
+  ]);
+  const sectorCloses = filterCloses(sectorHistory);
+  const commodityCloses = filterCloses(commodityHistory);
+
+  const stockReturn52w = trailingReturn(closes, 252);
+  const sectorReturn52w = trailingReturn(sectorCloses, 252);
+  const rs52Week =
+    stockReturn52w !== null && sectorReturn52w !== null && Number.isFinite(1 + sectorReturn52w) && 1 + sectorReturn52w > 0
+      ? (1 + stockReturn52w) / (1 + sectorReturn52w)
+      : null;
+  const zScore52Week = rollingZScore(closes, 252);
+  const priceZScore20d = rollingZScore(closes, 20);
+  const commodityMomentum12m = trailingReturn(commodityCloses, 252);
 
   const fcfYield = freeCashflow !== null && marketCap !== null && marketCap > 0 ? freeCashflow / marketCap : null;
 
@@ -689,15 +773,9 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
     safeNumber(financialData.trailingEps) ??
     finnhubMetrics.trailingEps;
 
-  const epsEstimate =
-    finnhubEarnings.estimate ??
-    finnhubMetrics.epsEstimate ??
-    fromRawNumber(keyStats.epsCurrentQuarter) ??
-    safeNumber(keyStats.epsCurrentQuarter) ??
-    fromRawNumber(financialData.currentQuarterEstimate) ??
-    safeNumber(financialData.currentQuarterEstimate);
-
-  const returnOnEquity = normalizeRatio(
+  const roic = normalizeRatio(
+    fromRawNumber(financialData.returnOnInvestedCapital) ??
+      safeNumber(financialData.returnOnInvestedCapital) ??
     fromRawNumber(financialData.returnOnEquity) ??
       safeNumber(financialData.returnOnEquity) ??
       fromRawNumber(keyStats.returnOnEquity) ??
@@ -705,22 +783,15 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
       finnhubMetrics.roe
   );
 
-  const grossMargins = normalizeRatio(
-    fromRawNumber(financialData.grossMargins) ??
-      safeNumber(financialData.grossMargins) ??
-      fromRawNumber(keyStats.grossMargins) ??
-      safeNumber(keyStats.grossMargins) ??
-      finnhubMetrics.grossMargin
-  );
-
-  const grossMarginsTTM = normalizeRatio(
-    fromRawNumber(keyStats.grossMarginsTTM) ??
-      safeNumber(keyStats.grossMarginsTTM) ??
-      fromRawNumber(summaryDetail.grossMargins) ??
-      safeNumber(summaryDetail.grossMargins) ??
-      finnhubMetrics.grossMarginTTM ??
-      grossMargins
-  );
+  const evEbitda =
+    fromRawNumber(financialData.enterpriseToEbitda) ??
+    safeNumber(financialData.enterpriseToEbitda) ??
+    fromRawNumber(summaryDetail.enterpriseToEbitda) ??
+    safeNumber(summaryDetail.enterpriseToEbitda) ??
+    fromRawNumber(keyStats.enterpriseToEbitda) ??
+    safeNumber(keyStats.enterpriseToEbitda) ??
+    finnhubMetrics.evEbitda ??
+    null;
 
   const shortPercentOfFloat = normalizeRatio(
     fromRawNumber(keyStats.shortPercentOfFloat) ??
@@ -733,12 +804,73 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
         : null)
   );
 
+  const sharesOutstanding =
+    finnhubMetrics.sharesOutstanding ??
+    finnhubProfile.shareOutstanding ??
+    normalizeShareUnits(
+      fromRawNumber(keyStats.sharesOutstanding) ??
+        safeNumber(keyStats.sharesOutstanding) ??
+        fromRawNumber(summaryDetail.sharesOutstanding) ??
+        safeNumber(summaryDetail.sharesOutstanding),
+      500_000
+    ) ??
+    (marketCap !== null && currentPrice > 0 ? marketCap / currentPrice : null);
+
+  const averageDailyVolumeShares =
+    finnhubMetrics.avgDailyVolumeShares ??
+    normalizeShareUnits(
+      fromRawNumber(summaryDetail.averageVolume) ??
+        safeNumber(summaryDetail.averageVolume) ??
+        fromRawNumber(summaryDetail.averageDailyVolume10Day) ??
+        safeNumber(summaryDetail.averageDailyVolume10Day) ??
+        fromRawNumber(keyStats.averageDailyVolume10Day) ??
+        safeNumber(keyStats.averageDailyVolume10Day),
+      2_000
+    );
+
+  const shortSharesEstimate =
+    massiveShortInterest.shortInterestShares ??
+    (shortPercentOfFloat !== null && sharesOutstanding !== null ? shortPercentOfFloat * sharesOutstanding : null);
+
+  const computedDtc =
+    shortSharesEstimate !== null && averageDailyVolumeShares !== null && averageDailyVolumeShares > 0
+      ? shortSharesEstimate / averageDailyVolumeShares
+      : null;
+
+  const dtc =
+    finnhubMetrics.dtc ??
+    fromRawNumber(keyStats.shortRatio) ??
+    safeNumber(keyStats.shortRatio) ??
+    fromRawNumber(summaryDetail.shortRatio) ??
+    safeNumber(summaryDetail.shortRatio) ??
+    computedDtc;
+
+  const rawNetBuyRatio90d =
+    finnhubInsider.netChangeShares90d !== null && sharesOutstanding !== null && sharesOutstanding > 0
+      ? finnhubInsider.netChangeShares90d / sharesOutstanding
+      : null;
+  const netBuyRatio90d =
+    rawNetBuyRatio90d !== null && Math.abs(rawNetBuyRatio90d) <= 0.25
+      ? rawNetBuyRatio90d
+      : null;
+
   const debtToEquity =
     eodhdFallback.debtToEquity ??
     extractDebtToEquity(financialData, keyStats) ??
     fmpFallback.debtToEquity ??
     avFallback.debtToEquity ??
     finnhubMetrics.debtToEquity;
+
+  const totalUpgrades =
+    yahooSentiment.upgrades90d +
+    avFallback.bullishNewsCount +
+    finnhubSentiment.bullishCount;
+  const totalDowngrades =
+    yahooSentiment.downgrades90d +
+    avFallback.bearishNewsCount +
+    finnhubSentiment.bearishCount;
+  const totalRevisions = totalUpgrades + totalDowngrades;
+  const epsRevision30d = totalRevisions > 0 ? (totalUpgrades - totalDowngrades) / totalRevisions : null;
 
   const providerCompanyName =
     fromRawString(priceData.longName) ??
@@ -776,47 +908,35 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
     earningsQuarterlyGrowth,
     forwardEps,
     trailingEps,
-    epsEstimate,
-    forwardPE,
-    returnOnEquity,
-    debtToEquity,
-    grossMargins,
-    grossMarginsTTM,
-    profitMargin,
     revenueGrowth,
-    shortPercentOfFloat,
-    freeCashflow,
     fcfYield,
-    macro,
-    seasonality: {
-      positiveMonthRatio10y: seasonality.ratio,
-      sampleSize: seasonality.sampleSize
-    },
+    debtToEquity,
+    forwardPE,
+    roic,
+    roicTrend: finnhubMetrics.roicTrend,
+    ffoYield: null,
+    evEbitda,
+    epsRevision30d,
     technical: {
-      sma20,
-      sma50,
       sma200,
-      rsi14
+      rs52Week,
+      zScore52Week,
+      priceZScore20d,
+      rsi14,
+      dtc
     },
-    sentiment: {
-      upgrades90d:
-        yahooSentiment.upgrades90d +
-        avFallback.bullishNewsCount +
-        finnhubSentiment.bullishCount,
-      downgrades90d:
-        yahooSentiment.downgrades90d +
-        avFallback.bearishNewsCount +
-        finnhubSentiment.bearishCount,
-      articleCount:
-        yahooSentiment.upgrades90d +
-        yahooSentiment.downgrades90d +
-        avFallback.bullishNewsCount +
-        avFallback.bearishNewsCount +
-        fmpFallback.articleCount +
-        eodhdFallback.articleCount +
-        finnhubSentiment.bullishCount +
-        finnhubSentiment.bearishCount
+    options: {
+      putCallRatio: optionFlow.putCallRatio,
+      totalCallVolume: optionFlow.totalCallVolume,
+      totalPutVolume: optionFlow.totalPutVolume
     },
-    options: optionFlow
+    insider: {
+      netBuyRatio90d
+    },
+    shortPercentOfFloat,
+    macro: {
+      vixLevel: macro.vixLevel,
+      commodityMomentum12m
+    }
   };
 }

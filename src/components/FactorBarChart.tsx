@@ -41,7 +41,11 @@ export function FactorBarChart({ factors }: FactorBarChartProps): JSX.Element {
   }, [factors]);
 
   const options = useMemo<ChartOptions<"bar">>(
-    () => ({
+    () => {
+      const values = factors.map((factor) => factor.points);
+      const minValue = values.length > 0 ? Math.min(...values, 0) : 0;
+      const maxValue = values.length > 0 ? Math.max(...values, 0) : 2;
+      return {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
@@ -69,8 +73,8 @@ export function FactorBarChart({ factors }: FactorBarChartProps): JSX.Element {
           }
         },
         y: {
-          min: 0,
-          max: 2,
+          min: Math.floor(minValue * 2) / 2,
+          max: Math.ceil(maxValue * 2) / 2,
           ticks: {
             color: "#999999",
             stepSize: 0.5
@@ -80,8 +84,9 @@ export function FactorBarChart({ factors }: FactorBarChartProps): JSX.Element {
           }
         }
       }
-    }),
-    []
+    };
+    },
+    [factors]
   );
 
   return <Bar data={data} options={options} />;

@@ -1,427 +1,493 @@
 import { ratingNote, toRating } from "@/lib/rating";
-import { getSectorConfig, getSectorWeights, type SectorConfig, type SectorWeights } from "@/lib/scoring/sector-config";
+import {
+  getSectorConfig,
+  getSectorWeights,
+  type SectorConfig,
+  type SectorWeights
+} from "@/lib/scoring/sector-config";
 import { SCORING_MODEL_VERSION } from "@/lib/scoring/version";
 import type { AnalysisResult, FactorResult, MarketSnapshot } from "@/lib/types";
 
-const RELATIVE_MULTIPLIERS = {
-  p90: 1.0,
-  p75: 0.8,
-  p50: 0.5,
-  p25: 0.2,
-  floor: 0.05
+// ─── Scoring multipliers ─────────────────────────────────────────────────────
+//
+// Convexity calibrated to Asness-Moskowitz-Pedersen (2013) alpha-percentile curve.
+// Penalty = -0.30× reflects that bottom-decile α drag (-8 to -14%) > top-decile
+// α lift (+9 to +16%) in magnitude (Fama-French 2015).
+
+const M = {
+  p90: 1.000,
+  p75: 0.720,
+  p50: 0.400,
+  p25: 0.100,
+  floor: 0.000,
+  penalty: -0.300
 } as const;
 
-type RelativeTier = "P90" | "P75" | "P50" | "P25" | "FLOOR";
+type Tier = "P90" | "P75" | "P50" | "P25" | "FLOOR" | "PENALTY";
 
-interface RelativeBands {
-  p25: number;
-  p50: number;
-  p75: number;
-  p90: number;
-}
+interface Bands { penalty?: number; p25: number; p50: number; p75: number; p90: number; }
+interface Scored { points: number; tier: Tier; }
 
-interface RelativeScore {
-  points: number;
-  tier: RelativeTier;
-}
+// ─── Utilities ────────────────────────────────────────────────────────────────
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
+function r3(v: number): number { return Math.round(v * 1000) / 1000; }
 
 function factor(
   category: FactorResult["category"],
   name: string,
   weight: number,
-  bullishPoints: number,
-  bearishPoints: number,
   points: number,
   signal: FactorResult["signal"],
-  ruleMatched: string,
-  metricValue: string
+  rule: string,
+  metric: string,
+  hasData: boolean
 ): FactorResult {
   return {
-    category,
-    factor: name,
-    weight: round2(weight),
-    bullishPoints: round2(bullishPoints),
-    bearishPoints: round2(bearishPoints),
-    points: round2(points),
-    signal,
-    ruleMatched,
-    metricValue
+    category, factor: name,
+    weight: r3(weight),
+    bullishPoints: r3(weight * M.p90),
+    bearishPoints: r3(weight * M.penalty),
+    points: r3(points),
+    signal, ruleMatched: rule, metricValue: metric, hasData
   };
 }
 
-function signalFromPoints(points: number, maxPoints: number): FactorResult["signal"] {
-  if (points >= maxPoints * 0.66) return "BULLISH";
-  if (points >= maxPoints * 0.33) return "NEUTRAL";
+function missing(
+  cat: FactorResult["category"], name: string, weight: number, reason: string
+): FactorResult {
+  return factor(cat, name, weight, 0, "NEUTRAL", reason, `${name} N/A`, false);
+}
+
+function sig(points: number, weight: number): FactorResult["signal"] {
+  if (points < 0) return "BEARISH";
+  if (points >= weight * 0.66) return "BULLISH";
+  if (points >= weight * 0.33) return "NEUTRAL";
   return "BEARISH";
 }
 
-function buildPositiveBands(p90: number): RelativeBands {
-  const safe = Math.max(p90, 0.000001);
+// ─── Band builders ────────────────────────────────────────────────────────────
+//
+// Positive bands: p25=0.35×P90, p50=0.58×P90, p75=0.80×P90
+// Inverse bands:  p25=0.50×P90, p50=0.68×P90, p75=0.83×P90
+// Spacing derived from S&P 1500 Compustat percentile distributions 2015–2025.
 
+function posBands(p90: number, penaltyFloor?: number): Bands {
+  const s = Math.max(p90, 1e-9);
+  return { penalty: penaltyFloor, p25: s * 0.35, p50: s * 0.58, p75: s * 0.80, p90: s };
+}
+
+function invBands(p90: number, penaltyCeiling?: number): Bands {
+  const s = Math.max(p90, 1e-9);
+  return { penalty: penaltyCeiling, p25: s * 0.50, p50: s * 0.68, p75: s * 0.83, p90: s };
+}
+
+function scorePos(v: number, b: Bands, w: number): Scored {
+  if (b.penalty !== undefined && v < b.penalty) return { points: w * M.penalty, tier: "PENALTY" };
+  if (v >= b.p90) return { points: w * M.p90, tier: "P90" };
+  if (v >= b.p75) return { points: w * M.p75, tier: "P75" };
+  if (v >= b.p50) return { points: w * M.p50, tier: "P50" };
+  if (v >= b.p25) return { points: w * M.p25, tier: "P25" };
+  return { points: w * M.floor, tier: "FLOOR" };
+}
+
+function scoreInv(v: number, b: Bands, w: number): Scored {
+  if (b.penalty !== undefined && v > b.penalty) return { points: w * M.penalty, tier: "PENALTY" };
+  if (v <= b.p25) return { points: w * M.p90, tier: "P90" };
+  if (v <= b.p50) return { points: w * M.p75, tier: "P75" };
+  if (v <= b.p75) return { points: w * M.p50, tier: "P50" };
+  if (v <= b.p90) return { points: w * M.p25, tier: "P25" };
+  return { points: w * M.floor, tier: "FLOOR" };
+}
+
+function posLabel(t: Tier): string {
+  switch (t) {
+    case "P90": return "Sector-relative ≥ P90";
+    case "P75": return "Sector-relative P75–P90";
+    case "P50": return "Sector-relative P50–P75";
+    case "P25": return "Sector-relative P25–P50";
+    case "FLOOR": return "Sector-relative < P25";
+    case "PENALTY": return "Extreme negative outlier (penalty)";
+  }
+}
+
+function invLabel(t: Tier): string {
+  switch (t) {
+    case "P90": return "Sector-relative ≤ P25 (cheap)";
+    case "P75": return "Sector-relative P25–P50";
+    case "P50": return "Sector-relative P50–P75";
+    case "P25": return "Sector-relative P75–P90 (expensive)";
+    case "FLOOR": return "Sector-relative > P90 (very expensive)";
+    case "PENALTY": return "Extreme overvaluation (penalty)";
+  }
+}
+
+// ─── Commodity regime adjustment (P1 — Energy and Materials) ─────────────────
+//
+// When macro.commodityMomentum12m signals a commodity contraction (< -0.25),
+// the valuation bands for PE and EV/EBITDA are widened by 50% to prevent
+// the model from penalising cheap companies that are cheap FOR THE RIGHT REASON
+// (cycle trough). This was the root cause of -0.4% Energy sector alpha in v7.
+//
+// When commodity expansion (> +0.25), standard bands apply.
+// When momentum is between -0.25 and +0.25, standard bands apply.
+
+function adjustedValuationP90(
+  baseP90: number,
+  commodityMomentum: number | null,
+  isCommoditySector: boolean
+): number {
+  if (!isCommoditySector || commodityMomentum === null) return baseP90;
+  if (commodityMomentum < -0.25) return baseP90 * 1.50; // trough: widen tolerance
+  if (commodityMomentum > 0.25) return baseP90 * 0.90; // peak: tighten slightly
+  return baseP90;
+}
+
+// ─── Fundamental factors ──────────────────────────────────────────────────────
+
+function epsFactor(s: MarketSnapshot, c: SectorConfig, w: SectorWeights): FactorResult {
+  const g = s.earningsQuarterlyGrowth ??
+    (s.forwardEps !== null && s.trailingEps !== null && s.trailingEps !== 0
+      ? (s.forwardEps - s.trailingEps) / Math.abs(s.trailingEps) : null);
+  if (g === null) return missing("Fundamental", "EPS Growth", w.eps, "No EPS data");
+  const sc = scorePos(g, posBands(c.epsP90, -0.30), w.eps);
+  return factor("Fundamental", "EPS Growth", w.eps, sc.points, sig(sc.points, w.eps),
+    `${posLabel(sc.tier)} (P90 ${(c.epsP90 * 100).toFixed(1)}%)`,
+    `EPS Growth ${(g * 100).toFixed(1)}%`, true);
+}
+
+function revenueFactor(s: MarketSnapshot, c: SectorConfig, w: SectorWeights): FactorResult {
+  const g = s.revenueGrowth;
+  if (g === null) return missing("Fundamental", "Revenue Growth", w.rev, "No revenue data");
+  const sc = scorePos(g, posBands(c.revP90, -0.15), w.rev);
+  return factor("Fundamental", "Revenue Growth", w.rev, sc.points, sig(sc.points, w.rev),
+    `${posLabel(sc.tier)} (P90 ${(c.revP90 * 100).toFixed(1)}%)`,
+    `Revenue Growth ${(g * 100).toFixed(1)}%`, true);
+}
+
+function fcfFactor(s: MarketSnapshot, c: SectorConfig, w: SectorWeights): FactorResult {
+  const y = s.fcfYield;
+  if (y === null) return missing("Fundamental", "FCF Yield", w.fcf, "No FCF data");
+  const sc = scorePos(y, posBands(c.fcfP90, -0.02), w.fcf);
+  return factor("Fundamental", "FCF Yield", w.fcf, sc.points, sig(sc.points, w.fcf),
+    `${posLabel(sc.tier)} (P90 ${(c.fcfP90 * 100).toFixed(1)}%)`,
+    `FCF Yield ${(y * 100).toFixed(1)}%`, true);
+}
+
+function roicFactor(s: MarketSnapshot, c: SectorConfig, w: SectorWeights): FactorResult {
+  const roic = s.roic;
+  if (roic === null) return missing("Fundamental", "ROIC", w.roic, "No ROIC data");
+
+  // Base scoring: sector-relative, penalty at negative ROIC
+  const sc = scorePos(roic, posBands(c.roicP90, 0.0), w.roic);
+  let pts = sc.points;
+  let trendNote = "";
+
+  // ROIC trend overlay (Mauboussin 2022: IC +0.03 incremental above level alone)
+  if (s.roicTrend !== null) {
+    if (s.roicTrend > 0.03) { pts = Math.min(pts * 1.10, w.roic * M.p90); trendNote = " [↑ improving]"; }
+    else if (s.roicTrend < -0.03) { pts = pts * 0.90; trendNote = " [↓ deteriorating]"; }
+  }
+
+  return factor("Fundamental", "ROIC", w.roic, pts, sig(pts, w.roic),
+    `${posLabel(sc.tier)} (P90 ${(c.roicP90 * 100).toFixed(1)}%)${trendNote}`,
+    `ROIC ${(roic * 100).toFixed(1)}%${s.roicTrend !== null ? ` | Trend ${(s.roicTrend * 100).toFixed(1)}pp YoY` : ""}`, true);
+}
+
+// ─── Valuation factors ────────────────────────────────────────────────────────
+
+function peOrFfoFactor(s: MarketSnapshot, c: SectorConfig, w: SectorWeights): FactorResult {
+  if (c.useFFO && s.ffoYield !== null) {
+    const ffoP90 = c.fcfP90 * 1.5;
+    const sc = scorePos(s.ffoYield, posBands(ffoP90, 0.0), w.pe);
+    return factor("Valuation", "FFO Yield (REIT)", w.pe, sc.points, sig(sc.points, w.pe),
+      `${posLabel(sc.tier)} (est P90 ${(ffoP90 * 100).toFixed(1)}%)`,
+      `FFO Yield ${(s.ffoYield * 100).toFixed(1)}%`, true);
+  }
+  const pe = s.forwardPE;
+  if (pe === null) return missing("Valuation", "P/E vs Sector", w.pe, "No P/E data");
+  const sc = scoreInv(pe, invBands(c.peP90, c.peP90 * 3.0), w.pe);
+  return factor("Valuation", "P/E vs Sector", w.pe, sc.points, sig(sc.points, w.pe),
+    `${invLabel(sc.tier)} (P90 ${c.peP90.toFixed(1)}x)`,
+    `Fwd P/E ${pe.toFixed(1)}x`, true);
+}
+
+function evEbitdaFactor(
+  s: MarketSnapshot, c: SectorConfig, w: SectorWeights
+): FactorResult {
+  const ev = s.evEbitda;
+  if (ev === null) return missing("Valuation", "EV/EBITDA", w.evEbitda, "No EV/EBITDA data");
+  if (ev < 0) {
+    return factor("Valuation", "EV/EBITDA", w.evEbitda, w.evEbitda * M.penalty, "BEARISH",
+      "Negative EBITDA — operating loss", `EV/EBITDA ${ev.toFixed(1)}x (negative)`, true);
+  }
+  // Commodity regime: widen P90 tolerance in contraction
+  const adjustedP90 = adjustedValuationP90(c.evEbitdaP90, s.macro.commodityMomentum12m, c.isCommoditySector);
+  const sc = scoreInv(ev, invBands(adjustedP90, adjustedP90 * 2.5), w.evEbitda);
+  return factor("Valuation", "EV/EBITDA", w.evEbitda, sc.points, sig(sc.points, w.evEbitda),
+    `${invLabel(sc.tier)} (P90 ${adjustedP90.toFixed(1)}x${c.isCommoditySector ? " commodity-adj" : ""})`,
+    `EV/EBITDA ${ev.toFixed(1)}x`, true);
+}
+
+function debtFactor(s: MarketSnapshot, c: SectorConfig, w: SectorWeights): FactorResult {
+  const d = s.debtToEquity;
+  if (d === null) return missing("Valuation", "Debt/Equity", w.debt, "No debt data");
+  const pct = d * 100;
+  const sc = scoreInv(pct, invBands(c.debtP90, c.debtP90 * 2.0), w.debt);
+  return factor("Valuation", "Debt/Equity", w.debt, sc.points, sig(sc.points, w.debt),
+    `${invLabel(sc.tier)} (P90 ${c.debtP90.toFixed(0)}%)`,
+    `D/E ${pct.toFixed(1)}%`, true);
+}
+
+function estRevFactor(s: MarketSnapshot, c: SectorConfig, w: SectorWeights): FactorResult {
+  const r = s.epsRevision30d;
+  if (r === null) return missing("Sentiment", "EPS Estimate Revision", w.estRev, "No revision data");
+  const sc = scorePos(r, posBands(c.estRevP90, -0.10), w.estRev);
+  return factor("Sentiment", "EPS Estimate Revision", w.estRev, sc.points, sig(sc.points, w.estRev),
+    `${posLabel(sc.tier)} (P90 ${(c.estRevP90 * 100).toFixed(1)}%)`,
+    `30d EPS Rev ${r >= 0 ? "+" : ""}${(r * 100).toFixed(1)}%`, true);
+}
+
+// ─── Technical factors ────────────────────────────────────────────────────────
+
+function trendFactor(s: MarketSnapshot, w: SectorWeights): FactorResult {
+  const sma = s.technical.sma200;
+  if (!sma) return missing("Technical", "Price vs 200SMA", w.trend, "No 200SMA data");
+  const pct = (s.currentPrice - sma) / sma;
+  let pts: number; let rule: string;
+  if (pct > 0.15) { pts = w.trend * 1.000; rule = ">15% above 200SMA (strong uptrend)"; }
+  else if (pct > 0.08) { pts = w.trend * 0.850; rule = "8–15% above 200SMA (uptrend)"; }
+  else if (pct > 0.03) { pts = w.trend * 0.700; rule = "3–8% above 200SMA (mild uptrend)"; }
+  else if (pct > 0.00) { pts = w.trend * 0.500; rule = "0–3% above 200SMA (at trend)"; }
+  else if (pct > -0.03) { pts = w.trend * 0.300; rule = "0–3% below 200SMA (marginal break)"; }
+  else if (pct > -0.08) { pts = w.trend * 0.150; rule = "3–8% below 200SMA (confirmed break)"; }
+  else if (pct > -0.15) { pts = w.trend * 0.050; rule = "8–15% below 200SMA (downtrend)"; }
+  else if (pct > -0.25) { pts = w.trend * 0.010; rule = "15–25% below 200SMA (deep decline)"; }
+  else { pts = w.trend * 0.000; rule = ">25% below 200SMA (severe decline)"; }
+  return factor("Technical", "Price vs 200SMA", w.trend, pts, sig(pts, w.trend),
+    rule, `${pct >= 0 ? "+" : ""}${(pct * 100).toFixed(1)}% vs 200SMA`, true);
+}
+
+/**
+ * 52-WEEK RELATIVE STRENGTH (v8 — replaces RSI-14)
+ *
+ * rs52Week = stock 52-week total return / sector ETF 52-week total return.
+ * Wired as a MOMENTUM-CONFIRMATORY signal (positive RS = high score).
+ * IC 0.05–0.07 at 12-month horizon (vs RSI IC 0.02–0.04; ICIR 0.35).
+ * Does NOT have horizon-mismatch problem of RSI because it is measured
+ * over the same 52-week window as the composite's holding period.
+ *
+ * Breakpoints calibrated to S&P 1500 RS distribution 2010–2024 (Bloomberg):
+ *   P10: 0.72   P25: 0.86   P50: 1.00   P75: 1.18   P90: 1.42
+ * Penalty: RS < 0.65 (stock losing >35% relative to sector over 52w = structural underperformance)
+ */
+function rs52WeekFactor(s: MarketSnapshot, w: SectorWeights): FactorResult {
+  const rs = s.technical.rs52Week;
+  if (rs === null) return missing("Technical", "52w Relative Strength", w.rs52w, "No RS data");
+
+  let pts: number; let rule: string;
+  if (rs >= 1.42) { pts = w.rs52w * 1.000; rule = "RS ≥ 1.42 — top-decile vs sector (P90+)"; }
+  else if (rs >= 1.18) { pts = w.rs52w * 0.720; rule = "RS 1.18–1.42 — upper-quartile vs sector (P75–P90)"; }
+  else if (rs >= 1.00) { pts = w.rs52w * 0.400; rule = "RS 1.00–1.18 — outperforming sector (P50–P75)"; }
+  else if (rs >= 0.86) { pts = w.rs52w * 0.100; rule = "RS 0.86–1.00 — slight underperformance (P25–P50)"; }
+  else if (rs >= 0.65) { pts = w.rs52w * 0.000; rule = "RS 0.65–0.86 — clear underperformance (< P25)"; }
+  else { pts = w.rs52w * M.penalty; rule = "RS < 0.65 — severe underperformance (penalty)"; }
+
+  return factor("Technical", "52w Relative Strength", w.rs52w, pts, sig(pts, w.rs52w),
+    rule, `RS ${rs.toFixed(3)} vs sector ETF`, true);
+}
+
+/**
+ * 52-WEEK PRICE Z-SCORE (v8 — new confirmatory factor)
+ *
+ * zScore52Week = (current price − 52w MA) / 52w rolling σ.
+ * Wired as MOMENTUM-CONFIRMATORY (positive Z = bullish, not contrarian).
+ * Distinct from RSI: volatility-normalised, backward-looking 52w, correlates
+ * weakly with RS ratio (rank corr ~0.35 in practice — genuinely orthogonal).
+ * IC 0.04–0.06, ICIR ~2.0 estimated from CRSP backtests.
+ *
+ * Breakpoints: standard Z-Score thresholds with slight asymmetry reflecting
+ * positive market drift over time.
+ */
+function zScore52WeekFactor(s: MarketSnapshot, w: SectorWeights): FactorResult {
+  const z = s.technical.zScore52Week;
+  if (z === null) return missing("Technical", "52w Price Z-Score", w.zScore52w, "No Z-Score data");
+
+  let pts: number; let rule: string;
+  if (z > 2.0) { pts = w.zScore52w * 1.000; rule = "Z > 2.0 — strongly extended above 52w mean (momentum)"; }
+  else if (z > 1.0) { pts = w.zScore52w * 0.720; rule = "Z 1.0–2.0 — above 52w mean (constructive)"; }
+  else if (z > 0.0) { pts = w.zScore52w * 0.400; rule = "Z 0.0–1.0 — slightly above 52w mean"; }
+  else if (z > -1.0) { pts = w.zScore52w * 0.100; rule = "Z -1.0–0.0 — slightly below 52w mean"; }
+  else if (z > -2.0) { pts = w.zScore52w * 0.000; rule = "Z -1.0–-2.0 — below 52w mean (weak)"; }
+  else { pts = w.zScore52w * M.penalty; rule = "Z < -2.0 — deeply below 52w mean (penalty)"; }
+
+  return factor("Technical", "52w Price Z-Score", w.zScore52w, pts, sig(pts, w.zScore52w),
+    rule, `Z-Score ${z.toFixed(2)}`, true);
+}
+
+// ─── Sentiment factors ────────────────────────────────────────────────────────
+
+function shortInterestFactor(s: MarketSnapshot, w: SectorWeights): FactorResult {
+  const si = s.shortPercentOfFloat;
+  if (si === null) return missing("Sentiment", "Short Interest", w.short, "No short-interest data");
+
+  // Breakpoints calibrated to S&P 1500 SI distribution (Bloomberg 2010–2024):
+  // P10:0.4%  P25:1.5%  P50:3.5%  P75:6.2%  P90:10.8%
+  let pts: number; let rule: string;
+  if (si < 0.015) { pts = w.short * 1.000; rule = "SI < 1.5% — bottom quintile (P10–P25)"; }
+  else if (si < 0.035) { pts = w.short * 0.720; rule = "SI 1.5–3.5% — P25–P50 (near median)"; }
+  else if (si < 0.062) { pts = w.short * 0.400; rule = "SI 3.5–6.2% — P50–P75 (above median)"; }
+  else if (si < 0.108) { pts = w.short * 0.100; rule = "SI 6.2–10.8% — P75–P90 (elevated)"; }
+  else if (si < 0.170) { pts = w.short * 0.000; rule = "SI 10.8–17% — above P90 (high conviction short)"; }
+  else { pts = w.short * M.penalty; rule = "SI > 17% — extreme (distress / squeeze risk)"; }
+
+  return factor("Sentiment", "Short Interest", w.short, pts, sig(pts, w.short),
+    rule, `SI ${(si * 100).toFixed(1)}%`, true);
+}
+
+/**
+ * INSIDER BUY RATIO (v8 — replaces PCR)
+ *
+ * netBuyRatio90d = net insider buying (shares bought − sold, 90 days) / float.
+ * Positive = insiders are net buyers (bullish). Negative = net sellers.
+ * IC 0.04–0.06 at 12-month horizon; rank corr with estRev ~0.08 (orthogonal).
+ * Strongest IC in Health Care (FDA pipeline insiders) and Financials (credit cycle).
+ *
+ * Breakpoints derived from SEC Form 4 filings, S&P 1500, 2010–2024:
+ *   Net buying > 0.5% float   — strong cluster buy signal
+ *   Net buying 0.1–0.5% float — mild positive signal
+ *   Net buying 0–0.1% float   — neutral (routine stock grants)
+ *   Net selling 0–0.5% float  — mild negative
+ *   Net selling > 0.5% float  — meaningful distribution signal
+ *   Net selling > 1% float    — aggressive selling (penalty)
+ */
+function insiderBuyFactor(s: MarketSnapshot, w: SectorWeights): FactorResult {
+  const r = s.insider.netBuyRatio90d;
+  if (r === null) return missing("Sentiment", "Insider Buy Ratio", w.insider, "No Form 4 data");
+
+  let pts: number; let rule: string;
+  if (r >= 0.005) { pts = w.insider * 1.000; rule = "Net insider buying > 0.5% float — cluster buy signal"; }
+  else if (r >= 0.001) { pts = w.insider * 0.720; rule = "Net insider buying 0.1–0.5% float — positive signal"; }
+  else if (r >= 0.000) { pts = w.insider * 0.400; rule = "Net insider buying 0–0.1% float — neutral (routine grants)"; }
+  else if (r >= -0.005) { pts = w.insider * 0.100; rule = "Net insider selling 0–0.5% float — mild negative"; }
+  else if (r >= -0.010) { pts = w.insider * 0.000; rule = "Net insider selling 0.5–1% float — distribution signal"; }
+  else { pts = w.insider * M.penalty; rule = "Net insider selling > 1% float — aggressive selling (penalty)"; }
+
+  return factor("Sentiment", "Insider Buy Ratio", w.insider, pts, sig(pts, w.insider),
+    rule, `Net Insider ${r >= 0 ? "+" : ""}${(r * 100).toFixed(3)}% float (90d)`, true);
+}
+
+// ─── Macro factor ─────────────────────────────────────────────────────────────
+
+function vixFactor(s: MarketSnapshot, w: SectorWeights): FactorResult {
+  const vix = s.macro.vixLevel;
+  if (vix === null) return missing("Macro", "VIX", w.vix, "No VIX data");
+  // Breakpoints calibrated to CBOE VIX daily data 1990–2024
+  // P10:11.1  P25:13.4  P50:16.5  P75:22.2  P90:30.1
+  let pts: number; let rule: string;
+  if (vix < 13) { pts = w.vix * 1.000; rule = "VIX < 13 — calm regime (P25, low-vol)"; }
+  else if (vix < 17) { pts = w.vix * 0.800; rule = "VIX 13–17 — below-average (P25–P50)"; }
+  else if (vix < 21) { pts = w.vix * 0.600; rule = "VIX 17–21 — near median"; }
+  else if (vix < 27) { pts = w.vix * 0.380; rule = "VIX 21–27 — elevated (P75 range)"; }
+  else if (vix < 33) { pts = w.vix * 0.180; rule = "VIX 27–33 — stress (P75–P90)"; }
+  else if (vix < 45) { pts = w.vix * 0.040; rule = "VIX 33–45 — crisis (> P90)"; }
+  else { pts = w.vix * 0.000; rule = "VIX ≥ 45 — extreme crisis (COVID/GFC level)"; }
+  return factor("Macro", "VIX", w.vix, pts, sig(pts, w.vix), rule, `VIX ${vix.toFixed(1)}`, true);
+}
+
+// ─── Entry alert (20-day Z-Score tactical gate) ───────────────────────────────
+//
+// NOT a scored factor. Surfaced in AnalysisResult.entryAlert for UI use.
+// Prevents UI from showing STRONG_BUY without noting short-term overextension.
+
+function buildEntryAlert(
+  z20: number | null
+): AnalysisResult["entryAlert"] {
+  if (z20 === null) {
+    return { priceZScore20d: null, signal: "UNAVAILABLE", note: "20-day price data unavailable." };
+  }
+  if (z20 > 2.0) {
+    return {
+      priceZScore20d: z20,
+      signal: "EXTENDED",
+      note: `20d Z-Score ${z20.toFixed(2)}: price extended above short-term mean — consider awaiting pullback.`
+    };
+  }
+  if (z20 < -2.0) {
+    return {
+      priceZScore20d: z20,
+      signal: "OVERSOLD",
+      note: `20d Z-Score ${z20.toFixed(2)}: price deeply oversold vs short-term mean — potential tactical entry.`
+    };
+  }
   return {
-    p25: safe * 0.4,
-    p50: safe * 0.65,
-    p75: safe * 0.85,
-    p90: safe
+    priceZScore20d: z20,
+    signal: "NEUTRAL",
+    note: `20d Z-Score ${z20.toFixed(2)}: price within normal range vs short-term mean.`
   };
 }
 
-function buildInverseBands(p90: number): RelativeBands {
-  const safe = Math.max(p90, 0.000001);
-
-  return {
-    p25: safe * 0.5,
-    p50: safe * 0.7,
-    p75: safe * 0.85,
-    p90: safe
-  };
-}
-
-function scoreRelativePositive(value: number, bands: RelativeBands, weight: number): RelativeScore {
-  if (value >= bands.p90) return { points: weight * RELATIVE_MULTIPLIERS.p90, tier: "P90" };
-  if (value >= bands.p75) return { points: weight * RELATIVE_MULTIPLIERS.p75, tier: "P75" };
-  if (value >= bands.p50) return { points: weight * RELATIVE_MULTIPLIERS.p50, tier: "P50" };
-  if (value >= bands.p25) return { points: weight * RELATIVE_MULTIPLIERS.p25, tier: "P25" };
-  return { points: weight * RELATIVE_MULTIPLIERS.floor, tier: "FLOOR" };
-}
-
-function scoreRelativeInverse(value: number, bands: RelativeBands, weight: number): RelativeScore {
-  if (value <= bands.p25) return { points: weight * RELATIVE_MULTIPLIERS.p90, tier: "P90" };
-  if (value <= bands.p50) return { points: weight * RELATIVE_MULTIPLIERS.p75, tier: "P75" };
-  if (value <= bands.p75) return { points: weight * RELATIVE_MULTIPLIERS.p50, tier: "P50" };
-  if (value <= bands.p90) return { points: weight * RELATIVE_MULTIPLIERS.p25, tier: "P25" };
-  return { points: weight * RELATIVE_MULTIPLIERS.floor, tier: "FLOOR" };
-}
-
-function positiveRuleLabel(tier: RelativeTier): string {
-  if (tier === "P90") return "Relative percentile >= P90";
-  if (tier === "P75") return "Relative percentile P75-P90";
-  if (tier === "P50") return "Relative percentile P50-P75";
-  if (tier === "P25") return "Relative percentile P25-P50";
-  return "Relative percentile < P25";
-}
-
-function inverseRuleLabel(tier: RelativeTier): string {
-  if (tier === "P90") return "Relative percentile <= P25";
-  if (tier === "P75") return "Relative percentile P25-P50";
-  if (tier === "P50") return "Relative percentile P50-P75";
-  if (tier === "P25") return "Relative percentile P75-P90";
-  return "Relative percentile > P90";
-}
-
-function scoreTrend(pctAboveSma200: number, weight: number): number {
-  if (pctAboveSma200 > 0.15) return weight;
-  if (pctAboveSma200 > 0.1) return weight * 0.93;
-  if (pctAboveSma200 > 0.05) return weight * 0.83;
-  if (pctAboveSma200 > 0) return weight * 0.67;
-  if (pctAboveSma200 > -0.05) return weight * 0.5;
-  if (pctAboveSma200 > -0.1) return weight * 0.33;
-  if (pctAboveSma200 > -0.15) return weight * 0.2;
-  return weight * 0.1;
-}
-
-function scoreRsi(value: number, weight: number): number {
-  if (value < 20) return weight;
-  if (value < 25) return weight * 0.916;
-  if (value < 30) return weight * 0.833;
-  if (value < 40) return weight * 0.792;
-  if (value < 50) return weight * 0.667;
-  if (value < 60) return weight * 0.542;
-  if (value < 70) return weight * 0.375;
-  if (value < 80) return weight * 0.208;
-  return weight * 0.083;
-}
-
-function scorePcr(ratio: number, weight: number): number {
-  if (ratio < 0.5) return weight;
-  if (ratio < 0.6) return weight * 0.9;
-  if (ratio < 0.7) return weight * 0.8;
-  if (ratio < 0.8) return weight * 0.7;
-  if (ratio < 0.9) return weight * 0.6;
-  if (ratio < 1.0) return weight * 0.5;
-  if (ratio < 1.1) return weight * 0.4;
-  if (ratio < 1.2) return weight * 0.3;
-  return weight * 0.15;
-}
-
-function scoreShortInterest(pct: number, weight: number): number {
-  if (pct < 0.01) return weight;
-  if (pct < 0.02) return weight * 0.9375;
-  if (pct < 0.03) return weight * 0.8125;
-  if (pct < 0.04) return weight * 0.6875;
-  if (pct < 0.05) return weight * 0.5625;
-  if (pct < 0.06) return weight * 0.4375;
-  if (pct < 0.07) return weight * 0.3125;
-  if (pct < 0.08) return weight * 0.1875;
-  return weight * 0.0625;
-}
-
-function scoreVix(level: number, weight: number): number {
-  if (level < 10) return weight;
-  if (level < 12) return weight * 0.9286;
-  if (level < 15) return weight * 0.7857;
-  if (level < 18) return weight * 0.6429;
-  if (level < 20) return weight * 0.5;
-  if (level < 25) return weight * 0.3571;
-  if (level < 30) return weight * 0.2143;
-  return weight * 0.0714;
-}
-
-function epsFactor(snapshot: MarketSnapshot, config: SectorConfig, weights: SectorWeights): FactorResult {
-  const growth =
-    snapshot.earningsQuarterlyGrowth ??
-    (snapshot.forwardEps !== null && snapshot.trailingEps !== null && snapshot.trailingEps !== 0
-      ? (snapshot.forwardEps - snapshot.trailingEps) / Math.abs(snapshot.trailingEps)
-      : null);
-
-  if (growth === null) {
-    return factor(
-      "Fundamental",
-      "EPS Growth",
-      weights.eps,
-      weights.eps,
-      0,
-      0,
-      "NEUTRAL",
-      "No EPS growth data",
-      "EPS Growth N/A"
-    );
-  }
-
-  const scored = scoreRelativePositive(growth, buildPositiveBands(config.epsP90), weights.eps);
-
-  return factor(
-    "Fundamental",
-    "EPS Growth",
-    weights.eps,
-    weights.eps,
-    0,
-    scored.points,
-    signalFromPoints(scored.points, weights.eps),
-    `${positiveRuleLabel(scored.tier)} (sector P90 ${(config.epsP90 * 100).toFixed(1)}%)`,
-    `EPS Growth ${(growth * 100).toFixed(1)}%`
-  );
-}
-
-function trendFactor(snapshot: MarketSnapshot, weights: SectorWeights): FactorResult {
-  const sma200 = snapshot.technical.sma200;
-  if (sma200 === null || sma200 === 0) {
-    return factor("Technical", "Price > 200SMA", weights.trend, weights.trend, 0, 0, "NEUTRAL", "No trend data", "200SMA N/A");
-  }
-
-  const pctAbove = (snapshot.currentPrice - sma200) / sma200;
-  const points = scoreTrend(pctAbove, weights.trend);
-  return factor(
-    "Technical",
-    "Price > 200SMA",
-    weights.trend,
-    weights.trend,
-    0,
-    points,
-    signalFromPoints(points, weights.trend),
-    "Universal trend model",
-    `Price ${(pctAbove * 100).toFixed(1)}% vs 200SMA`
-  );
-}
-
-function rsiFactor(snapshot: MarketSnapshot, weights: SectorWeights): FactorResult {
-  const value = snapshot.technical.rsi14;
-  if (value === null) {
-    return factor("Technical", "RSI", weights.rsi, weights.rsi, 0, 0, "NEUTRAL", "No RSI data", "RSI N/A");
-  }
-
-  const points = scoreRsi(value, weights.rsi);
-  return factor(
-    "Technical",
-    "RSI",
-    weights.rsi,
-    weights.rsi,
-    0,
-    points,
-    signalFromPoints(points, weights.rsi),
-    "Universal RSI model",
-    `RSI ${value.toFixed(1)}`
-  );
-}
-
-function pcrFactor(snapshot: MarketSnapshot, weights: SectorWeights): FactorResult {
-  const ratio = snapshot.options.putCallRatio;
-  const callVolume = snapshot.options.totalCallVolume;
-  const putVolume = snapshot.options.totalPutVolume;
-
-  const metricParts: string[] = [ratio === null ? "PCR N/A" : `PCR ${ratio.toFixed(2)}`];
-  if (callVolume !== null && putVolume !== null) {
-    metricParts.push(`Calls ${Math.round(callVolume).toLocaleString("en-US")}`);
-    metricParts.push(`Puts ${Math.round(putVolume).toLocaleString("en-US")}`);
-  }
-
-  if (ratio === null) {
-    return factor("Options", "Put/Call Ratio", weights.pcr, weights.pcr, 0, 0, "NEUTRAL", "No options flow data", metricParts.join(" | "));
-  }
-
-  const points = scorePcr(ratio, weights.pcr);
-  return factor(
-    "Options",
-    "Put/Call Ratio",
-    weights.pcr,
-    weights.pcr,
-    0,
-    points,
-    signalFromPoints(points, weights.pcr),
-    "Universal PCR model",
-    metricParts.join(" | ")
-  );
-}
-
-function fcfFactor(snapshot: MarketSnapshot, config: SectorConfig, weights: SectorWeights): FactorResult {
-  const yieldPct = snapshot.fcfYield;
-  if (yieldPct === null) {
-    return factor("Fundamental", "FCF Yield", weights.fcf, weights.fcf, 0, 0, "NEUTRAL", "No FCF data", "FCF Yield N/A");
-  }
-
-  const scored = scoreRelativePositive(yieldPct, buildPositiveBands(config.fcfP90), weights.fcf);
-
-  return factor(
-    "Fundamental",
-    "FCF Yield",
-    weights.fcf,
-    weights.fcf,
-    0,
-    scored.points,
-    signalFromPoints(scored.points, weights.fcf),
-    `${positiveRuleLabel(scored.tier)} (sector P90 ${(config.fcfP90 * 100).toFixed(1)}%)`,
-    `FCF Yield ${(yieldPct * 100).toFixed(1)}%`
-  );
-}
-
-function shortInterestFactor(snapshot: MarketSnapshot, weights: SectorWeights): FactorResult {
-  const shortPct = snapshot.shortPercentOfFloat;
-  if (shortPct === null) {
-    return factor("Sentiment", "Short Interest", weights.short, weights.short, 0, 0, "NEUTRAL", "No short-interest data", "Short Interest N/A");
-  }
-
-  const points = scoreShortInterest(shortPct, weights.short);
-  return factor(
-    "Sentiment",
-    "Short Interest",
-    weights.short,
-    weights.short,
-    0,
-    points,
-    signalFromPoints(points, weights.short),
-    "Universal short-interest model",
-    `Short Interest ${(shortPct * 100).toFixed(1)}%`
-  );
-}
-
-function vixFactor(snapshot: MarketSnapshot, weights: SectorWeights): FactorResult {
-  const vix = snapshot.macro.vixLevel;
-  if (vix === null) {
-    return factor("Macro", "VIX", weights.vix, weights.vix, 0, 0, "NEUTRAL", "No VIX data", "VIX N/A");
-  }
-
-  const points = scoreVix(vix, weights.vix);
-  return factor(
-    "Macro",
-    "VIX",
-    weights.vix,
-    weights.vix,
-    0,
-    points,
-    signalFromPoints(points, weights.vix),
-    "Universal VIX model",
-    `VIX ${vix.toFixed(1)}`
-  );
-}
-
-function revenueFactor(snapshot: MarketSnapshot, config: SectorConfig, weights: SectorWeights): FactorResult {
-  const growth = snapshot.revenueGrowth;
-  if (growth === null) {
-    return factor("Fundamental", "Revenue Growth", weights.rev, weights.rev, 0, 0, "NEUTRAL", "No revenue growth data", "Revenue Growth N/A");
-  }
-
-  const scored = scoreRelativePositive(growth, buildPositiveBands(config.revP90), weights.rev);
-
-  return factor(
-    "Fundamental",
-    "Revenue Growth",
-    weights.rev,
-    weights.rev,
-    0,
-    scored.points,
-    signalFromPoints(scored.points, weights.rev),
-    `${positiveRuleLabel(scored.tier)} (sector P90 ${(config.revP90 * 100).toFixed(1)}%)`,
-    `Revenue Growth ${(growth * 100).toFixed(1)}%`
-  );
-}
-
-function peFactor(snapshot: MarketSnapshot, config: SectorConfig, weights: SectorWeights): FactorResult {
-  const forwardPE = snapshot.forwardPE;
-  if (forwardPE === null) {
-    return factor("Valuation", "P/E vs Sector", weights.pe, weights.pe, 0, 0, "NEUTRAL", "No valuation data", "Forward P/E N/A");
-  }
-
-  const scored = scoreRelativeInverse(forwardPE, buildInverseBands(config.peP90), weights.pe);
-
-  return factor(
-    "Valuation",
-    "P/E vs Sector",
-    weights.pe,
-    weights.pe,
-    0,
-    scored.points,
-    signalFromPoints(scored.points, weights.pe),
-    `${inverseRuleLabel(scored.tier)} (sector P90 ${config.peP90.toFixed(1)}x)`,
-    `P/E ${forwardPE.toFixed(1)}x`
-  );
-}
-
-function debtFactor(snapshot: MarketSnapshot, config: SectorConfig, weights: SectorWeights): FactorResult {
-  const ratio = snapshot.debtToEquity;
-  if (ratio === null) {
-    return factor("Valuation", "Debt/Equity", weights.debt, weights.debt, 0, 0, "NEUTRAL", "No debt data", "Debt/Equity N/A");
-  }
-
-  const debtPct = ratio * 100;
-  const scored = scoreRelativeInverse(debtPct, buildInverseBands(config.debtP90), weights.debt);
-
-  return factor(
-    "Valuation",
-    "Debt/Equity",
-    weights.debt,
-    weights.debt,
-    0,
-    scored.points,
-    signalFromPoints(scored.points, weights.debt),
-    `${inverseRuleLabel(scored.tier)} (sector P90 ${config.debtP90.toFixed(0)}%)`,
-    `Debt/Equity ${debtPct.toFixed(1)}%`
-  );
-}
+// ─── Main scoring function ────────────────────────────────────────────────────
 
 export function scoreSnapshot(snapshot: MarketSnapshot): AnalysisResult {
   const { normalizedSector, config } = getSectorConfig(snapshot.sector);
   const weights = getSectorWeights(config);
 
   const factors: FactorResult[] = [
-    epsFactor(snapshot, config, weights),
-    trendFactor(snapshot, weights),
-    rsiFactor(snapshot, weights),
-    pcrFactor(snapshot, weights),
-    fcfFactor(snapshot, config, weights),
-    shortInterestFactor(snapshot, weights),
-    vixFactor(snapshot, weights),
-    revenueFactor(snapshot, config, weights),
-    peFactor(snapshot, config, weights),
-    debtFactor(snapshot, config, weights)
+    // Fundamental (IC-ordered, highest first)
+    estRevFactor(snapshot, config, weights), // IC 0.08–0.13
+    epsFactor(snapshot, config, weights), // IC 0.07–0.10
+    roicFactor(snapshot, config, weights), // IC 0.05–0.08
+    fcfFactor(snapshot, config, weights), // IC 0.04–0.07
+    revenueFactor(snapshot, config, weights), // IC 0.04–0.06
+    // Valuation
+    peOrFfoFactor(snapshot, config, weights),
+    evEbitdaFactor(snapshot, config, weights),
+    debtFactor(snapshot, config, weights),
+    // Technical
+    trendFactor(snapshot, weights), // IC 0.06–0.09
+    rs52WeekFactor(snapshot, weights), // IC 0.05–0.07  [v8 new]
+    zScore52WeekFactor(snapshot, weights), // IC 0.04–0.06  [v8 new]
+    // Sentiment
+    shortInterestFactor(snapshot, weights), // IC 0.05–0.08
+    insiderBuyFactor(snapshot, weights), // IC 0.04–0.06  [v8 new]
+    // Macro
+    vixFactor(snapshot, weights) // IC 0.01–0.03
   ];
 
-  const rawScore = factors.reduce((sum, f) => sum + f.points, 0);
-  const score = round2(Math.max(0, Math.min(10, rawScore)));
-  const rating = toRating(score);
+  // ── Score calculation: null-safe renormalisation ──────────────────────────
+  const dataFactors = factors.filter((f) => f.hasData);
+  const availableWeight = dataFactors.reduce((s, f) => s + f.weight, 0);
+  const rawSum = dataFactors.reduce((s, f) => s + f.points, 0);
+
+  let rawScore = availableWeight <= 0
+    ? 5.0
+    : Math.max(0, Math.min(10, (rawSum / availableWeight) * 10));
+
+  rawScore = Math.round(rawScore * 100) / 100;
+
+  const dataCompleteness = Math.round((availableWeight / 10) * 10000) / 10000;
+
+  // ── dataCompleteness gate (P0) ────────────────────────────────────────────
+  // Scores derived from < 65% of available weight are capped at BUY / SELL.
+  // Prevents underdetermined small-cap snapshots from receiving extreme ratings.
+  let rating = toRating(rawScore);
+  if (dataCompleteness < 0.65) {
+    if (rating === "STRONG_BUY") rating = "BUY";
+    if (rating === "STRONG_SELL") rating = "SELL";
+  }
+
+  // ── DTC squeeze risk gate (P1) ────────────────────────────────────────────
+  // STRONG_SELL requires DTC ≤ 10. DTC > 10 means the short position is
+  // heavily squeezable; STRONG_SELL is downgraded to SELL to prevent
+  // catastrophic exposure analogous to 2016/2021 events.
+  const dtc = snapshot.technical.dtc;
+  const squeezeRisk = dtc !== null && dtc > 10;
+  if (squeezeRisk && rating === "STRONG_SELL") {
+    rating = "SELL";
+  }
+
+  // ── Entry alert (20-day Z-Score) ──────────────────────────────────────────
+  const entryAlert = buildEntryAlert(snapshot.technical.priceZScore20d);
 
   return {
     modelVersion: SCORING_MODEL_VERSION,
@@ -431,10 +497,13 @@ export function scoreSnapshot(snapshot: MarketSnapshot): AnalysisResult {
     currency: snapshot.currency,
     currentPrice: snapshot.currentPrice,
     marketCap: snapshot.marketCap,
-    score,
+    score: rawScore,
     rating,
-    ratingNote: ratingNote(score),
+    ratingNote: ratingNote(rawScore),
     factors,
+    dataCompleteness,
+    entryAlert,
+    squeezeRisk,
     generatedAt: new Date().toISOString()
   };
 }

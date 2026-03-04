@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { ClerkProvider } from "@clerk/nextjs";
 import { IBM_Plex_Mono, Syne } from "next/font/google";
-import Script from "next/script";
 
 import { SmoothScrollProvider } from "@/components/SmoothScrollProvider";
+import { ThemedClerkProvider } from "@/components/ThemedClerkProvider";
 
 import "./globals.css";
 
@@ -62,23 +61,21 @@ export default function RootLayout({ children }: { children: ReactNode }): JSX.E
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const clerkEnabled = typeof publishableKey === "string" && publishableKey.trim().length > 0;
 
-  const content = (
+  return (
     <html lang="en">
       <body className={`${ibmPlexMono.variable} ${syne.variable} min-h-screen bg-ink text-slate-100`}>
-        <SmoothScrollProvider />
-        {children}
-        <Script id="rssapp-widget" src="https://widget.rss.app/v1/ticker.js" strategy="afterInteractive" />
+        {clerkEnabled ? (
+          <ThemedClerkProvider>
+            <SmoothScrollProvider />
+            {children}
+          </ThemedClerkProvider>
+        ) : (
+          <>
+            <SmoothScrollProvider />
+            {children}
+          </>
+        )}
       </body>
     </html>
-  );
-
-  if (!clerkEnabled) {
-    return content;
-  }
-
-  return (
-    <ClerkProvider>
-      {content}
-    </ClerkProvider>
   );
 }

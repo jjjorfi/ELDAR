@@ -46,6 +46,7 @@ export interface FinnhubEarningsSnapshot {
 export interface FinnhubCompanyProfile {
   sector: string | null;
   industry: string | null;
+  shareOutstanding: number | null;
 }
 
 export interface FinnhubQuoteSnapshot {
@@ -69,6 +70,13 @@ export interface FinnhubEarningsCalendarItem {
   epsEstimate: number | null;
   surprisePercent: number | null;
   revenueEstimate: number | null;
+}
+
+export interface FinnhubInsiderSignal {
+  netChangeShares90d: number | null;
+  buyShares90d: number;
+  sellShares90d: number;
+  transactionCount90d: number;
 }
 
 /**
@@ -509,7 +517,8 @@ export async function fetchFinnhubCompanyProfile(symbol: string): Promise<Finnhu
   if (!isFinnhubConfigured()) {
     return {
       sector: null,
-      industry: null
+      industry: null,
+      shareOutstanding: null
     };
   }
 
@@ -518,16 +527,30 @@ export async function fetchFinnhubCompanyProfile(symbol: string): Promise<Finnhu
   if (!payload) {
     return {
       sector: null,
-      industry: null
+      industry: null,
+      shareOutstanding: null
     };
   }
+
+  const shareOutstandingRaw =
+    toNumber(payload.shareOutstanding) ??
+    toNumber(payload.sharesOutstanding) ??
+    toNumber(payload.totalSharesOutstanding);
+
+  const shareOutstanding =
+    shareOutstandingRaw !== null && shareOutstandingRaw > 0
+      ? shareOutstandingRaw <= 500_000
+        ? shareOutstandingRaw * 1_000_000
+        : shareOutstandingRaw
+      : null;
 
   return {
     sector: toStringValue(payload.gsector) ?? toStringValue(payload.sector),
     industry:
       toStringValue(payload.gind) ??
       toStringValue(payload.finnhubIndustry) ??
-      toStringValue(payload.industry)
+      toStringValue(payload.industry),
+    shareOutstanding
   };
 }
 
@@ -544,6 +567,80 @@ export async function fetchFinnhubMetrics(symbol: string): Promise<unknown> {
 
   const payload = await fetchFinnhub<unknown>("stock/metric", { symbol, metric: "all" });
   return payload;
+}
+
+/**
+ * Aggregates 90-day insider transaction flow into a net-share signal.
+ *
+ * @param symbol Input ticker symbol.
+ * @returns Net/buy/sell insider shares over trailing 90 days.
+ */
+export async function fetchFinnhubInsiderSignal(symbol: string): Promise<FinnhubInsiderSignal> {
+  if (!isFinnhubConfigured()) {
+    return {
+      netChangeShares90d: null,
+      buyShares90d: 0,
+      sellShares90d: 0,
+      transactionCount90d: 0
+    };
+  }
+
+  const payload = await fetchFinnhub<unknown>("stock/insider-transactions", { symbol });
+  if (typeof payload !== "object" || payload === null) {
+    return {
+      netChangeShares90d: null,
+      buyShares90d: 0,
+      sellShares90d: 0,
+      transactionCount90d: 0
+    };
+  }
+
+  const rows = Array.isArray((payload as Record<string, unknown>).data)
+    ? ((payload as Record<string, unknown>).data as unknown[])
+    : [];
+  const cutoffMs = Date.now() - 90 * 24 * 60 * 60 * 1000;
+
+  let netChangeShares90d = 0;
+  let buyShares90d = 0;
+  let sellShares90d = 0;
+  let transactionCount90d = 0;
+
+  for (const entry of rows) {
+    if (typeof entry !== "object" || entry === null) {
+      continue;
+    }
+
+    const row = entry as Record<string, unknown>;
+    const dateText = toStringValue(row.transactionDate) ?? toStringValue(row.filingDate);
+    if (!dateText) {
+      continue;
+    }
+
+    const dateMs = Date.parse(dateText);
+    if (!Number.isFinite(dateMs) || dateMs < cutoffMs) {
+      continue;
+    }
+
+    const change = toNumber(row.change);
+    if (change === null || !Number.isFinite(change)) {
+      continue;
+    }
+
+    netChangeShares90d += change;
+    if (change > 0) {
+      buyShares90d += change;
+    } else if (change < 0) {
+      sellShares90d += Math.abs(change);
+    }
+    transactionCount90d += 1;
+  }
+
+  return {
+    netChangeShares90d: transactionCount90d > 0 ? netChangeShares90d : null,
+    buyShares90d,
+    sellShares90d,
+    transactionCount90d
+  };
 }
 
 /**

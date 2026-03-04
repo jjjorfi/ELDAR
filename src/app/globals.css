@@ -28,7 +28,35 @@
 }
 
 html[data-theme="light"] {
-  color-scheme: dark;
+  color-scheme: light;
+  --eldar-bg-primary: #f3f4f6;
+  --eldar-bg-secondary: #e5e7eb;
+  --eldar-bg-surface: #ffffff;
+  --eldar-bg-raised: #f8fafc;
+  --eldar-text-primary: #0f172a;
+  --eldar-text-secondary: #334155;
+  --eldar-text-muted: #64748b;
+  --eldar-border-default: rgba(15, 23, 42, 0.16);
+  --eldar-amber-subtle: rgba(255, 191, 0, 0.14);
+  --eldar-amber-border: rgba(255, 191, 0, 0.32);
+}
+
+html[data-theme="light"] [class*="bg-zinc-950"],
+html[data-theme="light"] [class*="bg-black/"],
+html[data-theme="light"] [class*="bg-black"] {
+  background-color: rgba(255, 255, 255, 0.72) !important;
+}
+
+html[data-theme="light"] [class*="border-white/"] {
+  border-color: var(--eldar-border-default) !important;
+}
+
+html[data-theme="light"] .eldar-radar-overlay {
+  background: rgba(15, 23, 42, 0.22);
+}
+
+html[data-theme="light"] .eldar-rss-shell {
+  background: rgba(255, 255, 255, 0.82);
 }
 
 html,
@@ -119,6 +147,43 @@ label,
 .eldar-brand-subtext {
   font-family: var(--font-mono), "IBM Plex Mono", monospace;
   color: var(--eldar-text-secondary);
+}
+
+.eldar-logo-button {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.eldar-logo-button:hover {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.eldar-bookmark-ribbon {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: var(--eldar-text-secondary) !important;
+}
+
+.eldar-bookmark-ribbon:hover {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--eldar-amber-primary) !important;
+  filter: saturate(1.2) brightness(1.2);
+}
+
+.eldar-bookmark-ribbon:hover svg {
+  fill: currentColor;
+}
+
+.eldar-bookmark-ribbon-active {
+  color: var(--eldar-amber-primary) !important;
 }
 
 .eldar-panel {
@@ -317,6 +382,17 @@ textarea:focus {
 .text-zinc-500,
 .text-slate-500 {
   color: var(--eldar-text-muted) !important;
+}
+
+.text-slate-900,
+.text-slate-800,
+.text-slate-700,
+.text-slate-600,
+.text-zinc-900,
+.text-zinc-800,
+.text-zinc-700,
+.text-zinc-600 {
+  color: var(--eldar-text-primary) !important;
 }
 
 .text-emerald-300,

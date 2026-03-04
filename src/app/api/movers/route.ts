@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { fetchSP500Directory } from "@/lib/market/sp500";
 import { getTop100Sp500SymbolSet } from "@/lib/market/top100";
+import { publishMarketMovers } from "@/lib/realtime/publisher";
 import guard, { isGuardBlockedError } from "@/lib/security/guard";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 
@@ -275,6 +276,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     const payload = { movers };
     moversCache = { expiresAt: Date.now() + CACHE_TTL_MS, payload };
+    await publishMarketMovers(payload);
     return NextResponse.json(payload, { headers: { "Cache-Control": CACHE_HEADER } });
   } catch (error) {
     console.error("/api/movers GET error", error);

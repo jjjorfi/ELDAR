@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import Image from "next/image";
@@ -13,6 +13,7 @@ import {
   Home,
   CircleUserRound,
   LineChart,
+  BookText,
   Loader2,
   Moon,
   Plus,
@@ -24,10 +25,23 @@ import {
 } from "lucide-react";
 
 import { CompanyLogo } from "@/components/CompanyLogo";
+import { HeaderFeedStrip } from "@/components/HeaderFeedStrip";
+import { PortfolioRatingPanel } from "@/components/portfolio";
 import { RATING_BANDS, toRating } from "@/lib/rating";
+import { scorePortfolio } from "@/lib/scoring/portfolio-engine";
+import type { PersistedPortfolioSnapshot, PortfolioEngineInput, PortfolioInputHolding } from "@/lib/scoring/portfolio-types";
+import {
+  SOCKET_EVENTS,
+  type EarningsPayload,
+  type IndicesYtdPayload,
+  type Mag7Payload,
+  type MarketMoversPayload,
+  type WatchlistDeltaPayload
+} from "@/lib/realtime/events";
 import type { Mag7ScoreCard, PersistedAnalysis, RatingLabel, WatchlistItem } from "@/lib/types";
 import { formatMarketCap, formatPrice } from "@/lib/utils";
 import { getTop100Sp500Symbols, isTop100Sp500Symbol } from "@/lib/market/top100";
+import { useSocket } from "@/hooks/useSocket";
 
 type ViewMode = "home" | "results" | "watchlist" | "portfolio";
 type ThemeMode = "dark" | "light";
@@ -40,6 +54,7 @@ interface StockDashboardProps {
   initialWatchlist: WatchlistItem[];
   initialMag7Scores: Mag7ScoreCard[];
   currentUserId: string | null;
+  initialSymbol?: string | null;
 }
 
 interface SearchResultItem {
@@ -60,6 +75,14 @@ interface ContextNewsItem {
   url: string | null;
   source: string | null;
   publishedAt: string | null;
+}
+
+interface JournalRelatedEntry {
+  id: string;
+  title: string;
+  entryType: string;
+  status: "draft" | "final";
+  createdAt: string;
 }
 
 interface StockContextData {
@@ -95,17 +118,6 @@ interface UpcomingEarningsItem {
   epsEstimate: number | null;
 }
 
-interface PassedEarningsItem {
-  symbol: string;
-  companyName: string;
-  date: string | null;
-  period: string | null;
-  actual: number | null;
-  estimate: number | null;
-  surprisePercent: number | null;
-  outcome: "beat" | "miss" | "inline" | "unknown";
-}
-
 interface PortfolioHolding {
   id: string;
   symbol: string;
@@ -128,111 +140,19 @@ const FALLBACK_UPCOMING_EARNINGS: UpcomingEarningsItem[] = [
   { symbol: "MSFT", companyName: "Microsoft Corporation", date: null, epsEstimate: null },
   { symbol: "NVDA", companyName: "NVIDIA Corporation", date: null, epsEstimate: null }
 ];
-const FALLBACK_PASSED_EARNINGS: PassedEarningsItem[] = [
-  {
-    symbol: "AMZN",
-    companyName: "Amazon.com, Inc.",
-    date: null,
-    period: null,
-    actual: null,
-    estimate: null,
-    surprisePercent: null,
-    outcome: "unknown"
-  },
-  {
-    symbol: "GOOGL",
-    companyName: "Alphabet Inc.",
-    date: null,
-    period: null,
-    actual: null,
-    estimate: null,
-    surprisePercent: null,
-    outcome: "unknown"
-  },
-  {
-    symbol: "META",
-    companyName: "Meta Platforms, Inc.",
-    date: null,
-    period: null,
-    actual: null,
-    estimate: null,
-    surprisePercent: null,
-    outcome: "unknown"
-  }
+const FALLBACK_INDICES_YTD: IndexYtdItem[] = [
+  { code: "US30", label: "US30", symbol: "^DJI", current: null, ytdChangePercent: null, asOf: null, points: [] },
+  { code: "US100", label: "US100", symbol: "^NDX", current: null, ytdChangePercent: null, asOf: null, points: [] },
+  { code: "US500", label: "US500", symbol: "^GSPC", current: null, ytdChangePercent: null, asOf: null, points: [] }
 ];
 const TOP_100_SYMBOLS = getTop100Sp500Symbols();
 const COMMAND_PALETTE_LIMIT = 12;
 
-const RSS_TICKER_ID = "_TY28wH8o2RkP29Ic";
-const RSS_PARKING_ID = "eldar-rss-parking";
 const ELDAR_BRAND_LOGO = "/brand/eldar-logo.png";
 const DASHBOARD_RETURN_STATE_KEY = "eldar:dashboard:return-state";
 const ANALYSIS_CACHE_TTL_MS = 90_000;
-
-function ensureRssParkingNode(): HTMLDivElement {
-  const existing = document.getElementById(RSS_PARKING_ID);
-  if (existing && existing instanceof HTMLDivElement) {
-    return existing;
-  }
-
-  const parking = document.createElement("div");
-  parking.id = RSS_PARKING_ID;
-  parking.style.position = "fixed";
-  parking.style.left = "-99999px";
-  parking.style.top = "0";
-  parking.style.width = "1px";
-  parking.style.height = "1px";
-  parking.style.overflow = "hidden";
-  parking.style.pointerEvents = "none";
-  parking.style.opacity = "0";
-  document.body.appendChild(parking);
-  return parking;
-}
-
-function ensureRssTickerElement(): HTMLElement {
-  const parking = ensureRssParkingNode();
-  const existing = document.querySelector(`rssapp-ticker[data-eldar-rss="1"]`);
-  if (existing instanceof HTMLElement) {
-    return existing;
-  }
-
-  const ticker = document.createElement("rssapp-ticker");
-  ticker.setAttribute("id", RSS_TICKER_ID);
-  ticker.setAttribute("data-eldar-rss", "1");
-  parking.appendChild(ticker);
-  return ticker;
-}
-
-const NewsTickerBar = memo(function NewsTickerBar(): JSX.Element {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) {
-      return;
-    }
-
-    const ticker = ensureRssTickerElement();
-    if (ticker.parentElement !== host) {
-      host.appendChild(ticker);
-    }
-
-    return () => {
-      const parking = ensureRssParkingNode();
-      if (ticker.parentElement !== parking) {
-        parking.appendChild(ticker);
-      }
-    };
-  }, []);
-
-  return (
-    <div className="relative hidden flex-1 items-center px-2 md:flex">
-      <div className="eldar-rss-shell w-full [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
-        <div ref={hostRef} className="min-h-[24px]" />
-      </div>
-    </div>
-  );
-});
+const LOCAL_WATCHLIST_STORAGE_KEY = "eldar:watchlist:local";
+const LOCAL_INDICES_STORAGE_KEY = "eldar:indices:ytd";
 
 interface EldarLogoProps {
   onClick: () => void;
@@ -242,7 +162,7 @@ function EldarLogo({ onClick }: EldarLogoProps): JSX.Element {
   return (
     <button
       type="button"
-      className="flex cursor-pointer items-center gap-3"
+      className="eldar-logo-button flex cursor-pointer items-center gap-3"
       onClick={onClick}
     >
       <div className="relative h-10 w-10 overflow-hidden">
@@ -261,6 +181,7 @@ function EldarLogo({ onClick }: EldarLogoProps): JSX.Element {
 
 interface NavigationBarProps {
   view: ViewMode;
+  themeMode: ThemeMode;
   loading: boolean;
   profileOpen: boolean;
   menuContext: "home" | "sectors";
@@ -270,6 +191,7 @@ interface NavigationBarProps {
   onHome: () => void;
   onOpenSectors: () => void;
   onOpenMacro: () => void;
+  onOpenJournal: () => void;
   onPortfolio: () => void;
   onWatchlist: () => void;
   onQuickSearch: (value: string) => void;
@@ -277,6 +199,7 @@ interface NavigationBarProps {
 
 function NavigationBar({
   view,
+  themeMode,
   loading,
   profileOpen,
   menuContext,
@@ -286,6 +209,7 @@ function NavigationBar({
   onHome,
   onOpenSectors,
   onOpenMacro,
+  onOpenJournal,
   onPortfolio,
   onWatchlist,
   onQuickSearch
@@ -320,7 +244,7 @@ function NavigationBar({
       <div className="container mx-auto px-6">
         <div className="flex h-16 items-center justify-between gap-3">
           <EldarLogo onClick={onHome} />
-          <NewsTickerBar />
+          <HeaderFeedStrip wrapperClassName="relative hidden flex-1 items-center px-2 xl:flex" />
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -374,6 +298,16 @@ function NavigationBar({
                   >
                     <LineChart className="h-4 w-4" />
                     Macro
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onOpenJournal();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
+                  >
+                    <BookText className="h-4 w-4" />
+                    Journal
                   </button>
                   <button
                     onClick={() => {
@@ -663,6 +597,29 @@ function buildSparklinePath(points: number[], width: number, height: number): st
     .join(" ");
 }
 
+function mergeIndexRows(primary: IndexYtdItem[], fallback: IndexYtdItem[]): IndexYtdItem[] {
+  const fallbackByCode = new Map(fallback.map((item) => [item.code, item]));
+  const primaryByCode = new Map(primary.map((item) => [item.code, item]));
+
+  return ["US30", "US100", "US500"].map((code) => {
+    const typedCode = code as IndexYtdItem["code"];
+    const next = primaryByCode.get(typedCode);
+    const previous = fallbackByCode.get(typedCode);
+    if (!next && previous) return previous;
+    if (!next) {
+      return FALLBACK_INDICES_YTD.find((row) => row.code === typedCode) as IndexYtdItem;
+    }
+
+    return {
+      ...next,
+      current: next.current ?? previous?.current ?? null,
+      ytdChangePercent: next.ytdChangePercent ?? previous?.ytdChangePercent ?? null,
+      asOf: next.asOf ?? previous?.asOf ?? null,
+      points: next.points.length > 0 ? next.points : previous?.points ?? []
+    };
+  });
+}
+
 function areMag7CardsEqual(a: Mag7ScoreCard[], b: Mag7ScoreCard[]): boolean {
   if (a.length !== b.length) return false;
 
@@ -696,12 +653,13 @@ export function StockDashboard({
   initialHistory,
   initialWatchlist,
   initialMag7Scores,
-  currentUserId
+  currentUserId,
+  initialSymbol = null
 }: StockDashboardProps): JSX.Element {
   const router = useRouter();
   const [isAppOpen, setIsAppOpen] = useState(false);
   const [view, setView] = useState<ViewMode>("home");
-  const [ticker, setTicker] = useState("");
+  const [ticker, setTicker] = useState(initialSymbol && isTop100Sp500Symbol(initialSymbol) ? initialSymbol.toUpperCase() : "");
   const [loading, setLoading] = useState(false);
   const [analysisPhase, setAnalysisPhase] = useState<AnalysisPhase>("idle");
   const [currentRating, setCurrentRating] = useState<PersistedAnalysis | null>(initialHistory[0] ?? null);
@@ -725,18 +683,18 @@ export function StockDashboard({
   const [stockContext, setStockContext] = useState<StockContextData | null>(null);
   const [stockContextLoading, setStockContextLoading] = useState(false);
   const [stockContextError, setStockContextError] = useState("");
+  const [journalRelatedEntries, setJournalRelatedEntries] = useState<JournalRelatedEntry[]>([]);
+  const [journalRelatedLoading, setJournalRelatedLoading] = useState(false);
+  const [journalRelatedError, setJournalRelatedError] = useState("");
   const [resultsContextReady, setResultsContextReady] = useState(true);
   const [marketMovers, setMarketMovers] = useState<MarketMoverItem[]>([]);
   const [marketMoversLoading, setMarketMoversLoading] = useState(false);
-  const [indicesYtd, setIndicesYtd] = useState<IndexYtdItem[]>([]);
-  const [indicesLoading, setIndicesLoading] = useState(false);
+  const [indicesYtd, setIndicesYtd] = useState<IndexYtdItem[]>(FALLBACK_INDICES_YTD);
   const [indicesError, setIndicesError] = useState("");
   const [isPageVisible, setIsPageVisible] = useState(true);
   const [upcomingEarnings, setUpcomingEarnings] = useState<UpcomingEarningsItem[]>([]);
-  const [passedEarnings, setPassedEarnings] = useState<PassedEarningsItem[]>([]);
   const [earningsLoading, setEarningsLoading] = useState(false);
   const [earningsError, setEarningsError] = useState("");
-  const [earningsView, setEarningsView] = useState<"upcoming" | "past">("upcoming");
   const [homeHeaderVisible, setHomeHeaderVisible] = useState(false);
   const [heroScrollY, setHeroScrollY] = useState(0);
   const [showRatingMeaning, setShowRatingMeaning] = useState(false);
@@ -744,6 +702,7 @@ export function StockDashboard({
   const [portfolioInputTicker, setPortfolioInputTicker] = useState("");
   const [portfolioInputShares, setPortfolioInputShares] = useState("1");
   const [portfolioHoldings, setPortfolioHoldings] = useState<PortfolioHolding[]>([]);
+  const [persistedPortfolioSnapshot, setPersistedPortfolioSnapshot] = useState<PersistedPortfolioSnapshot | null>(null);
   const [portfolioError, setPortfolioError] = useState("");
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [comparisonSymbols, setComparisonSymbols] = useState<string[]>([]);
@@ -755,16 +714,24 @@ export function StockDashboard({
   const analysisCacheRef = useRef<Map<string, { analysis: PersistedAnalysis; expiresAt: number }>>(new Map());
   const analysisAbortRef = useRef<AbortController | null>(null);
   const analysisRequestRef = useRef(0);
+  const portfolioPersistTimeoutRef = useRef<number | null>(null);
+  const portfolioPersistHashRef = useRef<string | null>(null);
+  const portfolioHydratedFromServerRef = useRef(false);
   const watchlistHintTimeoutRef = useRef<number | null>(null);
   const mouseRafRef = useRef<number | null>(null);
   const mousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const mouseLastPaintRef = useRef(0);
+  const analyzeSymbolRef = useRef<(symbol?: string) => Promise<void>>(async () => {});
   const deferredPaletteQuery = useDeferredValue(paletteQuery);
-  const appBackground = "#000000";
+  const appBackground = themeMode === "dark" ? "#000000" : "#f3f4f6";
   const portfolioStorageKey = useMemo(
     () => `eldar-portfolio-holdings:${currentUserId ?? "anon"}`,
     [currentUserId]
   );
+  const localWatchlistStorageKey = `${LOCAL_WATCHLIST_STORAGE_KEY}:${currentUserId ?? "anon"}`;
+  const { socket, status: socketStatus, error: socketError } = useSocket({
+    enabled: isAppOpen
+  });
   const headerVisible = view === "home" ? homeHeaderVisible : true;
   const showFadeTransition = view === "home";
   const heroParallaxOffset = Math.min(heroScrollY * 0.2, 120);
@@ -828,6 +795,15 @@ export function StockDashboard({
     router.push("/macro");
   }
 
+  function openJournalPage(options?: { symbol?: string; type?: string }): void {
+    saveReturnState();
+    const params = new URLSearchParams();
+    if (options?.symbol) params.set("symbol", options.symbol.toUpperCase());
+    if (options?.type) params.set("type", options.type);
+    const query = params.toString();
+    router.push(query ? `/journal?${query}` : "/journal");
+  }
+
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem("eldar-theme-mode");
@@ -853,6 +829,7 @@ export function StockDashboard({
         currentRating?: PersistedAnalysis | null;
         openPalette?: boolean;
         paletteAction?: PaletteAction;
+        autoAnalyze?: boolean;
       };
 
       if (typeof parsed.savedAt === "number" && Date.now() - parsed.savedAt > 1000 * 60 * 60) {
@@ -891,10 +868,27 @@ export function StockDashboard({
           setIsCommandPaletteOpen(true);
         }, 0);
       }
+
+      if (parsed.autoAnalyze && typeof parsed.ticker === "string" && parsed.ticker.trim().length > 0) {
+        const symbol = parsed.ticker.trim().toUpperCase();
+        window.setTimeout(() => {
+          void analyzeSymbolRef.current(symbol);
+        }, 0);
+      }
     } catch {
       // no-op
     }
   }, []);
+
+  useEffect(() => {
+    if (!initialSymbol) return;
+    const symbol = initialSymbol.trim().toUpperCase();
+    if (!symbol || !isTop100Sp500Symbol(symbol)) return;
+    setTicker(symbol);
+    window.setTimeout(() => {
+      void analyzeSymbolRef.current(symbol);
+    }, 0);
+  }, [initialSymbol]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = themeMode;
@@ -904,6 +898,44 @@ export function StockDashboard({
       // no-op
     }
   }, [themeMode]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(LOCAL_INDICES_STORAGE_KEY);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as IndexYtdItem[];
+      if (!Array.isArray(parsed) || parsed.length === 0) return;
+
+      const normalized = parsed
+        .map((item) => ({
+          code: item.code,
+          label: item.label,
+          symbol: item.symbol,
+          current: typeof item.current === "number" ? item.current : null,
+          ytdChangePercent: typeof item.ytdChangePercent === "number" ? item.ytdChangePercent : null,
+          asOf: typeof item.asOf === "string" ? item.asOf : null,
+          points: Array.isArray(item.points) ? item.points.filter((point) => typeof point === "number") : []
+        }))
+        .filter((item) => item.code === "US30" || item.code === "US100" || item.code === "US500");
+
+      if (normalized.length > 0) {
+        setIndicesYtd(normalized);
+      }
+    } catch {
+      // no-op
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const hasRealData = indicesYtd.some((item) => item.current !== null || item.points.length > 0);
+      if (!hasRealData) return;
+      window.localStorage.setItem(LOCAL_INDICES_STORAGE_KEY, JSON.stringify(indicesYtd));
+    } catch {
+      // no-op
+    }
+  }, [indicesYtd]);
 
   useEffect(() => {
     const handleVisibility = (): void => {
@@ -946,6 +978,239 @@ export function StockDashboard({
       // no-op
     }
   }, [portfolioStorageKey]);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setPersistedPortfolioSnapshot(null);
+      portfolioHydratedFromServerRef.current = false;
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadSnapshot = async (): Promise<void> => {
+      try {
+        const response = await fetch("/api/portfolio?portfolioId=default", {
+          method: "GET",
+          cache: "no-store"
+        });
+
+        const payload = (await response.json()) as {
+          snapshot?: PersistedPortfolioSnapshot | null;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Failed to load portfolio snapshot.");
+        }
+
+        if (cancelled) return;
+        const snapshot = payload.snapshot ?? null;
+        setPersistedPortfolioSnapshot(snapshot);
+        let hasLocalPortfolioCache = false;
+        try {
+          hasLocalPortfolioCache = Boolean(window.localStorage.getItem(portfolioStorageKey));
+        } catch {
+          hasLocalPortfolioCache = false;
+        }
+
+        if (
+          snapshot &&
+          portfolioHoldings.length === 0 &&
+          !hasLocalPortfolioCache &&
+          !portfolioHydratedFromServerRef.current &&
+          Array.isArray(snapshot.holdings) &&
+          snapshot.holdings.length > 0
+        ) {
+          const restored: PortfolioHolding[] = snapshot.holdings
+            .map((holding, index) => ({
+              id: `server-${holding.symbol}-${index}`,
+              symbol: holding.symbol.toUpperCase(),
+              shares: Math.max(1, Math.floor(holding.shares)),
+              analysis: null,
+              loading: false,
+              error: null,
+              expanded: false
+            }))
+            .filter((holding) => isTop100Sp500Symbol(holding.symbol));
+
+          if (restored.length > 0) {
+            setPortfolioHoldings(restored);
+            portfolioHydratedFromServerRef.current = true;
+            for (const holding of restored) {
+              void refreshPortfolioHolding(holding.symbol);
+            }
+          }
+        }
+      } catch (error) {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : "Failed to load portfolio snapshot.";
+        console.warn(`[Stock Dashboard]: ${message}`);
+      }
+    };
+
+    void loadSnapshot();
+
+    return () => {
+      cancelled = true;
+    };
+    // Bootstrap-load once per authenticated identity; re-running on every holding mutation causes looped hydration.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId, portfolioStorageKey]);
+
+  useEffect(() => {
+    return () => {
+      if (portfolioPersistTimeoutRef.current !== null) {
+        window.clearTimeout(portfolioPersistTimeoutRef.current);
+        portfolioPersistTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (currentUserId) {
+      return;
+    }
+
+    try {
+      const raw = window.localStorage.getItem(localWatchlistStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as WatchlistItem[];
+      if (!Array.isArray(parsed)) return;
+      setWatchlist(parsed.filter((item): item is WatchlistItem => Boolean(item?.symbol)));
+    } catch {
+      // no-op
+    }
+  }, [currentUserId, localWatchlistStorageKey]);
+
+  useEffect(() => {
+    if (currentUserId) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(localWatchlistStorageKey, JSON.stringify(watchlist));
+    } catch {
+      // no-op
+    }
+  }, [watchlist, currentUserId, localWatchlistStorageKey]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    console.log(`[Stock Dashboard]: Realtime status -> ${socketStatus}`);
+    if (socketError) {
+      console.warn(`[Stock Dashboard]: Realtime error -> ${socketError}`);
+    }
+  }, [currentUserId, socketStatus, socketError]);
+
+  useEffect(() => {
+    if (!socket) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncWatchlistFromServer = async (reason: string): Promise<void> => {
+      try {
+        const response = await fetch("/api/watchlist", {
+          method: "GET",
+          cache: "no-store"
+        });
+        const payload = (await response.json()) as {
+          watchlist?: WatchlistItem[];
+          error?: string;
+        };
+
+        if (!response.ok || !payload.watchlist) {
+          const message = payload.error ?? "Failed to refresh watchlist from realtime sync.";
+          throw new Error(message);
+        }
+
+        if (!cancelled) {
+          setWatchlist(payload.watchlist);
+          console.log(`[Stock Dashboard]: Watchlist synced (${reason})`);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown realtime watchlist sync error.";
+        if (!cancelled) {
+          console.error(`[Stock Dashboard]: Realtime sync failed: ${message}`);
+        }
+      }
+    };
+
+    const handleWatchlistDelta = (payload: WatchlistDeltaPayload): void => {
+      try {
+        if (!payload || !currentUserId || payload.userId !== currentUserId) {
+          return;
+        }
+        console.log(
+          `[Stock Dashboard]: Realtime delta action=${payload.action} symbol=${payload.symbol} user=${payload.userId}`
+        );
+        void syncWatchlistFromServer("socket-delta");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Malformed realtime payload.";
+        console.error(`[Stock Dashboard]: Delta handler error: ${message}`);
+      }
+    };
+
+    const handleMarketMoversDelta = (payload: MarketMoversPayload): void => {
+      try {
+        if (!payload || !Array.isArray(payload.movers)) return;
+        setMarketMovers(payload.movers.slice(0, 3));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Malformed movers realtime payload.";
+        console.error(`[Stock Dashboard]: Movers delta error: ${message}`);
+      }
+    };
+
+    const handleIndicesDelta = (payload: IndicesYtdPayload): void => {
+      try {
+        if (!payload || !Array.isArray(payload.indices)) return;
+        setIndicesYtd((prev) => mergeIndexRows(payload.indices, prev));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Malformed indices realtime payload.";
+        console.error(`[Stock Dashboard]: Indices delta error: ${message}`);
+      }
+    };
+
+    const handleEarningsDelta = (payload: EarningsPayload): void => {
+      try {
+        if (!payload || !Array.isArray(payload.upcoming)) return;
+        setUpcomingEarnings(payload.upcoming);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Malformed earnings realtime payload.";
+        console.error(`[Stock Dashboard]: Earnings delta error: ${message}`);
+      }
+    };
+
+    const handleMag7Delta = (payload: Mag7Payload): void => {
+      try {
+        if (!payload || !Array.isArray(payload.cards)) return;
+        setMag7Cards(sortMag7Cards(payload.cards as Mag7ScoreCard[]));
+        if (typeof payload.marketOpen === "boolean") {
+          setIsMarketOpen(payload.marketOpen);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Malformed MAG7 realtime payload.";
+        console.error(`[Stock Dashboard]: MAG7 delta error: ${message}`);
+      }
+    };
+
+    socket.on(SOCKET_EVENTS.WATCHLIST_UPDATED, handleWatchlistDelta);
+    socket.on(SOCKET_EVENTS.MARKET_MOVERS_UPDATED, handleMarketMoversDelta);
+    socket.on(SOCKET_EVENTS.INDICES_YTD_UPDATED, handleIndicesDelta);
+    socket.on(SOCKET_EVENTS.EARNINGS_UPDATED, handleEarningsDelta);
+    socket.on(SOCKET_EVENTS.MAG7_UPDATED, handleMag7Delta);
+
+    return () => {
+      cancelled = true;
+      socket.off(SOCKET_EVENTS.WATCHLIST_UPDATED, handleWatchlistDelta);
+      socket.off(SOCKET_EVENTS.MARKET_MOVERS_UPDATED, handleMarketMoversDelta);
+      socket.off(SOCKET_EVENTS.INDICES_YTD_UPDATED, handleIndicesDelta);
+      socket.off(SOCKET_EVENTS.EARNINGS_UPDATED, handleEarningsDelta);
+      socket.off(SOCKET_EVENTS.MAG7_UPDATED, handleMag7Delta);
+    };
+  }, [socket, currentUserId]);
 
   useEffect(() => {
     try {
@@ -1007,7 +1272,7 @@ export function StockDashboard({
     }
 
     return () => observer.disconnect();
-  }, [isAppOpen, view, currentRating, marketMovers.length, upcomingEarnings.length, passedEarnings.length, watchlist.length]);
+  }, [isAppOpen, view, currentRating, marketMovers.length, upcomingEarnings.length, watchlist.length]);
 
   useEffect(() => {
     if (view !== "results") {
@@ -1308,7 +1573,6 @@ export function StockDashboard({
         const response = await fetch("/api/earnings");
         const payload = (await response.json()) as {
           upcoming?: UpcomingEarningsItem[];
-          passed?: PassedEarningsItem[];
           error?: string;
         };
 
@@ -1318,12 +1582,7 @@ export function StockDashboard({
 
         if (disposed) return;
         const upcoming = Array.isArray(payload.upcoming) ? payload.upcoming : [];
-        const passed = Array.isArray(payload.passed) ? payload.passed : [];
         setUpcomingEarnings((prev) => (upcoming.length > 0 ? upcoming : prev));
-        setPassedEarnings((prev) => (passed.length > 0 ? passed : prev));
-        if (upcoming.length === 0 && passed.length > 0) {
-          setEarningsView("past");
-        }
         schedule(isPageVisible ? 60 * 60 * 1000 : 2 * 60 * 60 * 1000);
       } catch (error) {
         if (disposed) return;
@@ -1353,10 +1612,6 @@ export function StockDashboard({
     let disposed = false;
     let timer: number | null = null;
 
-    if (indicesYtd.length === 0) {
-      setIndicesLoading(true);
-    }
-
     const schedule = (delayMs: number): void => {
       if (disposed) return;
       timer = window.setTimeout(() => {
@@ -1379,12 +1634,13 @@ export function StockDashboard({
         }
 
         const nextIndices = Array.isArray(payload.indices) ? payload.indices : [];
-        setIndicesYtd(nextIndices);
+        if (nextIndices.length > 0) {
+          setIndicesYtd((prev) => mergeIndexRows(nextIndices, prev));
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to load indices.";
         setIndicesError(message);
       } finally {
-        setIndicesLoading(false);
         schedule(isMarketOpen ? 5 * 60 * 1000 : 30 * 60 * 1000);
       }
     };
@@ -1533,6 +1789,57 @@ export function StockDashboard({
       }
     };
   }, [view, currentRating, isMarketOpen]);
+
+  useEffect(() => {
+    if (view !== "results" || !currentRating || !currentUserId) {
+      setJournalRelatedEntries([]);
+      setJournalRelatedError("");
+      setJournalRelatedLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadJournalEntries = async (): Promise<void> => {
+      setJournalRelatedLoading(true);
+      setJournalRelatedError("");
+      try {
+        const response = await fetch(
+          `/api/journal/entries?symbol=${encodeURIComponent(currentRating.symbol)}&limit=10`,
+          { method: "GET", cache: "no-store" }
+        );
+        const payload = (await response.json()) as {
+          items?: Array<{
+            id: string;
+            title: string;
+            entryType: string;
+            status: "draft" | "final";
+            createdAt: string;
+          }>;
+          error?: string;
+        };
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Failed to load journal links.");
+        }
+        if (cancelled) return;
+        setJournalRelatedEntries(Array.isArray(payload.items) ? payload.items : []);
+      } catch (error) {
+        if (cancelled) return;
+        setJournalRelatedEntries([]);
+        setJournalRelatedError(error instanceof Error ? error.message : "Failed to load journal links.");
+      } finally {
+        if (!cancelled) {
+          setJournalRelatedLoading(false);
+        }
+      }
+    };
+
+    void loadJournalEntries();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentRating, currentUserId, view]);
 
   useEffect(() => {
     if (!currentRating || view !== "results") {
@@ -1894,6 +2201,8 @@ export function StockDashboard({
     }
   }
 
+  analyzeSymbolRef.current = analyzeSymbol;
+
   function selectSearchItem(item: SearchResultItem): void {
     setTicker(item.symbol);
 
@@ -1916,6 +2225,42 @@ export function StockDashboard({
   async function saveToWatchlist(): Promise<void> {
     if (!currentRating) return;
 
+    const saveLocalWatchlist = (): void => {
+      setWatchlist((prev) => {
+        const exists = prev.find((item) => item.symbol === currentRating.symbol);
+        if (exists) {
+          return prev.map((item) =>
+            item.symbol === currentRating.symbol
+              ? {
+                  ...item,
+                  latest: currentRating
+                }
+              : item
+          );
+        }
+        return [
+          {
+            symbol: currentRating.symbol,
+            createdAt: new Date().toISOString(),
+            latest: currentRating
+          },
+          ...prev
+        ];
+      });
+      setWatchlistAddedSymbol(currentRating.symbol);
+      if (watchlistHintTimeoutRef.current !== null) {
+        window.clearTimeout(watchlistHintTimeoutRef.current);
+      }
+      watchlistHintTimeoutRef.current = window.setTimeout(() => {
+        setWatchlistAddedSymbol(null);
+      }, 1800);
+    };
+
+    if (!currentUserId) {
+      saveLocalWatchlist();
+      return;
+    }
+
     try {
       const response = await fetch("/api/watchlist", {
         method: "POST",
@@ -1924,6 +2269,11 @@ export function StockDashboard({
         },
         body: JSON.stringify({ symbol: currentRating.symbol })
       });
+
+      if (response.status === 401) {
+        saveLocalWatchlist();
+        return;
+      }
 
       const payload = (await response.json()) as {
         watchlist?: WatchlistItem[];
@@ -1949,10 +2299,29 @@ export function StockDashboard({
   }
 
   async function removeWatchlistSymbol(symbol: string): Promise<void> {
+    const removeLocalWatchlist = (): void => {
+      setWatchlist((prev) => prev.filter((item) => item.symbol !== symbol));
+      if (watchlistHintTimeoutRef.current !== null) {
+        window.clearTimeout(watchlistHintTimeoutRef.current);
+        watchlistHintTimeoutRef.current = null;
+      }
+      setWatchlistAddedSymbol((prev) => (prev === symbol ? null : prev));
+    };
+
+    if (!currentUserId) {
+      removeLocalWatchlist();
+      return;
+    }
+
     try {
       const response = await fetch(`/api/watchlist?symbol=${encodeURIComponent(symbol)}`, {
         method: "DELETE"
       });
+
+      if (response.status === 401) {
+        removeLocalWatchlist();
+        return;
+      }
 
       const payload = (await response.json()) as {
         watchlist?: WatchlistItem[];
@@ -2043,129 +2412,6 @@ export function StockDashboard({
     };
   }, [currentRating, history, stockContext?.sectorAverageScore]);
 
-  const portfolioSummary = useMemo(() => {
-    const completedHoldings = portfolioHoldings.filter((holding) => holding.analysis !== null);
-    if (completedHoldings.length === 0) {
-      return {
-        totalValue: 0,
-        weightedScore: 0,
-        adjustedScore: 0,
-        diversification: "Low" as "High" | "Medium" | "Low",
-        healthScore: 0,
-        recommendations: ["Add holdings to generate a portfolio health check."],
-        sectorBreakdown: [] as Array<{
-          sector: string;
-          allocationPct: number;
-          avgScore: number;
-          heat: "HOT" | "NEUTRAL" | "COLD";
-        }>,
-        lowScoreCount: 0,
-        ratingLabel: RATING_BANDS.HOLD.label
-      };
-    }
-
-    const valuationRows = completedHoldings.map((holding) => {
-      const analysis = holding.analysis as PersistedAnalysis;
-      const positionValue = holding.shares * Math.max(analysis.currentPrice, 0.01);
-      return {
-        ...holding,
-        analysis,
-        positionValue
-      };
-    });
-
-    const totalValue = valuationRows.reduce((sum, row) => sum + row.positionValue, 0);
-    const fallbackTotalShares = valuationRows.reduce((sum, row) => sum + row.shares, 0);
-    const denominator = totalValue > 0 ? totalValue : Math.max(fallbackTotalShares, 1);
-
-    const weightedScore = valuationRows.reduce((sum, row) => {
-      const weight = (totalValue > 0 ? row.positionValue : row.shares) / denominator;
-      return sum + row.analysis.score * weight;
-    }, 0);
-
-    const sectorAccumulator = new Map<string, { value: number; weightedScore: number }>();
-    for (const row of valuationRows) {
-      const sector = row.analysis.sector || "Other";
-      const current = sectorAccumulator.get(sector) ?? { value: 0, weightedScore: 0 };
-      const allocationValue = totalValue > 0 ? row.positionValue : row.shares;
-      current.value += allocationValue;
-      current.weightedScore += row.analysis.score * allocationValue;
-      sectorAccumulator.set(sector, current);
-    }
-
-    const sectorBreakdown = Array.from(sectorAccumulator.entries())
-      .map(([sector, values]) => {
-        const allocationPct = (values.value / denominator) * 100;
-        const avgScore = values.value > 0 ? values.weightedScore / values.value : 0;
-        const heat = sectorHeatFromScore(avgScore);
-        return {
-          sector,
-          allocationPct,
-          avgScore,
-          heat
-        };
-      })
-      .sort((a, b) => b.allocationPct - a.allocationPct);
-
-    const maxSectorPct = sectorBreakdown[0]?.allocationPct ?? 0;
-    const hhi = sectorBreakdown.reduce((sum, sector) => sum + (sector.allocationPct / 100) ** 2, 0);
-    const lowScoreCount = completedHoldings.filter((holding) => (holding.analysis as PersistedAnalysis).score < 7).length;
-    const coldSectorCount = sectorBreakdown.filter((sector) => sector.heat === "COLD").length;
-
-    const concentrationPenalty = Math.max(0, (maxSectorPct - 45) * 0.03) + Math.max(0, (hhi - 0.34) * 4.1);
-    const coldPenalty = coldSectorCount * 0.24 + lowScoreCount * 0.18;
-    const adjustedScore = Math.max(0, Math.min(10, weightedScore - concentrationPenalty - coldPenalty));
-
-    const diversification =
-      sectorBreakdown.length >= 5 && maxSectorPct < 40
-        ? "High"
-        : sectorBreakdown.length >= 3 && maxSectorPct < 60
-          ? "Medium"
-          : "Low";
-
-    const diversificationScore = diversification === "High" ? 9 : diversification === "Medium" ? 6.7 : 4.2;
-    const healthScore = Math.max(0, Math.min(10, adjustedScore * 0.72 + diversificationScore * 0.28));
-
-    const recommendations: string[] = [];
-    if (maxSectorPct > 65) {
-      recommendations.push(`High ${sectorBreakdown[0]?.sector ?? "single-sector"} concentration`);
-    } else if (maxSectorPct > 50) {
-      recommendations.push(`Monitor concentration risk in ${sectorBreakdown[0]?.sector ?? "top sector"}`);
-    }
-
-    if (coldSectorCount > 0) {
-      recommendations.push(`${coldSectorCount} sector bucket${coldSectorCount > 1 ? "s" : ""} rated COLD`);
-    }
-
-    if (lowScoreCount > 0) {
-      recommendations.push(`${lowScoreCount} position${lowScoreCount > 1 ? "s" : ""} below 7.0`);
-    }
-
-    if (diversification === "Low") {
-      recommendations.push("Consider adding defensive/non-correlated sectors");
-    } else if (diversification === "Medium") {
-      recommendations.push("Diversification is moderate; add one non-tech hedge");
-    }
-
-    if (recommendations.length === 0) {
-      recommendations.push("Portfolio profile is balanced across holdings and sectors.");
-    }
-
-    const portfolioRatingLabel = RATING_BANDS[toRating(adjustedScore)].label;
-
-    return {
-      totalValue,
-      weightedScore,
-      adjustedScore,
-      diversification,
-      healthScore,
-      recommendations: recommendations.slice(0, 4),
-      sectorBreakdown,
-      lowScoreCount,
-      ratingLabel: portfolioRatingLabel
-    };
-  }, [portfolioHoldings]);
-
   const portfolioAllocation = useMemo(() => {
     const completed = portfolioHoldings
       .filter((holding) => holding.analysis !== null)
@@ -2194,143 +2440,6 @@ export function StockDashboard({
     });
   }, [portfolioHoldings]);
 
-  const portfolioAllocationSegments = useMemo(() => {
-    if (portfolioAllocation.length === 0) {
-      return [] as Array<{
-        id: string;
-        symbol: string;
-        allocationPct: number;
-        start: number;
-        end: number;
-        mid: number;
-        color: string;
-      }>;
-    }
-
-    const segmentPalette = [
-      "rgba(226, 232, 240, 0.88)",
-      "rgba(167, 243, 208, 0.86)",
-      "rgba(186, 230, 253, 0.84)",
-      "rgba(254, 205, 211, 0.84)",
-      "rgba(252, 211, 77, 0.8)",
-      "rgba(196, 181, 253, 0.82)",
-      "rgba(153, 246, 228, 0.82)",
-      "rgba(251, 207, 232, 0.8)"
-    ];
-
-    const sorted = [...portfolioAllocation].sort((a, b) => b.allocationPct - a.allocationPct);
-    const visible = sorted.slice(0, 8);
-    const restPct = sorted.slice(8).reduce((sum, item) => sum + item.allocationPct, 0);
-
-    const basis = restPct > 0.35
-      ? [...visible, { id: "rest", symbol: "REST", allocationPct: restPct }]
-      : visible.map((item) => ({ id: item.id, symbol: item.symbol, allocationPct: item.allocationPct }));
-
-    let cursor = 0;
-    return basis
-      .map((item, index) => {
-        const start = cursor;
-        const end = Math.min(100, start + item.allocationPct);
-        cursor = end;
-        return {
-          id: item.id,
-          symbol: item.symbol,
-          allocationPct: item.allocationPct,
-          start,
-          end,
-          mid: (start + end) / 2,
-          color: segmentPalette[index % segmentPalette.length]
-        };
-      })
-      .filter((segment) => segment.end - segment.start > 0.2);
-  }, [portfolioAllocation]);
-
-  const allocationWheelStyle = useMemo(() => {
-    if (portfolioAllocationSegments.length === 0) {
-      return {
-        background:
-          "conic-gradient(from 180deg, rgba(255,255,255,0.18) 0deg, rgba(255,255,255,0.08) 360deg)"
-      };
-    }
-
-    return {
-      background: `conic-gradient(from 180deg, ${portfolioAllocationSegments
-        .map((segment) => `${segment.color} ${segment.start.toFixed(2)}% ${segment.end.toFixed(2)}%`)
-        .join(", ")})`
-    };
-  }, [portfolioAllocationSegments]);
-
-  const portfolioWheelLabels = useMemo(() => {
-    type WheelLabel = {
-      id: string;
-      symbol: string;
-      allocationPct: number;
-      anchorX: number;
-      anchorY: number;
-      labelX: number;
-      labelY: number;
-      side: "left" | "right";
-    };
-
-    const base = portfolioAllocationSegments
-      .filter((segment) => segment.symbol !== "REST" && segment.allocationPct >= 3.5)
-      .map((segment) => {
-        const angleRad = ((segment.mid / 100) * 360 - 90) * (Math.PI / 180);
-        const radialDistance =
-          segment.allocationPct >= 16 ? 31 :
-            segment.allocationPct >= 10 ? 35 :
-              segment.allocationPct >= 6 ? 38 : 41;
-        const anchorX = 50 + Math.cos(angleRad) * radialDistance;
-        const anchorY = 50 + Math.sin(angleRad) * radialDistance;
-        const side: "left" | "right" = Math.cos(angleRad) >= 0 ? "right" : "left";
-        const labelX = side === "right"
-          ? Math.max(57, Math.min(76, anchorX + 4.5))
-          : Math.min(43, Math.max(24, anchorX - 4.5));
-
-        return {
-          id: segment.id,
-          symbol: segment.symbol,
-          allocationPct: segment.allocationPct,
-          anchorX,
-          anchorY,
-          labelX,
-          labelY: anchorY,
-          side
-        } satisfies WheelLabel;
-      });
-
-    const spreadVertically = (labels: WheelLabel[]): WheelLabel[] => {
-      if (labels.length <= 1) {
-        return labels;
-      }
-
-      const sorted = [...labels].sort((a, b) => a.labelY - b.labelY);
-      const minY = 17;
-      const maxY = 83;
-      const gap = 5.5;
-
-      sorted[0].labelY = Math.max(minY, Math.min(maxY, sorted[0].labelY));
-      for (let index = 1; index < sorted.length; index += 1) {
-        const target = Math.max(minY, Math.min(maxY, sorted[index].labelY));
-        sorted[index].labelY = Math.max(target, sorted[index - 1].labelY + gap);
-      }
-
-      for (let index = sorted.length - 1; index >= 0; index -= 1) {
-        sorted[index].labelY = Math.max(minY, Math.min(maxY, sorted[index].labelY));
-        if (index < sorted.length - 1 && sorted[index + 1].labelY - sorted[index].labelY < gap) {
-          sorted[index].labelY = sorted[index + 1].labelY - gap;
-        }
-      }
-
-      return sorted;
-    };
-
-    const left = spreadVertically(base.filter((item) => item.side === "left"));
-    const right = spreadVertically(base.filter((item) => item.side === "right"));
-
-    return [...left, ...right];
-  }, [portfolioAllocationSegments]);
-
   const portfolioAllocationById = useMemo(() => {
     const map = new Map<string, (typeof portfolioAllocation)[number]>();
     for (const item of portfolioAllocation) {
@@ -2338,6 +2447,80 @@ export function StockDashboard({
     }
     return map;
   }, [portfolioAllocation]);
+
+  const portfolioAggregatorRows = useMemo(() => {
+    return portfolioHoldings
+      .map((holding) => {
+        const analysis = holding.analysis;
+        const allocation = portfolioAllocationById.get(holding.id);
+        const positionValue =
+          allocation?.positionValue ??
+          (analysis ? holding.shares * Math.max(analysis.currentPrice, 0.01) : null);
+
+        return {
+          id: holding.id,
+          symbol: holding.symbol,
+          shares: holding.shares,
+          allocationPct: allocation?.allocationPct ?? null,
+          positionValue,
+          score: analysis?.score ?? null,
+          ratingLabel: analysis ? RATING_BANDS[analysis.rating].label : null,
+          currency: analysis?.currency ?? currentRating?.currency ?? "USD",
+          loading: holding.loading,
+          error: holding.error
+        };
+      })
+      .sort((a, b) => (b.allocationPct ?? -1) - (a.allocationPct ?? -1));
+  }, [currentRating?.currency, portfolioAllocationById, portfolioHoldings]);
+
+  const portfolioEngineInput = useMemo<PortfolioEngineInput | null>(() => {
+    const rows = portfolioAggregatorRows;
+    if (rows.length === 0) {
+      return null;
+    }
+
+    const normalizedIndices = mergeIndexRows(indicesYtd, FALLBACK_INDICES_YTD);
+    const us500 = normalizedIndices.find((item) => item.code === "US500");
+    const benchmarkPoints = us500?.points ?? [];
+    const monthsOfHistory =
+      benchmarkPoints.length >= 30 ? 48 :
+        benchmarkPoints.length >= 12 ? 12 : 6;
+
+    const totalShares = Math.max(1, rows.reduce((sum, row) => sum + row.shares, 0));
+    const holdingById = new Map(portfolioHoldings.map((holding) => [holding.id, holding]));
+
+    const inputHoldings: PortfolioInputHolding[] = rows.map((row) => {
+      const holding = holdingById.get(row.id);
+      const analysis = holding?.analysis ?? null;
+      const fallbackWeight = row.shares / totalShares;
+      const normalizedWeight = row.allocationPct !== null ? row.allocationPct / 100 : fallbackWeight;
+      return {
+        ticker: row.symbol,
+        name: analysis?.companyName ?? row.symbol,
+        weight: normalizedWeight,
+        shares: row.shares,
+        price: analysis?.currentPrice ?? null,
+        sector: analysis?.sector ?? null,
+        eldarScore: row.score,
+        rating: analysis?.rating ?? null
+      };
+    });
+
+    return {
+      portfolioId: currentUserId ?? "local-portfolio",
+      asOfDate: new Date().toISOString().slice(0, 10),
+      holdings: inputHoldings,
+      benchmarkPoints,
+      monthsOfHistory
+    };
+  }, [currentUserId, indicesYtd, portfolioAggregatorRows, portfolioHoldings]);
+
+  const portfolioRatingData = useMemo(() => {
+    if (!portfolioEngineInput) return null;
+    return scorePortfolio(portfolioEngineInput);
+  }, [portfolioEngineInput]);
+
+  const activePortfolioRating = portfolioRatingData ?? persistedPortfolioSnapshot?.rating ?? null;
 
   const comparisonEntries = useMemo(() => {
     const output: Array<{
@@ -2384,6 +2567,73 @@ export function StockDashboard({
 
     return output.slice(0, 3);
   }, [comparisonSymbols, comparisonStateBySymbol, currentRating]);
+
+  useEffect(() => {
+    if (!currentUserId || !portfolioEngineInput || !portfolioRatingData) {
+      return;
+    }
+
+    const payloadHash = JSON.stringify({
+      portfolioId: portfolioEngineInput.portfolioId,
+      asOfDate: portfolioEngineInput.asOfDate,
+      holdings: portfolioEngineInput.holdings.map((holding) => ({
+        ticker: holding.ticker,
+        shares: holding.shares,
+        weight: Number(holding.weight.toFixed(6)),
+        score: holding.eldarScore,
+        rating: holding.rating
+      })),
+      benchmarkCount: portfolioEngineInput.benchmarkPoints.length,
+      monthsOfHistory: portfolioEngineInput.monthsOfHistory ?? null,
+      compositeScore: portfolioRatingData.compositeScore
+    });
+
+    if (payloadHash === portfolioPersistHashRef.current) {
+      return;
+    }
+
+    if (portfolioPersistTimeoutRef.current !== null) {
+      window.clearTimeout(portfolioPersistTimeoutRef.current);
+      portfolioPersistTimeoutRef.current = null;
+    }
+
+    portfolioPersistTimeoutRef.current = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const response = await fetch("/api/portfolio", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            cache: "no-store",
+            body: JSON.stringify(portfolioEngineInput)
+          });
+
+          const payload = (await response.json()) as {
+            snapshot?: PersistedPortfolioSnapshot;
+            error?: string;
+          };
+
+          if (!response.ok || !payload.snapshot) {
+            throw new Error(payload.error ?? "Failed to persist portfolio snapshot.");
+          }
+
+          portfolioPersistHashRef.current = payloadHash;
+          setPersistedPortfolioSnapshot(payload.snapshot);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Failed to persist portfolio snapshot.";
+          console.warn(`[Stock Dashboard]: ${message}`);
+        }
+      })();
+    }, 550);
+
+    return () => {
+      if (portfolioPersistTimeoutRef.current !== null) {
+        window.clearTimeout(portfolioPersistTimeoutRef.current);
+        portfolioPersistTimeoutRef.current = null;
+      }
+    };
+  }, [currentUserId, portfolioEngineInput, portfolioRatingData]);
 
   const renderCommandPalette = (): JSX.Element | null => {
     if (!isCommandPaletteOpen) {
@@ -2716,7 +2966,7 @@ export function StockDashboard({
 
   if (view === "home" || (view === "results" && !currentRating)) {
     const displayedUpcomingEarnings = upcomingEarnings.length > 0 ? upcomingEarnings : FALLBACK_UPCOMING_EARNINGS;
-    const displayedPassedEarnings = passedEarnings.length > 0 ? passedEarnings : FALLBACK_PASSED_EARNINGS;
+    const displayedIndicesYtd = mergeIndexRows(indicesYtd, FALLBACK_INDICES_YTD);
 
     return (
       <div
@@ -2727,6 +2977,7 @@ export function StockDashboard({
       >
         <NavigationBar
           view={view}
+          themeMode={themeMode}
           loading={loading}
           profileOpen={isProfileOpen}
           menuContext="home"
@@ -2736,6 +2987,7 @@ export function StockDashboard({
           onHome={goHomeView}
           onOpenSectors={openSectorsPage}
           onOpenMacro={openMacroPage}
+          onOpenJournal={() => openJournalPage()}
           onPortfolio={() => setView("portfolio")}
           onWatchlist={() => setView("watchlist")}
           onQuickSearch={(value) => openCommandPalette(value)}
@@ -2820,93 +3072,31 @@ export function StockDashboard({
               <div className="eldar-panel mx-auto flex h-[248px] w-full max-w-sm flex-col rounded-xl p-1.5 text-left sm:h-[258px] md:h-[268px]">
                 <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
                   <h3 className="eldar-caption text-[11px] text-white/65">EARNINGS</h3>
-                  <div className="inline-flex rounded-lg border border-white/15 bg-zinc-950/40 p-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setEarningsView("upcoming")}
-                      className={clsx(
-                        "rounded-lg px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] transition",
-                        earningsView === "upcoming" ? "bg-white/20 text-white" : "text-white/60 hover:text-white"
-                      )}
-                    >
-                      Upcoming
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEarningsView("past")}
-                      className={clsx(
-                        "rounded-lg px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] transition",
-                        earningsView === "past" ? "bg-white/20 text-white" : "text-white/60 hover:text-white"
-                      )}
-                    >
-                      Past
-                    </button>
-                  </div>
+                  <span aria-hidden="true" className="h-7 w-[156px] rounded-lg border border-transparent opacity-0" />
                 </div>
 
                 <div className="flex-1 overflow-hidden">
-                  {earningsView === "upcoming" ? (
-                    earningsLoading && displayedUpcomingEarnings.length === 0 ? (
-                      <div className="flex h-full items-center">
-                        <p className="text-sm text-white/60">Loading upcoming earnings...</p>
-                      </div>
-                    ) : displayedUpcomingEarnings.length === 0 ? (
-                      <div className="flex h-full items-center">
-                        <p className="text-xs text-white/60">No upcoming earnings yet.</p>
-                      </div>
-                    ) : (
-                      <div className="h-full space-y-1">
-                        {displayedUpcomingEarnings.slice(0, 3).map((item, index) => (
-                          <div
-                            key={`${item.symbol}-${item.date ?? "na"}`}
-                            className="reveal-block min-h-[56px] rounded-md border border-white/15 bg-zinc-950/40 px-2 py-1"
-                            style={{ transitionDelay: `${index * 100}ms` }}
-                          >
-                            <p className="font-mono text-[11px] font-semibold text-white">${item.symbol}</p>
-                            <p className="truncate text-[9px] text-white/60">{item.companyName}</p>
-                            <p className="mt-0.5 text-[10px] text-white/70">
-                              {formatEarningsDate(item.date)}
-                              {formatOptionalDecimal(item.epsEstimate, 2) ? ` • Est EPS ${formatOptionalDecimal(item.epsEstimate, 2)}` : ""}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  ) : earningsLoading && displayedPassedEarnings.length === 0 ? (
+                  {earningsLoading && displayedUpcomingEarnings.length === 0 ? (
                     <div className="flex h-full items-center">
-                      <p className="text-sm text-white/60">Loading past earnings...</p>
+                      <p className="text-sm text-white/60">Loading upcoming earnings...</p>
                     </div>
-                  ) : displayedPassedEarnings.length === 0 ? (
+                  ) : displayedUpcomingEarnings.length === 0 ? (
                     <div className="flex h-full items-center">
-                      <p className="text-xs text-white/60">No recent earnings yet.</p>
+                      <p className="text-xs text-white/60">No upcoming earnings yet.</p>
                     </div>
                   ) : (
                     <div className="h-full space-y-1">
-                      {displayedPassedEarnings.slice(0, 3).map((item, index) => (
+                      {displayedUpcomingEarnings.slice(0, 3).map((item, index) => (
                         <div
-                          key={`${item.symbol}-${item.date ?? item.period ?? "na"}`}
+                          key={`${item.symbol}-${item.date ?? "na"}`}
                           className="reveal-block min-h-[56px] rounded-md border border-white/15 bg-zinc-950/40 px-2 py-1"
                           style={{ transitionDelay: `${index * 100}ms` }}
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="font-mono text-[11px] font-semibold text-white">${item.symbol}</p>
-                            <span
-                              className={clsx(
-                                "text-[10px] font-bold uppercase tracking-[0.12em]",
-                                item.outcome === "beat" && "text-emerald-300",
-                                item.outcome === "miss" && "text-red-300",
-                                item.outcome === "inline" && "text-amber-300",
-                                item.outcome === "unknown" && "text-white/55"
-                              )}
-                            >
-                              {item.outcome === "beat" ? "Beat" : item.outcome === "miss" ? "Failed" : item.outcome === "inline" ? "Inline" : "Pending"}
-                            </span>
-                          </div>
+                          <p className="font-mono text-[11px] font-semibold text-white">${item.symbol}</p>
                           <p className="truncate text-[9px] text-white/60">{item.companyName}</p>
                           <p className="mt-0.5 text-[10px] text-white/70">
-                            {formatEarningsDate(item.date ?? item.period)}
-                            {formatOptionalDecimal(item.actual, 2) ? ` • Act ${formatOptionalDecimal(item.actual, 2)}` : ""}
-                            {formatOptionalDecimal(item.estimate, 2) ? ` • Est ${formatOptionalDecimal(item.estimate, 2)}` : ""}
+                            {formatEarningsDate(item.date)}
+                            {formatOptionalDecimal(item.epsEstimate, 2) ? ` • Est EPS ${formatOptionalDecimal(item.epsEstimate, 2)}` : ""}
                           </p>
                         </div>
                       ))}
@@ -2974,73 +3164,63 @@ export function StockDashboard({
                   <span aria-hidden="true" className="h-7 w-[156px] rounded-lg border border-transparent opacity-0" />
                 </div>
                 <div className="flex-1 overflow-hidden">
-                  {indicesLoading && indicesYtd.length === 0 ? (
-                    <div className="flex h-full items-center">
-                      <p className="text-xs text-white/60">Loading indices...</p>
-                    </div>
-                  ) : indicesYtd.length === 0 ? (
-                    <div className="flex h-full items-center">
-                      <p className="text-xs text-white/60">No index data available.</p>
-                    </div>
-                  ) : (
-                    <div className="h-full space-y-1">
-                      {indicesYtd.slice(0, 3).map((item, index) => {
-                        const sparklinePath = buildSparklinePath(item.points, 112, 28);
-                        return (
-                          <div
-                            key={item.code}
-                            className="reveal-block flex min-h-[56px] items-center justify-between rounded-md border border-white/15 bg-zinc-950/40 px-2 py-1"
-                            style={{ transitionDelay: `${index * 100}ms` }}
-                          >
-                            <div className="min-w-0">
-                              <p className="font-mono text-[11px] font-semibold text-white">{item.label}</p>
-                              <p className="mt-0.5 text-[10px] text-white/70">
-                                {typeof item.current === "number" ? item.current.toFixed(2) : "Pending"}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {sparklinePath ? (
-                                <svg
-                                  width="112"
-                                  height="28"
-                                  viewBox="0 0 112 28"
-                                  className="overflow-visible"
-                                  aria-hidden="true"
-                                >
-                                  <path
-                                    d={sparklinePath}
-                                    fill="none"
-                                    stroke={
-                                      typeof item.ytdChangePercent === "number" && item.ytdChangePercent < 0
-                                        ? "rgba(252, 165, 165, 0.85)"
-                                        : "rgba(167, 243, 208, 0.85)"
-                                    }
-                                    strokeWidth="1.8"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                              ) : (
-                                <span className="text-[10px] text-white/55">No chart</span>
-                              )}
-                              <p
-                                className={clsx(
-                                  "text-right text-[10px] font-semibold",
-                                  typeof item.ytdChangePercent === "number" && item.ytdChangePercent > 0 && "text-emerald-300",
-                                  typeof item.ytdChangePercent === "number" && item.ytdChangePercent < 0 && "text-red-300",
-                                  item.ytdChangePercent === null && "text-white/70"
-                                )}
-                              >
-                                {typeof item.ytdChangePercent === "number"
-                                  ? `${item.ytdChangePercent > 0 ? "+" : ""}${item.ytdChangePercent.toFixed(2)}%`
-                                  : "Pending"}
-                              </p>
-                            </div>
+                  <div className="h-full space-y-1">
+                    {displayedIndicesYtd.slice(0, 3).map((item, index) => {
+                      const sparklinePath = buildSparklinePath(item.points, 112, 28);
+                      return (
+                        <div
+                          key={item.code}
+                          className="reveal-block flex min-h-[56px] items-center justify-between rounded-md border border-white/15 bg-zinc-950/40 px-2 py-1"
+                          style={{ transitionDelay: `${index * 100}ms` }}
+                        >
+                          <div className="min-w-0">
+                            <p className="font-mono text-[11px] font-semibold text-white">{item.label}</p>
+                            <p className="mt-0.5 text-[10px] text-white/70">
+                              {typeof item.current === "number" ? item.current.toFixed(2) : "Pending"}
+                            </p>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                          <div className="flex items-center gap-2">
+                            {sparklinePath ? (
+                              <svg
+                                width="112"
+                                height="28"
+                                viewBox="0 0 112 28"
+                                className="overflow-visible"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  d={sparklinePath}
+                                  fill="none"
+                                  stroke={
+                                    typeof item.ytdChangePercent === "number" && item.ytdChangePercent < 0
+                                      ? "rgba(252, 165, 165, 0.85)"
+                                      : "rgba(167, 243, 208, 0.85)"
+                                  }
+                                  strokeWidth="1.8"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            ) : (
+                              <span className="text-[10px] text-white/55">No chart</span>
+                            )}
+                            <p
+                              className={clsx(
+                                "text-right text-[10px] font-semibold",
+                                typeof item.ytdChangePercent === "number" && item.ytdChangePercent > 0 && "text-emerald-300",
+                                typeof item.ytdChangePercent === "number" && item.ytdChangePercent < 0 && "text-red-300",
+                                item.ytdChangePercent === null && "text-white/70"
+                              )}
+                            >
+                              {typeof item.ytdChangePercent === "number"
+                                ? `${item.ytdChangePercent > 0 ? "+" : ""}${item.ytdChangePercent.toFixed(2)}%`
+                                : "Pending"}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
                 {indicesError ? <p className="mt-1 truncate text-[10px] text-zinc-200/80">{indicesError}</p> : null}
               </div>
@@ -3072,6 +3252,7 @@ export function StockDashboard({
       >
         <NavigationBar
           view={view}
+          themeMode={themeMode}
           loading={loading}
           profileOpen={isProfileOpen}
           menuContext="home"
@@ -3081,6 +3262,7 @@ export function StockDashboard({
           onHome={goHomeView}
           onOpenSectors={openSectorsPage}
           onOpenMacro={openMacroPage}
+          onOpenJournal={() => openJournalPage()}
           onPortfolio={() => setView("portfolio")}
           onWatchlist={() => setView("watchlist")}
           onQuickSearch={(value) => openCommandPalette(value)}
@@ -3127,8 +3309,8 @@ export function StockDashboard({
                           title={isInWatchlist ? "Remove from watchlist" : "Add to watchlist"}
                           aria-label={isInWatchlist ? "Remove from watchlist" : "Add to watchlist"}
                           className={clsx(
-                            "inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-white/70 transition hover:text-white",
-                            isInWatchlist && "text-zinc-100"
+                            "eldar-bookmark-ribbon inline-flex h-7 w-7 items-center justify-center text-white/70 transition",
+                            isInWatchlist && "eldar-bookmark-ribbon-active"
                           )}
                         >
                           <Bookmark className={clsx("h-4 w-4", isInWatchlist && "fill-current")} />
@@ -3435,6 +3617,44 @@ export function StockDashboard({
                     </div>
                   ) : null}
                 </div>
+
+                <div className="eldar-panel reveal-block rounded-3xl p-5" style={{ transitionDelay: "300ms" }}>
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <h3 className="eldar-caption text-xs text-white/60">JOURNAL</h3>
+                    <button
+                      type="button"
+                      onClick={() => openJournalPage({ symbol: currentRating.symbol, type: "thesis" })}
+                      className="eldar-btn-ghost min-h-[36px] rounded-xl px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                    >
+                      New entry for {currentRating.symbol}
+                    </button>
+                  </div>
+
+                  {!currentUserId ? (
+                    <p className="text-xs text-white/70">Sign in to access private journal entries.</p>
+                  ) : journalRelatedLoading ? (
+                    <p className="text-xs text-white/70">Loading related entries...</p>
+                  ) : journalRelatedEntries.length === 0 ? (
+                    <p className="text-xs text-white/70">No entries linked to {currentRating.symbol} yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {journalRelatedEntries.slice(0, 10).map((entry) => (
+                        <button
+                          key={`journal-${entry.id}`}
+                          type="button"
+                          onClick={() => openJournalPage({ symbol: currentRating.symbol })}
+                          className="w-full rounded-xl border border-white/15 bg-zinc-950/45 px-3 py-2 text-left transition hover:border-white/30"
+                        >
+                          <p className="truncate text-xs font-semibold text-white">{entry.title}</p>
+                          <p className="mt-1 text-[10px] text-white/60">
+                            {entry.entryType} • {entry.status} • {new Date(entry.createdAt).toLocaleDateString()}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {journalRelatedError ? <p className="mt-2 text-[10px] text-zinc-200/80">{journalRelatedError}</p> : null}
+                </div>
               </aside>
             </div>
           </div>
@@ -3452,6 +3672,7 @@ export function StockDashboard({
       <div className="min-h-screen text-white" style={{ background: appBackground }}>
         <NavigationBar
           view={view}
+          themeMode={themeMode}
           loading={loading || portfolioLoading}
           profileOpen={isProfileOpen}
           menuContext="home"
@@ -3461,6 +3682,7 @@ export function StockDashboard({
           onHome={goHomeView}
           onOpenSectors={openSectorsPage}
           onOpenMacro={openMacroPage}
+          onOpenJournal={() => openJournalPage()}
           onPortfolio={() => setView("portfolio")}
           onWatchlist={() => setView("watchlist")}
           onQuickSearch={(value) => openCommandPalette(value, "portfolio-add")}
@@ -3527,106 +3749,48 @@ export function StockDashboard({
                     Add positions to start the health check.
                   </div>
                 ) : (
-                  <div className="grid gap-5 xl:grid-cols-[560px_1fr]">
-                    <div className="mx-auto flex justify-center">
-                      <div className="relative h-[560px] w-[560px] max-w-full rounded-full border border-white/25 p-4" style={allocationWheelStyle}>
-                        <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" aria-hidden="true">
-                          {portfolioWheelLabels.map((label) => (
-                            <g key={`wheel-link-${label.id}`}>
-                              <line
-                                x1={label.anchorX}
-                                y1={label.anchorY}
-                                x2={label.labelX}
-                                y2={label.labelY}
-                                stroke="rgba(255,255,255,0.34)"
-                                strokeWidth="0.22"
-                                strokeLinecap="round"
-                              />
-                              <circle cx={label.anchorX} cy={label.anchorY} r="0.45" fill="rgba(255,255,255,0.75)" />
-                            </g>
-                          ))}
-                        </svg>
-
-                        {portfolioWheelLabels.map((label) => (
-                          <div
-                            key={`seg-label-${label.id}`}
-                            className="absolute z-10 pointer-events-none select-none rounded-full border border-white/30 bg-black/55 px-2.5 py-1 text-[10px] leading-none tracking-[0.1em] text-white/95 shadow-[0_4px_16px_rgba(0,0,0,0.42)] backdrop-blur-md"
-                            style={{
-                              left: `${label.labelX}%`,
-                              top: `${label.labelY}%`,
-                              transform: label.side === "right" ? "translate(0, -50%)" : "translate(-100%, -50%)"
-                            }}
-                          >
-                            <span className="font-mono font-bold">${label.symbol}</span>
-                            <span className="ml-1.5 text-[9px] font-semibold text-white/75">{label.allocationPct.toFixed(0)}%</span>
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-white/15 bg-zinc-950/45 p-3">
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-white/60">Holdings Control</p>
+                      <div className="mt-2 space-y-1.5">
+                        {portfolioAggregatorRows.map((row) => (
+                          <div key={`hold-ctl-${row.id}`} className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 text-xs">
+                            <div className="min-w-0">
+                              <p className="font-mono font-semibold text-white">{row.symbol}</p>
+                              <p className="truncate text-[10px] text-white/60">
+                                {row.allocationPct !== null ? `${row.allocationPct.toFixed(1)}%` : "Pending allocation"} • {row.shares} shares
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void refreshPortfolioHolding(row.symbol);
+                                }}
+                                className="text-[10px] uppercase tracking-[0.12em] text-white/70 hover:text-white"
+                              >
+                                Refresh
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removePortfolioHolding(row.id)}
+                                className="text-[10px] uppercase tracking-[0.12em] text-white/70 hover:text-white"
+                              >
+                                Remove
+                              </button>
+                            </div>
                           </div>
                         ))}
-
-                        <div className="absolute inset-[24%] flex flex-col items-center justify-center rounded-full border border-white/20 bg-black/55 text-center">
-                          <p className="text-[11px] uppercase tracking-[0.14em] text-white/60">ELDAR</p>
-                          <p className="mt-1 text-3xl font-black text-white">{portfolioSummary.adjustedScore.toFixed(1)}</p>
-                          <p className={clsx("mt-1 text-sm font-bold", ratingLabelToneClass(portfolioSummary.ratingLabel))}>
-                            {portfolioSummary.ratingLabel}
-                          </p>
-                        </div>
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-white/82">
-                      <p className="text-xs uppercase tracking-[0.14em] text-white/60">Circle Summary</p>
-                      <div className="mt-3 space-y-1.5">
-                        <p>Health: {portfolioSummary.healthScore.toFixed(1)} / 10</p>
-                        <p>Diversification: {portfolioSummary.diversification}</p>
-                        <p>Total Value: {formatPrice(portfolioSummary.totalValue, currentRating?.currency ?? "USD")}</p>
+                    {activePortfolioRating ? (
+                      <PortfolioRatingPanel rating={activePortfolioRating} />
+                    ) : (
+                      <div className="rounded-2xl border border-white/15 bg-zinc-950/45 px-4 py-4 text-sm text-white/70">
+                        Building portfolio model...
                       </div>
-
-                      <div className="mt-4 space-y-1.5">
-                        <p className="text-xs uppercase tracking-[0.14em] text-white/60">Top Sectors</p>
-                        {portfolioSummary.sectorBreakdown.slice(0, 3).map((sector) => (
-                          <p key={`sector-${sector.sector}`}>
-                            {sector.sector}: {sector.allocationPct.toFixed(0)}%
-                          </p>
-                        ))}
-                      </div>
-
-                      <div className="mt-4 space-y-2">
-                        <p className="text-xs uppercase tracking-[0.14em] text-white/60">Holdings</p>
-                        {portfolioHoldings.map((holding) => {
-                          const analysis = holding.analysis;
-                          const alloc = portfolioAllocationById.get(holding.id);
-                          return (
-                            <div key={`summary-${holding.id}`} className="rounded-lg border border-white/12 bg-black/15 px-3 py-2 text-xs">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="font-mono text-white">{holding.symbol}</span>
-                                <span>{alloc ? `${alloc.allocationPct.toFixed(1)}%` : "Pending"}</span>
-                              </div>
-                              <p className="mt-1 text-white/70">
-                                {analysis ? formatPrice(analysis.currentPrice, analysis.currency) : "Pending"} • Qty {holding.shares}
-                              </p>
-                              <div className="mt-1 flex items-center gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    void refreshPortfolioHolding(holding.symbol);
-                                  }}
-                                  className="text-[10px] uppercase tracking-[0.12em] text-white/70 hover:text-white"
-                                >
-                                  Refresh
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removePortfolioHolding(holding.id)}
-                                  className="text-[10px] uppercase tracking-[0.12em] text-white/70 hover:text-white"
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                              {holding.error ? <p className="mt-1 text-zinc-200/85">{holding.error}</p> : null}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -3645,6 +3809,7 @@ export function StockDashboard({
     <div className="min-h-screen text-white" style={{ background: appBackground }}>
       <NavigationBar
         view={view}
+        themeMode={themeMode}
         loading={loading}
         profileOpen={isProfileOpen}
         menuContext="home"
@@ -3654,6 +3819,7 @@ export function StockDashboard({
         onHome={goHomeView}
         onOpenSectors={openSectorsPage}
         onOpenMacro={openMacroPage}
+        onOpenJournal={() => openJournalPage()}
         onPortfolio={() => setView("portfolio")}
         onWatchlist={() => setView("watchlist")}
         onQuickSearch={(value) => openCommandPalette(value)}

@@ -4,11 +4,15 @@ import path from "node:path";
 
 import { sql } from "@vercel/postgres";
 
+import { cacheGetJson, cacheSetJson } from "@/lib/cache/redis";
+import type { PersistedPortfolioSnapshot, PortfolioRating, PortfolioSnapshotHolding } from "@/lib/scoring/portfolio-types";
 import { SCORING_MODEL_VERSION } from "@/lib/scoring/version";
 import type { AnalysisResult, Mag7ScoreCard, PersistedAnalysis, WatchlistItem } from "@/lib/types";
 
 const hasPostgres = Boolean(process.env.POSTGRES_URL);
 let initialized = false;
+const ANALYSIS_REDIS_KEY_PREFIX = "analysis";
+const PORTFOLIO_REDIS_KEY_PREFIX = "portfolio";
 
 function getCacheWindowMinutes(): number {
   const parsed = Number.parseInt(process.env.ANALYSIS_CACHE_MINUTES ?? "15", 10);
@@ -27,6 +31,15 @@ interface LocalDbShape {
   analyses: Array<{ userId: string | null; analysis: PersistedAnalysis }>;
   watchlist: Array<{ userId: string | null; symbol: string; createdAt: string }>;
   mag7Scores: Mag7ScoreCard[];
+  portfolioSnapshots: PersistedPortfolioSnapshot[];
+}
+
+function analysisRedisKey(symbol: string, userId: string | null): string {
+  return `${ANALYSIS_REDIS_KEY_PREFIX}:${userId ?? "anon"}:${symbol.toUpperCase()}`;
+}
+
+function portfolioRedisKey(userId: string, portfolioId: string): string {
+  return `${PORTFOLIO_REDIS_KEY_PREFIX}:${userId}:${portfolioId}`;
 }
 
 function makeId(): string {
@@ -110,6 +123,18 @@ async function ensurePostgres(): Promise<void> {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      portfolio_id TEXT NOT NULL,
+      payload JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS portfolio_snapshots_user_created_idx ON portfolio_snapshots(user_id, created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS portfolio_snapshots_user_portfolio_idx ON portfolio_snapshots(user_id, portfolio_id, created_at DESC)`;
+
   initialized = true;
 }
 
@@ -151,18 +176,41 @@ async function readLocal(): Promise<LocalDbShape> {
       })
       .filter((row): row is { userId: string | null; symbol: string; createdAt: string } => row !== null);
 
+    const rawPortfolioSnapshots = Array.isArray((parsed as { portfolioSnapshots?: unknown[] }).portfolioSnapshots)
+      ? ((parsed as { portfolioSnapshots?: unknown[] }).portfolioSnapshots ?? [])
+      : [];
+    const portfolioSnapshots = rawPortfolioSnapshots
+      .map((row) => {
+        if (typeof row !== "object" || row === null) return null;
+        const record = row as Partial<PersistedPortfolioSnapshot>;
+        if (typeof record.id !== "string" || typeof record.userId !== "string" || typeof record.portfolioId !== "string") {
+          return null;
+        }
+        if (typeof record.createdAt !== "string" || typeof record.asOfDate !== "string") {
+          return null;
+        }
+        if (typeof record.rating !== "object" || record.rating === null || !Array.isArray(record.holdings)) {
+          return null;
+        }
+
+        return record as PersistedPortfolioSnapshot;
+      })
+      .filter((row): row is PersistedPortfolioSnapshot => row !== null);
+
     return {
       analyses,
       watchlist,
       mag7Scores: Array.isArray((parsed as { mag7Scores?: unknown[] }).mag7Scores)
         ? ((parsed as { mag7Scores?: Mag7ScoreCard[] }).mag7Scores ?? [])
-        : []
+        : [],
+      portfolioSnapshots
     };
   } catch {
     return {
       analyses: [],
       watchlist: [],
-      mag7Scores: []
+      mag7Scores: [],
+      portfolioSnapshots: []
     };
   }
 }
@@ -187,6 +235,8 @@ export async function saveAnalysis(result: AnalysisResult, userId: string | null
       VALUES (${persisted.id}, ${userId}, ${persisted.symbol}, ${persisted.companyName}, ${persisted.score}, ${persisted.rating}, ${JSON.stringify(persisted)}::jsonb)
     `;
 
+    await cacheSetJson(analysisRedisKey(persisted.symbol, userId), persisted, getCacheWindowMinutes() * 60);
+
     return persisted;
   }
 
@@ -194,6 +244,7 @@ export async function saveAnalysis(result: AnalysisResult, userId: string | null
   db.analyses.unshift({ userId, analysis: persisted });
   db.analyses = db.analyses.slice(0, 3000);
   await writeLocal(db);
+  await cacheSetJson(analysisRedisKey(persisted.symbol, userId), persisted, getCacheWindowMinutes() * 60);
 
   return persisted;
 }
@@ -230,6 +281,15 @@ export async function getCachedAnalysis(
   userId: string | null = null
 ): Promise<PersistedAnalysis | null> {
   const normalized = symbol.toUpperCase();
+  const redisKey = analysisRedisKey(normalized, userId);
+  const redisCached = await cacheGetJson<PersistedAnalysis>(redisKey);
+  if (redisCached) {
+    const ageMs = Date.now() - new Date(redisCached.createdAt).getTime();
+    const withinWindow = Number.isFinite(ageMs) && ageMs <= minutes * 60 * 1000;
+    if (withinWindow && !shouldRefreshCachedAnalysis(redisCached)) {
+      return redisCached;
+    }
+  }
 
   if (hasPostgres) {
     await ensurePostgres();
@@ -248,7 +308,9 @@ export async function getCachedAnalysis(
 
     if (rows.length === 0) return null;
     const parsed = normalizePersistedAnalysis(rows[0].payload);
-    return shouldRefreshCachedAnalysis(parsed) ? null : parsed;
+    if (shouldRefreshCachedAnalysis(parsed)) return null;
+    await cacheSetJson(redisKey, parsed, minutes * 60);
+    return parsed;
   }
 
   const db = await readLocal();
@@ -263,7 +325,12 @@ export async function getCachedAnalysis(
     return null;
   }
 
-  return shouldRefreshCachedAnalysis(cached.analysis) ? null : cached.analysis;
+  if (shouldRefreshCachedAnalysis(cached.analysis)) {
+    return null;
+  }
+
+  await cacheSetJson(redisKey, cached.analysis, minutes * 60);
+  return cached.analysis;
 }
 
 export async function getLastKnownPrice(symbol: string): Promise<number | null> {
@@ -426,4 +493,73 @@ export async function getMag7Scores(): Promise<Mag7ScoreCard[]> {
 
   const db = await readLocal();
   return [...db.mag7Scores].sort((a, b) => b.score - a.score || a.symbol.localeCompare(b.symbol));
+}
+
+export async function savePortfolioSnapshot(input: {
+  userId: string;
+  portfolioId: string;
+  asOfDate: string;
+  holdings: PortfolioSnapshotHolding[];
+  rating: PortfolioRating;
+}): Promise<PersistedPortfolioSnapshot> {
+  const persisted: PersistedPortfolioSnapshot = {
+    id: makeId(),
+    userId: input.userId,
+    portfolioId: input.portfolioId,
+    asOfDate: input.asOfDate,
+    holdings: input.holdings,
+    rating: input.rating,
+    createdAt: new Date().toISOString()
+  };
+
+  if (hasPostgres) {
+    await ensurePostgres();
+    await sql`
+      INSERT INTO portfolio_snapshots (id, user_id, portfolio_id, payload)
+      VALUES (${persisted.id}, ${persisted.userId}, ${persisted.portfolioId}, ${JSON.stringify(persisted)}::jsonb)
+    `;
+    await cacheSetJson(portfolioRedisKey(persisted.userId, persisted.portfolioId), persisted, 60 * 30);
+    return persisted;
+  }
+
+  const db = await readLocal();
+  db.portfolioSnapshots.unshift(persisted);
+  db.portfolioSnapshots = db.portfolioSnapshots.slice(0, 1500);
+  await writeLocal(db);
+  await cacheSetJson(portfolioRedisKey(persisted.userId, persisted.portfolioId), persisted, 60 * 30);
+  return persisted;
+}
+
+export async function getLatestPortfolioSnapshot(
+  userId: string,
+  portfolioId = "default"
+): Promise<PersistedPortfolioSnapshot | null> {
+  const redisKey = portfolioRedisKey(userId, portfolioId);
+  const redisCached = await cacheGetJson<PersistedPortfolioSnapshot>(redisKey);
+  if (redisCached) {
+    return redisCached;
+  }
+
+  if (hasPostgres) {
+    await ensurePostgres();
+    const { rows } = await sql<{ payload: PersistedPortfolioSnapshot }>`
+      SELECT payload
+      FROM portfolio_snapshots
+      WHERE user_id = ${userId}
+        AND portfolio_id = ${portfolioId}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+    if (rows.length === 0) return null;
+    const snapshot = rows[0].payload;
+    await cacheSetJson(redisKey, snapshot, 60 * 30);
+    return snapshot;
+  }
+
+  const db = await readLocal();
+  const latest = db.portfolioSnapshots.find((item) => item.userId === userId && item.portfolioId === portfolioId) ?? null;
+  if (latest) {
+    await cacheSetJson(redisKey, latest, 60 * 30);
+  }
+  return latest;
 }

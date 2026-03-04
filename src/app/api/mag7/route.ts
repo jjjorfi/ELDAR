@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getHomepageMag7Scores, getMag7LiveScores } from "@/lib/mag7";
+import { publishMag7 } from "@/lib/realtime/publisher";
 import guard, { isGuardBlockedError } from "@/lib/security/guard";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 
@@ -34,6 +35,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     if (isLive) {
       const { cards, marketOpen } = await getMag7LiveScores();
+      await publishMag7({ cards, marketOpen });
       return NextResponse.json(
         { cards, marketOpen },
         { headers: { "Cache-Control": marketOpen ? CACHE_HEADER_LIVE_OPEN : CACHE_HEADER_LIVE_CLOSED } }

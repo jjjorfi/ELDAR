@@ -4,6 +4,7 @@ import { fetchFmpEarningsCalendar, type FmpEarningsItem } from "@/lib/market/fmp
 import { fetchFinnhubEarningsCalendar, type FinnhubEarningsCalendarItem } from "@/lib/market/finnhub";
 import { fetchSP500Directory } from "@/lib/market/sp500";
 import { getTop100Sp500SymbolSet } from "@/lib/market/top100";
+import { publishEarnings } from "@/lib/realtime/publisher";
 import guard, { isGuardBlockedError } from "@/lib/security/guard";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 
@@ -421,6 +422,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       expiresAt: Date.now() + EARNINGS_CACHE_TTL_MS,
       payload
     };
+    await publishEarnings({ upcoming: payload.upcoming });
     return NextResponse.json(payload, { headers: { "Cache-Control": CACHE_HEADER } });
   } catch (error) {
     console.error("/api/earnings GET error", error);

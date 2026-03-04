@@ -1,4 +1,15 @@
-import type { MacroSignals } from "@/lib/types";
+interface MacroSignals {
+  fedSignal: "DOVISH" | "HAWKISH" | "UNCHANGED" | "UNKNOWN";
+  fedDelta: number | null;
+  fedCutProbability: number | null;
+  fedHoldProbability: number | null;
+  fedHikeProbability: number | null;
+  fedNextMeetingDate: string | null;
+  fedOddsSource: string | null;
+  vixLevel: number | null;
+  marketPutCallRatio: number | null;
+  gdpSurprise: number | null;
+}
 
 const GDP_CALENDAR_URL = "https://api.tradingeconomics.com/calendar/country/united%20states?c=guest:guest&f=json";
 const GDP_GROWTH_SERIES_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=A191RL1Q225SBEA";

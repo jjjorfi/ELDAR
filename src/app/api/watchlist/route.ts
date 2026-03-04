@@ -5,6 +5,7 @@ import { z } from "zod";
 import { addToWatchlist, getWatchlist, removeFromWatchlist } from "@/lib/storage";
 import guard, { isGuardBlockedError } from "@/lib/security/guard";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { publishWatchlistDelta } from "@/lib/realtime/publisher";
 import { sanitizeSymbol } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -57,7 +58,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const { userId } = await auth();
+    const { userId, orgId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -84,6 +85,13 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     await addToWatchlist(symbol, userId);
     const watchlist = await getWatchlist(userId);
+    await publishWatchlistDelta({
+      userId,
+      orgId: orgId ?? null,
+      symbol,
+      action: "added",
+      changedAt: new Date().toISOString()
+    });
 
     return NextResponse.json({ watchlist }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
@@ -104,7 +112,7 @@ export async function DELETE(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const { userId } = await auth();
+    const { userId, orgId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -125,6 +133,13 @@ export async function DELETE(request: Request): Promise<NextResponse> {
 
     await removeFromWatchlist(symbol, userId);
     const watchlist = await getWatchlist(userId);
+    await publishWatchlistDelta({
+      userId,
+      orgId: orgId ?? null,
+      symbol,
+      action: "removed",
+      changedAt: new Date().toISOString()
+    });
 
     return NextResponse.json({ watchlist }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
