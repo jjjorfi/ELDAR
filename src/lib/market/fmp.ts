@@ -1,4 +1,5 @@
 import {
+  getFetchSignal,
   parseOptionalNumber,
   parseOptionalString,
   parseTimestampMs,
@@ -38,6 +39,7 @@ export interface FmpEarningsItem {
 
 const FMP_STABLE_BASE_URL = "https://financialmodelingprep.com/stable";
 const FMP_V3_BASE_URL = "https://financialmodelingprep.com/api/v3";
+const FMP_FETCH_TIMEOUT_MS = 4_500;
 
 /**
  * Reads the configured FMP API key.
@@ -94,6 +96,7 @@ async function fetchFmp<T>(baseUrl: string, path: string, params: Record<string,
   try {
     const response = await fetch(url.toString(), {
       next: { revalidate: 300 },
+      signal: getFetchSignal(FMP_FETCH_TIMEOUT_MS),
       headers: {
         "User-Agent": "Mozilla/5.0"
       }

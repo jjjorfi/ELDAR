@@ -4,9 +4,8 @@ import clsx from "clsx";
 import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bookmark, BriefcaseBusiness, CircleUserRound, Grid2x2, Home, LineChart, Moon, Search, Sun } from "lucide-react";
+import { BookText, Bookmark, BriefcaseBusiness, CircleUserRound, Grid2x2, Home, LineChart, Moon, Search, Sun } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { HeaderFeedStrip } from "@/components/HeaderFeedStrip";
 import { isTop100Sp500Symbol } from "@/lib/market/top100";
 
 const ELDAR_BRAND_LOGO = "/brand/eldar-logo.png";
@@ -27,6 +26,7 @@ interface SectorSentimentItem {
 }
 
 type SectorSortMode = "default" | "bias-desc" | "bias-asc" | "move-desc" | "move-asc";
+type SectorViewMode = "heatmap" | "table";
 
 const SECTOR_ROWS: SectorRow[] = [
   { sector: "Information Tech", etf: "XLK", topTickers: "$AAPL, $MSFT, $NVDA, $AVGO", focusArea: "Software, Semi-conductors, Hardware" },
@@ -109,6 +109,12 @@ function extractTopTickers(raw: string): string[] {
     .filter((symbol) => symbol.length > 0 && isTop100Sp500Symbol(symbol));
 }
 
+function heatTileTone(sentiment: "bullish" | "neutral" | "bearish"): string {
+  if (sentiment === "bullish") return "border-emerald-300/35 bg-emerald-300/10";
+  if (sentiment === "bearish") return "border-red-300/35 bg-red-300/10";
+  return "border-white/15 bg-zinc-950/45";
+}
+
 function XBrandIcon(): JSX.Element {
   return (
     <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
@@ -135,6 +141,7 @@ export default function SectorsPage(): JSX.Element {
   const [sentimentMap, setSentimentMap] = useState<Record<string, SectorSentimentItem>>(() => createDefaultSentimentMap());
   const [sentimentLoading, setSentimentLoading] = useState(true);
   const [sortMode, setSortMode] = useState<SectorSortMode>("default");
+  const [viewMode, setViewMode] = useState<SectorViewMode>("heatmap");
 
   function openDashboardView(
     view: "home" | "portfolio" | "watchlist",
@@ -316,7 +323,7 @@ export default function SectorsPage(): JSX.Element {
     });
   }, [sentimentMap, sortMode]);
 
-  const appBackground = themeMode === "dark" ? "#000000" : "#f3f4f6";
+  const appBackground = themeMode === "dark" ? "#000000" : "#e9e5dc";
 
   return (
     <main className="min-h-screen overflow-x-hidden text-white" style={{ background: appBackground }}>
@@ -328,7 +335,6 @@ export default function SectorsPage(): JSX.Element {
                 <Image src={ELDAR_BRAND_LOGO} alt="ELDAR logo" fill sizes="40px" className="object-contain" priority />
               </div>
             </button>
-            <HeaderFeedStrip wrapperClassName="relative hidden flex-1 items-center px-2 md:flex" />
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -350,7 +356,7 @@ export default function SectorsPage(): JSX.Element {
                   title="Menu"
                   aria-label="Menu"
                 >
-                  <Grid2x2 className="h-4 w-4" />
+                  <Home className="h-4 w-4" />
                 </button>
                 {isMenuOpen ? (
                   <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-44 overflow-hidden rounded-2xl border border-white/20 bg-zinc-950/90 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-2xl">
@@ -385,6 +391,17 @@ export default function SectorsPage(): JSX.Element {
                     >
                       <LineChart className="h-4 w-4" />
                       Macro
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        router.push("/journal");
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
+                    >
+                      <BookText className="h-4 w-4" />
+                      Journal
                     </button>
                     <button
                       type="button"
@@ -435,91 +452,161 @@ export default function SectorsPage(): JSX.Element {
         <div className="mx-auto max-w-6xl">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <h1 className="eldar-display text-2xl font-bold tracking-[0.14em] text-white md:text-3xl">SECTORS</h1>
-            <p className="text-xs uppercase tracking-[0.14em] text-white/60">
-              {sentimentLoading ? "Loading live sectors..." : "Live sector ranking"}
-            </p>
-          </div>
-
-          <div className="eldar-panel overflow-hidden rounded-3xl">
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead className="border-b border-white/15 bg-white/[0.04]">
-                  <tr className="text-left text-xs uppercase tracking-[0.14em] text-white/70">
-                    <th className="px-4 py-3">Sector</th>
-                    <th className="px-4 py-3">ETF</th>
-                    <th className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => setSortMode((prev) => nextSortMode(prev, "bias"))}
-                        className="inline-flex items-center gap-2 text-left transition hover:text-white"
-                      >
-                        Bias
-                        <span className="text-[11px] text-white/55">{sortLabel(sortMode, "bias")}</span>
-                      </button>
-                    </th>
-                    <th className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => setSortMode((prev) => nextSortMode(prev, "move"))}
-                        className="inline-flex items-center gap-2 text-left transition hover:text-white"
-                      >
-                        Move
-                        <span className="text-[11px] text-white/55">{sortLabel(sortMode, "move")}</span>
-                      </button>
-                    </th>
-                    <th className="px-4 py-3">Top $Tickers</th>
-                    <th className="px-4 py-3">Focus Area</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedRows.map((row) => {
-                    const live = sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf];
-                    const sentiment = live.sentiment;
-                    const moveValue = typeof live.changePercent === "number" ? live.changePercent : 0;
-                    const move = `${moveValue > 0 ? "+" : ""}${moveValue.toFixed(2)}%`;
-                    const biasRank = biasRankMap[row.etf] ?? (DEFAULT_ROW_ORDER[row.etf] ?? 0) + 1;
-                    const moveRank = moveRankMap[row.etf] ?? (DEFAULT_ROW_ORDER[row.etf] ?? 0) + 1;
-
-                    return (
-                      <tr key={row.sector} className="border-b border-white/10 text-sm text-white/90">
-                        <td className="px-4 py-3 font-semibold">{row.sector}</td>
-                        <td className="px-4 py-3 font-mono text-white/80">{row.etf}</td>
-                        <td className="px-4 py-3 font-semibold">
-                          <span className={sentimentClass(sentiment)}>{sentimentLabel(sentiment)}</span>
-                          <span className="ml-2 font-mono text-[10px] text-white/50">#{biasRank}</span>
-                        </td>
-                        <td className="px-4 py-3 font-mono">
-                          <span
-                            className={clsx(
-                              moveValue > 0 ? "text-emerald-300" : moveValue < 0 ? "text-red-300" : "text-white/75"
-                            )}
-                          >
-                            {move}
-                          </span>
-                          <span className="ml-2 text-[10px] text-white/50">#{moveRank}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1.5">
-                            {extractTopTickers(row.topTickers).map((symbol) => (
-                              <button
-                                key={`${row.etf}-${symbol}`}
-                                type="button"
-                                onClick={() => openDashboardView("home", symbol, { autoAnalyze: true })}
-                                className="rounded-md border border-white/15 bg-white/[0.04] px-2 py-1 font-mono text-[10px] text-white/75 transition hover:border-white/35 hover:text-white"
-                              >
-                                {symbol}
-                              </button>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-white/75">{row.focusArea}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="flex items-center gap-2">
+              <p className="text-xs uppercase tracking-[0.14em] text-white/60">
+                {sentimentLoading ? "Loading live sectors..." : "Live sector ranking"}
+              </p>
+              <button
+                type="button"
+                onClick={() => setViewMode("heatmap")}
+                className={clsx(
+                  "h-8 border px-3 text-[10px] uppercase tracking-[0.12em] transition",
+                  viewMode === "heatmap"
+                    ? "border-amber-300/35 bg-amber-200/10 text-amber-100"
+                    : "border-white/20 bg-black/20 text-white/70 hover:text-white"
+                )}
+              >
+                Heatmap
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={clsx(
+                  "h-8 border px-3 text-[10px] uppercase tracking-[0.12em] transition",
+                  viewMode === "table"
+                    ? "border-amber-300/35 bg-amber-200/10 text-amber-100"
+                    : "border-white/20 bg-black/20 text-white/70 hover:text-white"
+                )}
+              >
+                Table
+              </button>
             </div>
           </div>
+
+          {viewMode === "heatmap" ? (
+            <div className="grid gap-3 p-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {sortedRows.map((row, index) => {
+                const live = sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf];
+                const sentiment = live.sentiment;
+                const moveValue = typeof live.changePercent === "number" ? live.changePercent : 0;
+                const biasRank = biasRankMap[row.etf] ?? (DEFAULT_ROW_ORDER[row.etf] ?? 0) + 1;
+                const moveRank = moveRankMap[row.etf] ?? (DEFAULT_ROW_ORDER[row.etf] ?? 0) + 1;
+                return (
+                  <div
+                    key={`tile-${row.etf}`}
+                    className={clsx(
+                      "eldar-panel min-h-[148px] px-5 py-4 text-left",
+                      heatTileTone(sentiment)
+                    )}
+                    style={{ animation: `fadeUp 0.4s ease-out ${Math.min(index, 10) * 0.05}s both` }}
+                  >
+                    <div className="mb-2">
+                      <p className="text-[9px] uppercase tracking-[0.14em] text-white/45">
+                        #{biasRank} · {row.etf}
+                      </p>
+                      <p className="mt-2 text-base font-bold text-white">{row.sector}</p>
+                    </div>
+                    <div className="mt-5">
+                      <p
+                        className={clsx(
+                          "text-2xl font-black",
+                          moveValue > 0 ? "text-emerald-300" : moveValue < 0 ? "text-red-300" : "text-white/75"
+                        )}
+                      >
+                        {moveValue > 0 ? "+" : ""}
+                        {moveValue.toFixed(2)}%
+                      </p>
+                      <p className={clsx("mt-1 text-[10px] font-semibold uppercase tracking-[0.12em]", sentimentClass(sentiment))}>
+                        {sentimentLabel(sentiment)}
+                        <span className="ml-2 text-white/50">#{moveRank}</span>
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="eldar-panel overflow-hidden rounded-3xl">
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead className="border-b border-white/15 bg-white/[0.04]">
+                    <tr className="text-left text-xs uppercase tracking-[0.14em] text-white/70">
+                      <th className="px-4 py-3">Sector</th>
+                      <th className="px-4 py-3">ETF</th>
+                      <th className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => setSortMode((prev) => nextSortMode(prev, "bias"))}
+                          className="inline-flex items-center gap-2 text-left transition hover:text-white"
+                        >
+                          Bias
+                          <span className="text-[11px] text-white/55">{sortLabel(sortMode, "bias")}</span>
+                        </button>
+                      </th>
+                      <th className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => setSortMode((prev) => nextSortMode(prev, "move"))}
+                          className="inline-flex items-center gap-2 text-left transition hover:text-white"
+                        >
+                          Move
+                          <span className="text-[11px] text-white/55">{sortLabel(sortMode, "move")}</span>
+                        </button>
+                      </th>
+                      <th className="px-4 py-3">Top $Tickers</th>
+                      <th className="px-4 py-3">Focus Area</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedRows.map((row) => {
+                      const live = sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf];
+                      const sentiment = live.sentiment;
+                      const moveValue = typeof live.changePercent === "number" ? live.changePercent : 0;
+                      const move = `${moveValue > 0 ? "+" : ""}${moveValue.toFixed(2)}%`;
+                      const biasRank = biasRankMap[row.etf] ?? (DEFAULT_ROW_ORDER[row.etf] ?? 0) + 1;
+                      const moveRank = moveRankMap[row.etf] ?? (DEFAULT_ROW_ORDER[row.etf] ?? 0) + 1;
+
+                      return (
+                        <tr key={row.sector} className="border-b border-white/10 text-sm text-white/90">
+                          <td className="px-4 py-3 font-semibold">{row.sector}</td>
+                          <td className="px-4 py-3 font-mono text-white/80">{row.etf}</td>
+                          <td className="px-4 py-3 font-semibold">
+                            <span className={sentimentClass(sentiment)}>{sentimentLabel(sentiment)}</span>
+                            <span className="ml-2 font-mono text-[10px] text-white/50">#{biasRank}</span>
+                          </td>
+                          <td className="px-4 py-3 font-mono">
+                            <span
+                              className={clsx(
+                                moveValue > 0 ? "text-emerald-300" : moveValue < 0 ? "text-red-300" : "text-white/75"
+                              )}
+                            >
+                              {move}
+                            </span>
+                            <span className="ml-2 text-[10px] text-white/50">#{moveRank}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-1.5">
+                              {extractTopTickers(row.topTickers).map((symbol) => (
+                                <button
+                                  key={`${row.etf}-${symbol}`}
+                                  type="button"
+                                  onClick={() => openDashboardView("home", symbol, { autoAnalyze: true })}
+                                  className="rounded-md border border-white/15 bg-white/[0.04] px-2 py-1 font-mono text-[10px] text-white/75 transition hover:border-white/35 hover:text-white"
+                                >
+                                  {symbol}
+                                </button>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-white/75">{row.focusArea}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -528,7 +615,7 @@ export default function SectorsPage(): JSX.Element {
           <div className="flex h-10 items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="eldar-status-star eldar-status-live" />
-              <span className="eldar-caption text-[9px] text-white/50">LIVE | {isMarketOpen ? "Market Open" : "Market Closed"}</span>
+              <span className="eldar-caption text-[8px] text-white/50">LIVE | {isMarketOpen ? "Market Open" : "Market Closed"}</span>
             </div>
             <div className="flex items-center gap-2">
               <button

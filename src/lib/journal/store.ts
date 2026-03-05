@@ -5,810 +5,585 @@ import path from "node:path";
 import { sql } from "@vercel/postgres";
 
 import type {
+  JournalCreateInput,
   JournalEntry,
-  JournalEntryListFilters,
-  JournalEntrySymbol,
-  JournalEntryType,
+  JournalListFilters,
   JournalListResult,
-  JournalStatus,
-  JournalUpsertInput
+  JournalReviewStats,
+  JournalUpdateInput,
+  SetupQuality,
+  TradeStatus
 } from "@/lib/journal/types";
 
 const hasPostgres = Boolean(process.env.POSTGRES_URL);
 let initialized = false;
 
-const ENTRY_TYPES: JournalEntryType[] = [
-  "freeform",
-  "thesis",
-  "earnings_review",
-  "postmortem",
-  "watchlist_note"
-];
-const SENTIMENT_VALUES = ["bull", "bear", "neutral"] as const;
-const HORIZON_VALUES = ["weeks", "months", "years"] as const;
-const STATUS_VALUES: JournalStatus[] = ["draft", "final"];
-
 interface LocalJournalStore {
   entries: JournalEntry[];
-  revisions: Array<{
-    id: string;
-    userId: string;
-    entryId: string;
-    snapshot: JournalEntry;
-    createdAt: string;
-  }>;
 }
 
-interface DbEntryRow {
+interface DbJournalRow {
   id: string;
   user_id: string;
-  title: string;
-  content_md: string;
-  content_plain: string;
-  entry_type: JournalEntryType;
-  sentiment: JournalEntry["sentiment"];
-  conviction: number | null;
-  time_horizon: JournalEntry["timeHorizon"];
-  status: JournalStatus;
+  status: TradeStatus;
+  ticker: string;
+  thesis: string;
+  eldar_snapshot: unknown;
+  technical_setup: string;
+  fundamental_note: string;
+  market_context: string;
+  setup_quality: SetupQuality;
+  entry_price: number | null;
+  target_price: number | null;
+  stop_loss: number | null;
+  position_size_pct: number | null;
+  followed_plan: boolean | null;
+  execution_notes: string;
+  exit_price: number | null;
+  exit_date: string | null;
+  what_went_right: string;
+  what_went_wrong: string;
+  would_do_again: boolean | null;
+  tags: unknown;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
-  symbols: unknown;
-  tags: unknown;
 }
 
 function resolveLocalPath(): string {
-  const fallback = process.env.VERCEL ? "/tmp/journal-store.json" : "./data/journal.json";
+  const fallback = process.env.VERCEL ? "/tmp/journal-v1-store.json" : "./data/journal-v1.json";
   const configured = process.env.LOCAL_JOURNAL_DB_PATH ?? fallback;
   return path.isAbsolute(configured) ? configured : path.join(process.cwd(), configured);
 }
 
 const localStorePath = resolveLocalPath();
 
-function normalizeSymbol(value: string): string {
+function toNumberOrNull(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return value;
+}
+
+function normalizeTicker(value: string): string {
   return value.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g, "").slice(0, 12);
 }
 
-function normalizeTag(value: string): string {
-  return value.trim().toLowerCase().replace(/[^a-z0-9_\- ]/g, "").replace(/\s+/g, "-").slice(0, 32);
+function normalizeTags(tags: string[] | undefined): string[] {
+  if (!tags) return [];
+  return [...new Set(tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean))].slice(0, 30);
 }
 
-function stripMarkdown(markdown: string): string {
-  return markdown
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/`[^`]*`/g, " ")
-    .replace(/!\[[^\]]*\]\([^)]+\)/g, " ")
-    .replace(/\[[^\]]*\]\([^)]+\)/g, " ")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/[*_~>#-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function normalizeSymbols(input: JournalEntrySymbol[] | undefined): JournalEntrySymbol[] {
-  if (!input || input.length === 0) return [];
-  const out: JournalEntrySymbol[] = [];
-  const seen = new Set<string>();
-
-  for (const raw of input) {
-    const symbol = normalizeSymbol(raw.symbol);
-    if (!symbol || seen.has(symbol)) continue;
-    seen.add(symbol);
-    out.push({
-      symbol,
-      primary: Boolean(raw.primary)
-    });
-    if (out.length >= 10) break;
+function computeOutcomeMetrics(entry: JournalEntry): Pick<JournalEntry, "returnPct" | "daysHeld"> {
+  if (entry.entryPrice === null || entry.entryPrice <= 0 || entry.exitPrice === null) {
+    return { returnPct: null, daysHeld: null };
   }
 
-  if (out.length > 0 && !out.some((item) => item.primary)) {
-    out[0].primary = true;
+  const returnPct = ((entry.exitPrice - entry.entryPrice) / entry.entryPrice) * 100;
+  let daysHeld: number | null = null;
+
+  if (entry.exitDate) {
+    const start = Date.parse(entry.createdAt);
+    const end = Date.parse(entry.exitDate);
+    if (Number.isFinite(start) && Number.isFinite(end) && end >= start) {
+      daysHeld = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)));
+    }
   }
-  return out;
-}
 
-function normalizeTags(input: string[] | undefined): string[] {
-  if (!input || input.length === 0) return [];
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of input) {
-    const tag = normalizeTag(raw);
-    if (!tag || seen.has(tag)) continue;
-    seen.add(tag);
-    out.push(tag);
-    if (out.length >= 20) break;
-  }
-  return out;
-}
-
-function parseIso(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const ms = Date.parse(value);
-  if (!Number.isFinite(ms)) return null;
-  return new Date(ms).toISOString();
-}
-
-function toSearchBlob(symbols: JournalEntrySymbol[], tags: string[]): string {
-  return [...symbols.map((item) => item.symbol), ...tags].join(" ");
-}
-
-function coerceSymbols(raw: unknown): JournalEntrySymbol[] {
-  if (!Array.isArray(raw)) return [];
-  return normalizeSymbols(
-    raw
-      .map((item) => {
-        if (typeof item !== "object" || item === null) return null;
-        const row = item as { symbol?: unknown; primary?: unknown; is_primary?: unknown };
-        if (typeof row.symbol !== "string") return null;
-        return {
-          symbol: row.symbol,
-          primary: typeof row.primary === "boolean" ? row.primary : Boolean(row.is_primary)
-        };
-      })
-      .filter((item): item is JournalEntrySymbol => item !== null)
-  );
-}
-
-function coerceTags(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  return normalizeTags(raw.filter((item): item is string => typeof item === "string"));
-}
-
-function mapDbRowToEntry(row: DbEntryRow): JournalEntry {
   return {
-    id: row.id,
-    userId: row.user_id,
-    title: row.title,
-    contentMd: row.content_md,
-    contentPlain: row.content_plain,
-    entryType: row.entry_type,
-    sentiment: row.sentiment ?? null,
-    conviction: typeof row.conviction === "number" ? row.conviction : null,
-    timeHorizon: row.time_horizon ?? null,
-    status: row.status,
-    symbols: coerceSymbols(row.symbols),
-    tags: coerceTags(row.tags),
-    createdAt: new Date(row.created_at).toISOString(),
-    updatedAt: new Date(row.updated_at).toISOString(),
-    deletedAt: row.deleted_at ? new Date(row.deleted_at).toISOString() : null
+    returnPct: Math.round(returnPct * 100) / 100,
+    daysHeld
   };
 }
 
-function parseCursor(cursor: string | null | undefined): { createdAt: string; id: string } | null {
-  if (!cursor) return null;
-  const [createdAt, id] = cursor.split("|");
-  if (!createdAt || !id) return null;
-  const iso = parseIso(createdAt);
-  if (!iso) return null;
-  return { createdAt: iso, id };
+function hydrateEntry(raw: JournalEntry): JournalEntry {
+  const withMetrics = computeOutcomeMetrics(raw);
+  return {
+    ...raw,
+    returnPct: withMetrics.returnPct,
+    daysHeld: withMetrics.daysHeld
+  };
 }
 
-function makeCursor(entry: JournalEntry): string {
-  return `${entry.createdAt}|${entry.id}`;
-}
+function reviewFromClosed(entries: JournalEntry[]): JournalReviewStats {
+  const closed = entries.filter((entry) => entry.status === "CLOSED" && typeof entry.returnPct === "number");
 
-function compareByCreatedDesc(a: JournalEntry, b: JournalEntry): number {
-  const timeDelta = Date.parse(b.createdAt) - Date.parse(a.createdAt);
-  if (timeDelta !== 0) return timeDelta;
-  return b.id.localeCompare(a.id);
-}
+  const winners = closed.filter((entry) => (entry.returnPct ?? 0) > 0);
+  const losers = closed.filter((entry) => (entry.returnPct ?? 0) < 0);
 
-function computeRank(entry: JournalEntry, filters: JournalEntryListFilters): number {
-  const q = filters.q?.trim().toLowerCase() ?? "";
-  const symbol = normalizeSymbol(filters.symbol ?? "");
-  const tag = normalizeTag(filters.tag ?? "");
-  let score = 0;
+  const avg = (values: number[]): number | null =>
+    values.length > 0 ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100 : null;
 
-  if (symbol && entry.symbols.some((item) => item.symbol === symbol)) score += 5;
-  if (tag && entry.tags.includes(tag)) score += 1.5;
-  if (q) {
-    const titleLower = entry.title.toLowerCase();
-    const plainLower = entry.contentPlain.toLowerCase();
-    const symbolHit = entry.symbols.some((item) => item.symbol.toLowerCase() === q);
-    if (symbolHit) score += 4;
-    if (titleLower.includes(q)) score += 2;
-    if (plainLower.includes(q)) score += 1;
+  const winRate = closed.length > 0 ? Math.round((winners.length / closed.length) * 10000) / 100 : null;
+  const avgWinner = avg(winners.map((entry) => entry.returnPct ?? 0));
+  const avgLoser = avg(losers.map((entry) => entry.returnPct ?? 0));
+
+  const setupGroups: Record<SetupQuality, JournalEntry[]> = { A: [], B: [], C: [] };
+  for (const entry of closed) {
+    setupGroups[entry.setupQuality].push(entry);
   }
 
-  const ageDays = Math.max(0, (Date.now() - Date.parse(entry.createdAt)) / (1000 * 60 * 60 * 24));
-  score += 0.2 / (1 + ageDays / 30);
-  return score;
+  const setupWinRate = (quality: SetupQuality): number | null => {
+    const items = setupGroups[quality];
+    if (items.length === 0) return null;
+    const wins = items.filter((entry) => (entry.returnPct ?? 0) > 0).length;
+    return Math.round((wins / items.length) * 10000) / 100;
+  };
+
+  const setupScores = (["A", "B", "C"] as SetupQuality[])
+    .map((quality) => ({ quality, winRate: setupWinRate(quality) }))
+    .filter((item) => item.winRate !== null) as Array<{ quality: SetupQuality; winRate: number }>;
+
+  const bestSetup = setupScores.length > 0
+    ? setupScores.sort((left, right) => right.winRate - left.winRate)[0]
+    : null;
+
+  const tagCounts = new Map<string, number>();
+  const tagReturns = new Map<string, number[]>();
+  for (const entry of closed) {
+    for (const tag of entry.tags) {
+      tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+      if (typeof entry.returnPct === "number") {
+        const list = tagReturns.get(tag) ?? [];
+        list.push(entry.returnPct);
+        tagReturns.set(tag, list);
+      }
+    }
+  }
+
+  const mostUsedTags = [...tagCounts.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((left, right) => right.count - left.count)
+    .slice(0, 6);
+
+  const bestTags = [...tagReturns.entries()]
+    .map(([tag, values]) => ({
+      tag,
+      avgReturn: avg(values),
+      count: values.length
+    }))
+    .sort((left, right) => {
+      const leftValue = left.avgReturn ?? -Infinity;
+      const rightValue = right.avgReturn ?? -Infinity;
+      return rightValue - leftValue;
+    })
+    .slice(0, 6);
+
+  const worstHabit = [...tagCounts.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .map(([tag, count]) => ({ tag, count }))[0] ?? null;
+
+  const avgEldarOnWinners = avg(winners.map((entry) => entry.eldarSnapshot.score));
+  const avgEldarOnLosers = avg(losers.map((entry) => entry.eldarSnapshot.score));
+
+  return {
+    winRate,
+    avgWinner,
+    avgLoser,
+    bestSetup,
+    worstHabit,
+    avgEldarOnWinners,
+    avgEldarOnLosers,
+    mostUsedTags,
+    bestTags
+  };
 }
 
-function shouldUseRank(filters: JournalEntryListFilters): boolean {
-  return Boolean((filters.q && filters.q.trim()) || (filters.symbol && filters.symbol.trim()) || (filters.tag && filters.tag.trim()));
+async function readLocalStore(): Promise<LocalJournalStore> {
+  try {
+    const raw = await fs.readFile(localStorePath, "utf8");
+    const parsed = JSON.parse(raw) as LocalJournalStore;
+    return {
+      entries: Array.isArray(parsed.entries)
+        ? parsed.entries.map((item) => hydrateEntry(item)).filter((item) => !item.deletedAt)
+        : []
+    };
+  } catch {
+    return { entries: [] };
+  }
 }
 
-async function ensurePostgres(): Promise<void> {
-  if (!hasPostgres || initialized) return;
+async function writeLocalStore(store: LocalJournalStore): Promise<void> {
+  await fs.mkdir(path.dirname(localStorePath), { recursive: true });
+  await fs.writeFile(localStorePath, JSON.stringify(store, null, 2), "utf8");
+}
+
+async function ensureDbReady(): Promise<void> {
+  if (initialized || !hasPostgres) return;
 
   await sql`
-    CREATE TABLE IF NOT EXISTS journal_entries (
+    CREATE TABLE IF NOT EXISTS journal_trade_entries (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
-      title TEXT NOT NULL,
-      content_md TEXT NOT NULL,
-      content_plain TEXT NOT NULL,
-      entry_type TEXT NOT NULL CHECK (entry_type IN ('freeform','thesis','earnings_review','postmortem','watchlist_note')),
-      sentiment TEXT CHECK (sentiment IS NULL OR sentiment IN ('bull','bear','neutral')),
-      conviction SMALLINT CHECK (conviction IS NULL OR (conviction >= 1 AND conviction <= 5)),
-      time_horizon TEXT CHECK (time_horizon IS NULL OR time_horizon IN ('weeks','months','years')),
-      status TEXT NOT NULL CHECK (status IN ('draft','final')) DEFAULT 'draft',
-      search_blob TEXT NOT NULL DEFAULT '',
-      search_vector tsvector,
+      status TEXT NOT NULL,
+      ticker TEXT NOT NULL,
+      thesis TEXT NOT NULL,
+      eldar_snapshot JSONB NOT NULL,
+      technical_setup TEXT NOT NULL,
+      fundamental_note TEXT NOT NULL,
+      market_context TEXT NOT NULL,
+      setup_quality TEXT NOT NULL,
+      entry_price DOUBLE PRECISION,
+      target_price DOUBLE PRECISION,
+      stop_loss DOUBLE PRECISION,
+      position_size_pct DOUBLE PRECISION,
+      followed_plan BOOLEAN,
+      execution_notes TEXT NOT NULL,
+      exit_price DOUBLE PRECISION,
+      exit_date TEXT,
+      what_went_right TEXT NOT NULL,
+      what_went_wrong TEXT NOT NULL,
+      would_do_again BOOLEAN,
+      tags JSONB NOT NULL DEFAULT '[]'::jsonb,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       deleted_at TIMESTAMPTZ
     )
   `;
-  await sql`CREATE INDEX IF NOT EXISTS journal_entries_user_created_idx ON journal_entries(user_id, created_at DESC)`;
-  await sql`CREATE INDEX IF NOT EXISTS journal_entries_type_idx ON journal_entries(user_id, entry_type, created_at DESC)`;
-  await sql`CREATE INDEX IF NOT EXISTS journal_entries_status_idx ON journal_entries(user_id, status, created_at DESC)`;
-  await sql`CREATE INDEX IF NOT EXISTS journal_entries_search_idx ON journal_entries USING GIN(search_vector)`;
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS journal_entry_symbols (
-      entry_id TEXT NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,
-      symbol TEXT NOT NULL,
-      is_primary BOOLEAN NOT NULL DEFAULT FALSE,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      PRIMARY KEY(entry_id, symbol)
-    )
-  `;
-  await sql`CREATE INDEX IF NOT EXISTS journal_symbols_symbol_idx ON journal_entry_symbols(symbol, entry_id)`;
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS journal_entry_tags (
-      entry_id TEXT NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,
-      tag TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      PRIMARY KEY(entry_id, tag)
-    )
-  `;
-  await sql`CREATE INDEX IF NOT EXISTS journal_tags_tag_idx ON journal_entry_tags(tag, entry_id)`;
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS journal_entry_revisions (
-      id TEXT PRIMARY KEY,
-      entry_id TEXT NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,
-      user_id TEXT NOT NULL,
-      snapshot JSONB NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
-  await sql`CREATE INDEX IF NOT EXISTS journal_revisions_entry_idx ON journal_entry_revisions(entry_id, created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_journal_trade_entries_user_created ON journal_trade_entries (user_id, created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_journal_trade_entries_user_status ON journal_trade_entries (user_id, status)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_journal_trade_entries_user_ticker ON journal_trade_entries (user_id, ticker)`;
 
   initialized = true;
 }
 
-async function readLocal(): Promise<LocalJournalStore> {
-  try {
-    const raw = await fs.readFile(localStorePath, "utf8");
-    const parsed = JSON.parse(raw) as Partial<LocalJournalStore>;
-    return {
-      entries: Array.isArray(parsed.entries)
-        ? parsed.entries
-            .filter((item): item is JournalEntry => typeof item === "object" && item !== null)
-            .map((item) => ({
-              ...item,
-              symbols: normalizeSymbols(item.symbols),
-              tags: normalizeTags(item.tags),
-              deletedAt: item.deletedAt ?? null
-            }))
-        : [],
-      revisions: Array.isArray(parsed.revisions)
-        ? parsed.revisions.filter(
-            (item): item is LocalJournalStore["revisions"][number] =>
-              typeof item === "object" && item !== null && typeof item.id === "string" && typeof item.entryId === "string"
-          )
-        : []
-    };
-  } catch {
-    return { entries: [], revisions: [] };
-  }
-}
-
-async function writeLocal(value: LocalJournalStore): Promise<void> {
-  await fs.mkdir(path.dirname(localStorePath), { recursive: true });
-  await fs.writeFile(localStorePath, JSON.stringify(value, null, 2), "utf8");
-}
-
-async function upsertRelations(entryId: string, symbols: JournalEntrySymbol[], tags: string[]): Promise<void> {
-  await sql`DELETE FROM journal_entry_symbols WHERE entry_id = ${entryId}`;
-  await sql`DELETE FROM journal_entry_tags WHERE entry_id = ${entryId}`;
-
-  for (const symbol of symbols) {
-    await sql`
-      INSERT INTO journal_entry_symbols (entry_id, symbol, is_primary)
-      VALUES (${entryId}, ${symbol.symbol}, ${symbol.primary})
-      ON CONFLICT (entry_id, symbol) DO UPDATE SET is_primary = EXCLUDED.is_primary
-    `;
-  }
-  for (const tag of tags) {
-    await sql`
-      INSERT INTO journal_entry_tags (entry_id, tag)
-      VALUES (${entryId}, ${tag})
-      ON CONFLICT (entry_id, tag) DO NOTHING
-    `;
-  }
-}
-
-async function getByIdFromPostgres(userId: string, entryId: string): Promise<JournalEntry | null> {
-  await ensurePostgres();
-  const { rows } = await sql<DbEntryRow>`
-    SELECT
-      e.id,
-      e.user_id,
-      e.title,
-      e.content_md,
-      e.content_plain,
-      e.entry_type,
-      e.sentiment,
-      e.conviction,
-      e.time_horizon,
-      e.status,
-      e.created_at,
-      e.updated_at,
-      e.deleted_at,
-      COALESCE((
-        SELECT json_agg(json_build_object('symbol', s.symbol, 'primary', s.is_primary) ORDER BY s.is_primary DESC, s.symbol ASC)
-        FROM journal_entry_symbols s
-        WHERE s.entry_id = e.id
-      ), '[]'::json) AS symbols,
-      COALESCE((
-        SELECT json_agg(t.tag ORDER BY t.tag ASC)
-        FROM journal_entry_tags t
-        WHERE t.entry_id = e.id
-      ), '[]'::json) AS tags
-    FROM journal_entries e
-    WHERE e.id = ${entryId}
-      AND e.user_id = ${userId}
-      AND e.deleted_at IS NULL
-    LIMIT 1
-  `;
-  if (rows.length === 0) return null;
-  return mapDbRowToEntry(rows[0]);
-}
-
-function assertEntryType(value: string): JournalEntryType {
-  if (!ENTRY_TYPES.includes(value as JournalEntryType)) {
-    throw new Error(`Invalid entry type: ${value}`);
-  }
-  return value as JournalEntryType;
-}
-
-function assertStatus(value: string): JournalStatus {
-  if (!STATUS_VALUES.includes(value as JournalStatus)) {
-    throw new Error(`Invalid status: ${value}`);
-  }
-  return value as JournalStatus;
-}
-
-function sanitizeUpsertInput(input: JournalUpsertInput): {
-  title: string;
-  contentMd: string;
-  contentPlain: string;
-  entryType: JournalEntryType;
-  sentiment: JournalEntry["sentiment"];
-  conviction: number | null;
-  timeHorizon: JournalEntry["timeHorizon"];
-  status: JournalStatus;
-  symbols: JournalEntrySymbol[];
-  tags: string[];
-  searchBlob: string;
-  searchDocument: string;
-} {
-  const title = input.title.trim().slice(0, 220);
-  const contentMd = input.contentMd.trim();
-  const contentPlain = stripMarkdown(contentMd);
-  const entryType = assertEntryType(input.entryType);
-  const sentiment =
-    input.sentiment && SENTIMENT_VALUES.includes(input.sentiment)
-      ? input.sentiment
-      : null;
-  const conviction =
-    typeof input.conviction === "number" && Number.isInteger(input.conviction) && input.conviction >= 1 && input.conviction <= 5
-      ? input.conviction
-      : null;
-  const timeHorizon =
-    input.timeHorizon && HORIZON_VALUES.includes(input.timeHorizon)
-      ? input.timeHorizon
-      : null;
-  const status = assertStatus(input.status ?? "draft");
-  const symbols = normalizeSymbols(input.symbols);
-  const tags = normalizeTags(input.tags);
-  const searchBlob = toSearchBlob(symbols, tags);
-  const searchDocument = `${title} ${contentPlain} ${searchBlob}`.trim();
-
-  return {
-    title,
-    contentMd,
-    contentPlain,
-    entryType,
-    sentiment,
-    conviction,
-    timeHorizon,
-    status,
-    symbols,
-    tags,
-    searchBlob,
-    searchDocument
-  };
-}
-
-function buildInsights(entries: JournalEntry[], symbol: string | null): JournalListResult["insights"] {
-  if (!symbol) {
-    return {
-      symbol: null,
-      lastThesis: null,
-      lastEarningsReview: null,
-      openDrafts: []
-    };
-  }
-  const upper = normalizeSymbol(symbol);
-  const scoped = entries.filter((entry) => entry.symbols.some((item) => item.symbol === upper));
-  return {
-    symbol: upper,
-    lastThesis: scoped.find((item) => item.entryType === "thesis") ?? null,
-    lastEarningsReview: scoped.find((item) => item.entryType === "earnings_review") ?? null,
-    openDrafts: scoped.filter((item) => item.status === "draft").slice(0, 5)
-  };
-}
-
-export async function createJournalEntry(userId: string, input: JournalUpsertInput): Promise<JournalEntry> {
-  const payload = sanitizeUpsertInput(input);
-  const nowIso = new Date().toISOString();
-  const entryId = crypto.randomUUID();
-
-  if (hasPostgres) {
-    await ensurePostgres();
-    await sql`
-      INSERT INTO journal_entries (
-        id,
-        user_id,
-        title,
-        content_md,
-        content_plain,
-        entry_type,
-        sentiment,
-        conviction,
-        time_horizon,
-        status,
-        search_blob,
-        search_vector,
-        created_at,
-        updated_at
-      )
-      VALUES (
-        ${entryId},
-        ${userId},
-        ${payload.title},
-        ${payload.contentMd},
-        ${payload.contentPlain},
-        ${payload.entryType},
-        ${payload.sentiment},
-        ${payload.conviction},
-        ${payload.timeHorizon},
-        ${payload.status},
-        ${payload.searchBlob},
-        to_tsvector('english', ${payload.searchDocument}),
-        ${nowIso},
-        ${nowIso}
-      )
-    `;
-    await upsertRelations(entryId, payload.symbols, payload.tags);
-    const created = await getByIdFromPostgres(userId, entryId);
-    if (!created) throw new Error("Failed to load created journal entry.");
-    return created;
-  }
-
-  const local = await readLocal();
+function mapDbRow(row: DbJournalRow): JournalEntry {
   const entry: JournalEntry = {
-    id: entryId,
-    userId,
-    title: payload.title,
-    contentMd: payload.contentMd,
-    contentPlain: payload.contentPlain,
-    entryType: payload.entryType,
-    sentiment: payload.sentiment,
-    conviction: payload.conviction,
-    timeHorizon: payload.timeHorizon,
-    status: payload.status,
-    symbols: payload.symbols,
-    tags: payload.tags,
-    createdAt: nowIso,
-    updatedAt: nowIso,
+    id: row.id,
+    createdAt: new Date(row.created_at).toISOString(),
+    updatedAt: new Date(row.updated_at).toISOString(),
+    status: row.status,
+    ticker: row.ticker,
+    thesis: row.thesis,
+    eldarSnapshot: row.eldar_snapshot as JournalEntry["eldarSnapshot"],
+    technicalSetup: row.technical_setup,
+    fundamentalNote: row.fundamental_note,
+    marketContext: row.market_context,
+    setupQuality: row.setup_quality,
+    entryPrice: row.entry_price,
+    targetPrice: row.target_price,
+    stopLoss: row.stop_loss,
+    positionSizePct: row.position_size_pct,
+    followedPlan: row.followed_plan,
+    executionNotes: row.execution_notes,
+    exitPrice: row.exit_price,
+    exitDate: row.exit_date,
+    returnPct: null,
+    daysHeld: null,
+    whatWentRight: row.what_went_right,
+    whatWentWrong: row.what_went_wrong,
+    wouldDoAgain: row.would_do_again,
+    tags: Array.isArray(row.tags) ? (row.tags as string[]) : [],
+    deletedAt: row.deleted_at
+  };
+  return hydrateEntry(entry);
+}
+
+function buildEntry(input: JournalCreateInput): JournalEntry {
+  const now = new Date().toISOString();
+  const base: JournalEntry = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    status: "PLANNING",
+    ticker: normalizeTicker(input.ticker),
+    thesis: input.thesis.trim().slice(0, 220),
+    eldarSnapshot: {
+      ...input.eldarSnapshot,
+      topDrivers: input.eldarSnapshot.topDrivers.slice(0, 3)
+    },
+    technicalSetup: "",
+    fundamentalNote: "",
+    marketContext: "",
+    setupQuality: "B",
+    entryPrice: null,
+    targetPrice: null,
+    stopLoss: null,
+    positionSizePct: null,
+    followedPlan: null,
+    executionNotes: "",
+    exitPrice: null,
+    exitDate: null,
+    returnPct: null,
+    daysHeld: null,
+    whatWentRight: "",
+    whatWentWrong: "",
+    wouldDoAgain: null,
+    tags: [],
     deletedAt: null
   };
-  local.entries.unshift(entry);
-  local.entries = local.entries.slice(0, 4000);
-  await writeLocal(local);
+  return hydrateEntry(base);
+}
+
+function applyFilters(entries: JournalEntry[], filters: JournalListFilters = {}): JournalEntry[] {
+  const ticker = filters.ticker ? normalizeTicker(filters.ticker) : null;
+  const q = filters.q?.trim().toLowerCase() ?? "";
+
+  let filtered = entries.filter((entry) => !entry.deletedAt);
+
+  if (filters.status) {
+    filtered = filtered.filter((entry) => entry.status === filters.status);
+  }
+  if (ticker) {
+    filtered = filtered.filter((entry) => entry.ticker === ticker);
+  }
+  if (q) {
+    filtered = filtered.filter((entry) =>
+      [
+        entry.ticker,
+        entry.thesis,
+        entry.technicalSetup,
+        entry.fundamentalNote,
+        entry.marketContext,
+        entry.executionNotes,
+        entry.whatWentRight,
+        entry.whatWentWrong,
+        ...entry.tags
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }
+
+  const sort = filters.sort ?? "createdAt";
+  const direction = filters.direction ?? "desc";
+  const sign = direction === "asc" ? 1 : -1;
+
+  filtered.sort((left, right) => {
+    if (sort === "returnPct") {
+      const leftValue = left.returnPct ?? Number.NEGATIVE_INFINITY;
+      const rightValue = right.returnPct ?? Number.NEGATIVE_INFINITY;
+      return (leftValue - rightValue) * sign;
+    }
+    if (sort === "setupQuality") {
+      const rank: Record<SetupQuality, number> = { A: 3, B: 2, C: 1 };
+      return (rank[left.setupQuality] - rank[right.setupQuality]) * sign;
+    }
+    return (Date.parse(left.createdAt) - Date.parse(right.createdAt)) * sign;
+  });
+
+  const limit = Math.max(1, Math.min(filters.limit ?? 200, 500));
+  return filtered.slice(0, limit);
+}
+
+function assertOpenReady(entry: JournalEntry): void {
+  if (entry.entryPrice === null || entry.targetPrice === null || entry.stopLoss === null || entry.positionSizePct === null) {
+    throw new Error("Plan is incomplete. Entry, target, stop, and size are required before opening.");
+  }
+  if (entry.entryPrice <= 0 || entry.targetPrice <= 0 || entry.stopLoss <= 0 || entry.positionSizePct <= 0) {
+    throw new Error("Plan values must be positive numbers.");
+  }
+}
+
+function patchEntry(current: JournalEntry, patch: JournalUpdateInput): JournalEntry {
+  const isClosed = current.status === "CLOSED";
+  const next: JournalEntry = { ...current };
+
+  if (!isClosed) {
+    if (typeof patch.thesis === "string") next.thesis = patch.thesis.trim().slice(0, 220);
+    if (typeof patch.technicalSetup === "string") next.technicalSetup = patch.technicalSetup;
+    if (typeof patch.fundamentalNote === "string") next.fundamentalNote = patch.fundamentalNote;
+    if (typeof patch.marketContext === "string") next.marketContext = patch.marketContext;
+    if (patch.setupQuality === "A" || patch.setupQuality === "B" || patch.setupQuality === "C") next.setupQuality = patch.setupQuality;
+    if ("entryPrice" in patch) next.entryPrice = toNumberOrNull(patch.entryPrice);
+    if ("targetPrice" in patch) next.targetPrice = toNumberOrNull(patch.targetPrice);
+    if ("stopLoss" in patch) next.stopLoss = toNumberOrNull(patch.stopLoss);
+    if ("positionSizePct" in patch) next.positionSizePct = toNumberOrNull(patch.positionSizePct);
+  }
+
+  if (isClosed) {
+    if ("followedPlan" in patch) next.followedPlan = patch.followedPlan ?? null;
+    if (typeof patch.executionNotes === "string") next.executionNotes = patch.executionNotes;
+    if ("exitPrice" in patch) next.exitPrice = toNumberOrNull(patch.exitPrice);
+    if ("exitDate" in patch) next.exitDate = patch.exitDate ?? null;
+    if (typeof patch.whatWentRight === "string") next.whatWentRight = patch.whatWentRight;
+    if (typeof patch.whatWentWrong === "string") next.whatWentWrong = patch.whatWentWrong;
+    if ("wouldDoAgain" in patch) next.wouldDoAgain = patch.wouldDoAgain ?? null;
+    if (Array.isArray(patch.tags)) next.tags = normalizeTags(patch.tags);
+  }
+
+  next.updatedAt = new Date().toISOString();
+  return hydrateEntry(next);
+}
+
+export async function createJournalEntry(userId: string, input: JournalCreateInput): Promise<JournalEntry> {
+  const entry = buildEntry(input);
+
+  if (!hasPostgres) {
+    const store = await readLocalStore();
+    store.entries.unshift(entry);
+    await writeLocalStore(store);
+    return entry;
+  }
+
+  await ensureDbReady();
+  await sql`
+    INSERT INTO journal_trade_entries (
+      id, user_id, status, ticker, thesis, eldar_snapshot,
+      technical_setup, fundamental_note, market_context, setup_quality,
+      entry_price, target_price, stop_loss, position_size_pct,
+      followed_plan, execution_notes, exit_price, exit_date,
+      what_went_right, what_went_wrong, would_do_again, tags,
+      created_at, updated_at, deleted_at
+    ) VALUES (
+      ${entry.id}, ${userId}, ${entry.status}, ${entry.ticker}, ${entry.thesis}, ${JSON.stringify(entry.eldarSnapshot)}::jsonb,
+      ${entry.technicalSetup}, ${entry.fundamentalNote}, ${entry.marketContext}, ${entry.setupQuality},
+      ${entry.entryPrice}, ${entry.targetPrice}, ${entry.stopLoss}, ${entry.positionSizePct},
+      ${entry.followedPlan}, ${entry.executionNotes}, ${entry.exitPrice}, ${entry.exitDate},
+      ${entry.whatWentRight}, ${entry.whatWentWrong}, ${entry.wouldDoAgain}, ${JSON.stringify(entry.tags)}::jsonb,
+      ${entry.createdAt}::timestamptz, ${entry.updatedAt}::timestamptz, NULL
+    )
+  `;
   return entry;
 }
 
-export async function getJournalEntryById(userId: string, entryId: string): Promise<JournalEntry | null> {
-  if (hasPostgres) {
-    return getByIdFromPostgres(userId, entryId);
-  }
-  const local = await readLocal();
-  return local.entries.find((item) => item.userId === userId && item.id === entryId && item.deletedAt === null) ?? null;
-}
+export async function listJournalEntries(userId: string, filters: JournalListFilters = {}): Promise<JournalListResult> {
+  let entries: JournalEntry[] = [];
 
-export async function updateJournalEntry(userId: string, entryId: string, input: JournalUpsertInput): Promise<JournalEntry | null> {
-  const existing = await getJournalEntryById(userId, entryId);
-  if (!existing) return null;
-
-  const payload = sanitizeUpsertInput(input);
-  const triesToEditLockedContent =
-    existing.status === "final" &&
-    payload.status !== "draft" &&
-    (
-      payload.title !== existing.title ||
-      payload.contentMd !== existing.contentMd ||
-      payload.entryType !== existing.entryType ||
-      payload.sentiment !== existing.sentiment ||
-      payload.conviction !== existing.conviction ||
-      payload.timeHorizon !== existing.timeHorizon ||
-      JSON.stringify(payload.symbols) !== JSON.stringify(existing.symbols) ||
-      JSON.stringify(payload.tags) !== JSON.stringify(existing.tags)
-    );
-
-  if (triesToEditLockedContent) {
-    throw new Error("Finalized entries are locked. Re-open before editing.");
-  }
-
-  const nowIso = new Date().toISOString();
-  if (hasPostgres) {
-    await ensurePostgres();
-    await sql`
-      UPDATE journal_entries
-      SET
-        title = ${payload.title},
-        content_md = ${payload.contentMd},
-        content_plain = ${payload.contentPlain},
-        entry_type = ${payload.entryType},
-        sentiment = ${payload.sentiment},
-        conviction = ${payload.conviction},
-        time_horizon = ${payload.timeHorizon},
-        status = ${payload.status},
-        search_blob = ${payload.searchBlob},
-        search_vector = to_tsvector('english', ${payload.searchDocument}),
-        updated_at = ${nowIso}
-      WHERE id = ${entryId}
-        AND user_id = ${userId}
-        AND deleted_at IS NULL
-    `;
-    await upsertRelations(entryId, payload.symbols, payload.tags);
-    return getByIdFromPostgres(userId, entryId);
-  }
-
-  const local = await readLocal();
-  const index = local.entries.findIndex((item) => item.userId === userId && item.id === entryId && item.deletedAt === null);
-  if (index === -1) return null;
-  local.entries[index] = {
-    ...local.entries[index],
-    title: payload.title,
-    contentMd: payload.contentMd,
-    contentPlain: payload.contentPlain,
-    entryType: payload.entryType,
-    sentiment: payload.sentiment,
-    conviction: payload.conviction,
-    timeHorizon: payload.timeHorizon,
-    status: payload.status,
-    symbols: payload.symbols,
-    tags: payload.tags,
-    updatedAt: nowIso
-  };
-  await writeLocal(local);
-  return local.entries[index];
-}
-
-export async function softDeleteJournalEntry(userId: string, entryId: string): Promise<boolean> {
-  const nowIso = new Date().toISOString();
-
-  if (hasPostgres) {
-    await ensurePostgres();
-    const result = await sql`
-      UPDATE journal_entries
-      SET deleted_at = ${nowIso}, updated_at = ${nowIso}
-      WHERE id = ${entryId}
-        AND user_id = ${userId}
-        AND deleted_at IS NULL
-    `;
-    return (result.rowCount ?? 0) > 0;
-  }
-
-  const local = await readLocal();
-  const index = local.entries.findIndex((item) => item.userId === userId && item.id === entryId && item.deletedAt === null);
-  if (index === -1) return false;
-  local.entries[index] = {
-    ...local.entries[index],
-    deletedAt: nowIso,
-    updatedAt: nowIso
-  };
-  await writeLocal(local);
-  return true;
-}
-
-export async function finalizeJournalEntry(userId: string, entryId: string, reopen = false): Promise<JournalEntry | null> {
-  const existing = await getJournalEntryById(userId, entryId);
-  if (!existing) return null;
-  const nowIso = new Date().toISOString();
-
-  if (hasPostgres) {
-    await ensurePostgres();
-    if (reopen) {
-      await sql`
-        UPDATE journal_entries
-        SET status = 'draft', updated_at = ${nowIso}
-        WHERE id = ${entryId}
-          AND user_id = ${userId}
-          AND deleted_at IS NULL
-      `;
-      return getByIdFromPostgres(userId, entryId);
-    }
-
-    await sql`
-      UPDATE journal_entries
-      SET status = 'final', updated_at = ${nowIso}
-      WHERE id = ${entryId}
-        AND user_id = ${userId}
-        AND deleted_at IS NULL
-    `;
-    const latest = await getByIdFromPostgres(userId, entryId);
-    if (!latest) return null;
-    await sql`
-      INSERT INTO journal_entry_revisions (id, entry_id, user_id, snapshot)
-      VALUES (${crypto.randomUUID()}, ${entryId}, ${userId}, ${JSON.stringify(latest)}::jsonb)
-    `;
-    return latest;
-  }
-
-  const local = await readLocal();
-  const index = local.entries.findIndex((item) => item.userId === userId && item.id === entryId && item.deletedAt === null);
-  if (index === -1) return null;
-
-  local.entries[index] = {
-    ...local.entries[index],
-    status: reopen ? "draft" : "final",
-    updatedAt: nowIso
-  };
-  if (!reopen) {
-    local.revisions.unshift({
-      id: crypto.randomUUID(),
-      userId,
-      entryId,
-      snapshot: local.entries[index],
-      createdAt: nowIso
-    });
-    local.revisions = local.revisions.slice(0, 5000);
-  }
-  await writeLocal(local);
-  return local.entries[index];
-}
-
-function applyFilters(entries: JournalEntry[], filters: JournalEntryListFilters): JournalEntry[] {
-  const symbol = filters.symbol ? normalizeSymbol(filters.symbol) : null;
-  const tag = filters.tag ? normalizeTag(filters.tag) : null;
-  const q = filters.q?.trim().toLowerCase() ?? "";
-  const fromIso = parseIso(filters.from ?? null);
-  const toIso = parseIso(filters.to ?? null);
-
-  return entries.filter((entry) => {
-    if (entry.deletedAt) return false;
-    if (filters.type && entry.entryType !== filters.type) return false;
-    if (filters.status && entry.status !== filters.status) return false;
-    if (symbol && !entry.symbols.some((item) => item.symbol === symbol)) return false;
-    if (tag && !entry.tags.includes(tag)) return false;
-    if (fromIso && Date.parse(entry.createdAt) < Date.parse(fromIso)) return false;
-    if (toIso && Date.parse(entry.createdAt) > Date.parse(toIso)) return false;
-    if (q) {
-      const symbolHit = entry.symbols.some((item) => item.symbol.toLowerCase() === q);
-      const tagHit = entry.tags.some((item) => item.toLowerCase().includes(q));
-      const titleHit = entry.title.toLowerCase().includes(q);
-      const plainHit = entry.contentPlain.toLowerCase().includes(q);
-      if (!symbolHit && !tagHit && !titleHit && !plainHit) return false;
-    }
-    return true;
-  });
-}
-
-function applyCursor(entries: JournalEntry[], cursor: string | null | undefined): JournalEntry[] {
-  const parsed = parseCursor(cursor);
-  if (!parsed) return entries;
-  const cursorTime = Date.parse(parsed.createdAt);
-  return entries.filter((entry) => {
-    const entryTime = Date.parse(entry.createdAt);
-    if (entryTime < cursorTime) return true;
-    if (entryTime > cursorTime) return false;
-    return entry.id < parsed.id;
-  });
-}
-
-export async function listJournalEntries(userId: string, filters: JournalEntryListFilters): Promise<JournalListResult> {
-  const limit = Math.max(1, Math.min(filters.limit ?? 20, 100));
-  let all: JournalEntry[] = [];
-
-  if (hasPostgres) {
-    await ensurePostgres();
-    const coarseLimit = Math.max(120, Math.min(limit * 8, 500));
-    const symbol = filters.symbol ? normalizeSymbol(filters.symbol) : null;
-    const tag = filters.tag ? normalizeTag(filters.tag) : null;
-    const q = filters.q?.trim() ?? null;
-    const fromIso = parseIso(filters.from ?? null);
-    const toIso = parseIso(filters.to ?? null);
-    const qLike = q ? `%${q}%` : "%%";
-
-    const { rows } = await sql<DbEntryRow>`
+  if (!hasPostgres) {
+    const store = await readLocalStore();
+    entries = store.entries.filter((entry) => entry.deletedAt === null);
+  } else {
+    await ensureDbReady();
+    const { rows } = await sql<DbJournalRow>`
       SELECT
-        e.id,
-        e.user_id,
-        e.title,
-        e.content_md,
-        e.content_plain,
-        e.entry_type,
-        e.sentiment,
-        e.conviction,
-        e.time_horizon,
-        e.status,
-        e.created_at,
-        e.updated_at,
-        e.deleted_at,
-        COALESCE((
-          SELECT json_agg(json_build_object('symbol', s.symbol, 'primary', s.is_primary) ORDER BY s.is_primary DESC, s.symbol ASC)
-          FROM journal_entry_symbols s
-          WHERE s.entry_id = e.id
-        ), '[]'::json) AS symbols,
-        COALESCE((
-          SELECT json_agg(t.tag ORDER BY t.tag ASC)
-          FROM journal_entry_tags t
-          WHERE t.entry_id = e.id
-        ), '[]'::json) AS tags
-      FROM journal_entries e
-      WHERE e.user_id = ${userId}
-        AND e.deleted_at IS NULL
-        AND (${filters.type ?? null}::text IS NULL OR e.entry_type = ${filters.type ?? null})
-        AND (${filters.status ?? null}::text IS NULL OR e.status = ${filters.status ?? null})
-        AND (${fromIso}::timestamptz IS NULL OR e.created_at >= ${fromIso}::timestamptz)
-        AND (${toIso}::timestamptz IS NULL OR e.created_at <= ${toIso}::timestamptz)
-        AND (${symbol}::text IS NULL OR EXISTS (
-          SELECT 1 FROM journal_entry_symbols sx
-          WHERE sx.entry_id = e.id AND sx.symbol = ${symbol}
-        ))
-        AND (${tag}::text IS NULL OR EXISTS (
-          SELECT 1 FROM journal_entry_tags tx
-          WHERE tx.entry_id = e.id AND tx.tag = ${tag}
-        ))
-        AND (${q}::text IS NULL OR e.search_vector @@ plainto_tsquery('english', ${q}) OR e.title ILIKE ${qLike} OR e.content_plain ILIKE ${qLike})
-      ORDER BY e.created_at DESC, e.id DESC
-      LIMIT ${coarseLimit}
+        id, user_id, status, ticker, thesis, eldar_snapshot, technical_setup, fundamental_note,
+        market_context, setup_quality, entry_price, target_price, stop_loss, position_size_pct,
+        followed_plan, execution_notes, exit_price, exit_date, what_went_right, what_went_wrong,
+        would_do_again, tags, created_at, updated_at, deleted_at
+      FROM journal_trade_entries
+      WHERE user_id = ${userId}
+        AND deleted_at IS NULL
+      ORDER BY created_at DESC
     `;
-    all = rows.map(mapDbRowToEntry);
-  } else {
-    const local = await readLocal();
-    all = local.entries.filter((entry) => entry.userId === userId && entry.deletedAt === null);
+    entries = rows.map(mapDbRow);
   }
 
-  let filtered = applyFilters(all, filters);
-  if (shouldUseRank(filters)) {
-    filtered = [...filtered].sort((a, b) => {
-      const rankDelta = computeRank(b, filters) - computeRank(a, filters);
-      if (Math.abs(rankDelta) > 0.0001) return rankDelta > 0 ? 1 : -1;
-      return compareByCreatedDesc(a, b);
-    });
-  } else {
-    filtered = [...filtered].sort(compareByCreatedDesc);
-  }
-
-  const cursorFiltered = applyCursor(filtered, filters.cursor);
-  const page = cursorFiltered.slice(0, limit);
-  const hasMore = cursorFiltered.length > limit;
-  const nextCursor = hasMore && page.length > 0 ? makeCursor(page[page.length - 1]) : null;
-  const insights = buildInsights(filtered, filters.symbol ?? null);
-
+  const filtered = applyFilters(entries, filters);
   return {
-    items: page,
-    nextCursor,
-    insights
+    items: filtered,
+    review: reviewFromClosed(entries)
   };
+}
+
+export async function getJournalEntryById(userId: string, id: string): Promise<JournalEntry | null> {
+  if (!hasPostgres) {
+    const store = await readLocalStore();
+    return store.entries.find((entry) => entry.id === id && entry.deletedAt === null) ?? null;
+  }
+
+  await ensureDbReady();
+  const { rows } = await sql<DbJournalRow>`
+    SELECT
+      id, user_id, status, ticker, thesis, eldar_snapshot, technical_setup, fundamental_note,
+      market_context, setup_quality, entry_price, target_price, stop_loss, position_size_pct,
+      followed_plan, execution_notes, exit_price, exit_date, what_went_right, what_went_wrong,
+      would_do_again, tags, created_at, updated_at, deleted_at
+    FROM journal_trade_entries
+    WHERE id = ${id}
+      AND user_id = ${userId}
+      AND deleted_at IS NULL
+    LIMIT 1
+  `;
+  if (!rows[0]) return null;
+  return mapDbRow(rows[0]);
+}
+
+export async function updateJournalEntry(userId: string, id: string, patch: JournalUpdateInput): Promise<JournalEntry | null> {
+  const current = await getJournalEntryById(userId, id);
+  if (!current) return null;
+
+  const updated = patchEntry(current, patch);
+
+  if (!hasPostgres) {
+    const store = await readLocalStore();
+    store.entries = store.entries.map((entry) => (entry.id === id ? updated : entry));
+    await writeLocalStore(store);
+    return updated;
+  }
+
+  await ensureDbReady();
+  await sql`
+    UPDATE journal_trade_entries
+    SET
+      status = ${updated.status},
+      ticker = ${updated.ticker},
+      thesis = ${updated.thesis},
+      technical_setup = ${updated.technicalSetup},
+      fundamental_note = ${updated.fundamentalNote},
+      market_context = ${updated.marketContext},
+      setup_quality = ${updated.setupQuality},
+      entry_price = ${updated.entryPrice},
+      target_price = ${updated.targetPrice},
+      stop_loss = ${updated.stopLoss},
+      position_size_pct = ${updated.positionSizePct},
+      followed_plan = ${updated.followedPlan},
+      execution_notes = ${updated.executionNotes},
+      exit_price = ${updated.exitPrice},
+      exit_date = ${updated.exitDate},
+      what_went_right = ${updated.whatWentRight},
+      what_went_wrong = ${updated.whatWentWrong},
+      would_do_again = ${updated.wouldDoAgain},
+      tags = ${JSON.stringify(updated.tags)}::jsonb,
+      updated_at = ${updated.updatedAt}::timestamptz
+    WHERE id = ${id}
+      AND user_id = ${userId}
+      AND deleted_at IS NULL
+  `;
+  return updated;
+}
+
+export async function setJournalEntryStatus(userId: string, id: string, status: TradeStatus): Promise<JournalEntry | null> {
+  const current = await getJournalEntryById(userId, id);
+  if (!current) return null;
+
+  const next: JournalEntry = { ...current };
+  if (status === "OPEN") {
+    assertOpenReady(current);
+  }
+  next.status = status;
+  next.updatedAt = new Date().toISOString();
+  const hydrated = hydrateEntry(next);
+
+  if (!hasPostgres) {
+    const store = await readLocalStore();
+    store.entries = store.entries.map((entry) => (entry.id === id ? hydrated : entry));
+    await writeLocalStore(store);
+    return hydrated;
+  }
+
+  await ensureDbReady();
+  await sql`
+    UPDATE journal_trade_entries
+    SET status = ${hydrated.status}, updated_at = ${hydrated.updatedAt}::timestamptz
+    WHERE id = ${id}
+      AND user_id = ${userId}
+      AND deleted_at IS NULL
+  `;
+  return hydrated;
+}
+
+export async function softDeleteJournalEntry(userId: string, id: string): Promise<boolean> {
+  const nowIso = new Date().toISOString();
+
+  if (!hasPostgres) {
+    const store = await readLocalStore();
+    const target = store.entries.find((entry) => entry.id === id);
+    if (!target || target.deletedAt) return false;
+    target.deletedAt = nowIso;
+    target.updatedAt = nowIso;
+    await writeLocalStore(store);
+    return true;
+  }
+
+  await ensureDbReady();
+  const result = await sql`
+    UPDATE journal_trade_entries
+    SET deleted_at = ${nowIso}::timestamptz, updated_at = ${nowIso}::timestamptz
+    WHERE id = ${id}
+      AND user_id = ${userId}
+      AND deleted_at IS NULL
+    RETURNING id
+  `;
+  return (result.rowCount ?? 0) > 0;
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getFetchSignal } from "@/lib/market/adapter-utils";
 import guard, { isGuardBlockedError } from "@/lib/security/guard";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 const SECTOR_ETFS = ["XLK", "XLF", "XLV", "XLY", "XLC", "XLI", "XLP", "XLE", "XLU", "XLRE", "XLB"] as const;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_HEADER = "public, max-age=300, s-maxage=600, stale-while-revalidate=1200";
+const SECTOR_FETCH_TIMEOUT_MS = 3_500;
 
 type SectorSentiment = "bullish" | "neutral" | "bearish";
 
@@ -44,6 +46,7 @@ async function fetchStooqSectorSentiment(etf: string): Promise<SectorSentimentRo
   try {
     const response = await fetch(url, {
       cache: "no-store",
+      signal: getFetchSignal(SECTOR_FETCH_TIMEOUT_MS),
       headers: {
         "User-Agent": "Mozilla/5.0"
       }

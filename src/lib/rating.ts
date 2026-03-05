@@ -22,7 +22,7 @@ export const RATING_BANDS: Record<
     explanation: string;
     shortExplanation: string;
     emoji: string;
-    color: "#B91C1C" | "#EF4444" | "#6B7280" | "#10B981" | "#059669";
+    color: "#B91C1C" | "#EF4444" | "#6B7280" | "#10B981" | "#FFBF00";
   }
 > = {
   STRONG_BUY: {
@@ -34,7 +34,7 @@ export const RATING_BANDS: Record<
       "valuation, momentum, and sentiment. Historical forward α: +9 to +16% annualised.",
     shortExplanation: "Top-decile — strong conviction across all pillars",
     emoji: "🐂",
-    color: "#059669"
+    color: "#FFBF00"
   },
   BUY: {
     min: 6.3,

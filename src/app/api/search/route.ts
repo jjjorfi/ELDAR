@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { resolveDomainForTicker } from "@/lib/branding/ticker-domain";
+import { getFetchSignal } from "@/lib/market/adapter-utils";
 import { fetchSP500Directory, fetchSP500SectorMap } from "@/lib/market/sp500";
 import { getTop100Sp500SymbolSet } from "@/lib/market/top100";
 import guard, { isGuardBlockedError } from "@/lib/security/guard";
@@ -13,6 +14,7 @@ export const runtime = "nodejs";
 const FMP_STABLE_BASE_URL = "https://financialmodelingprep.com/stable";
 const SEARCH_CACHE_TTL_MS = 90_000;
 const SEARCH_CACHE_HEADER = "public, max-age=15, s-maxage=60, stale-while-revalidate=120";
+const SEARCH_FETCH_TIMEOUT_MS = 3_000;
 
 interface SearchRow {
   symbol: string;
@@ -70,6 +72,7 @@ async function fetchFmp<T>(path: string, params: Record<string, string>): Promis
   try {
     const response = await fetch(url.toString(), {
       next: { revalidate: 180 },
+      signal: getFetchSignal(SEARCH_FETCH_TIMEOUT_MS),
       headers: {
         "User-Agent": "Mozilla/5.0"
       }

@@ -1,4 +1,5 @@
 import {
+  getFetchSignal,
   parseApiKeyList,
   parseOptionalNumber,
   parseTimestampMs,
@@ -26,6 +27,7 @@ export interface MassiveQuoteSnapshot {
 const MASSIVE_BASE_URLS = ["https://api.massive.com", "https://api.polygon.io"];
 const MAX_CHAIN_PAGES = 6;
 const CHAIN_PAGE_LIMIT = 250;
+const MASSIVE_FETCH_TIMEOUT_MS = 4_500;
 
 /**
  * Parses numeric values from Massive payloads.
@@ -127,6 +129,7 @@ async function fetchMassiveJson<T>(url: string): Promise<T | null> {
   try {
     const response = await fetch(url, {
       next: { revalidate: 120 },
+      signal: getFetchSignal(MASSIVE_FETCH_TIMEOUT_MS),
       headers: {
         Accept: "application/json",
         "User-Agent": "Mozilla/5.0"

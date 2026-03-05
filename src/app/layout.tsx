@@ -62,7 +62,21 @@ export default function RootLayout({ children }: { children: ReactNode }): JSX.E
   const clerkEnabled = typeof publishableKey === "string" && publishableKey.trim().length > 0;
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(() => {
+  try {
+    const saved = localStorage.getItem("eldar-theme-mode");
+    document.documentElement.dataset.theme = saved === "light" ? "light" : "dark";
+  } catch {
+    document.documentElement.dataset.theme = "dark";
+  }
+})();`
+          }}
+        />
+      </head>
       <body className={`${ibmPlexMono.variable} ${syne.variable} min-h-screen bg-ink text-slate-100`}>
         {clerkEnabled ? (
           <ThemedClerkProvider>

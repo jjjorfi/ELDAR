@@ -215,3 +215,24 @@ export function parseApiKeyList(rawValue: string, options: ApiKeyParseOptions): 
     )
   );
 }
+
+/**
+ * Builds an AbortSignal with timeout when supported by the current runtime.
+ * Returns undefined on unsupported runtimes so fetch callers can degrade safely.
+ *
+ * @param timeoutMs Timeout in milliseconds.
+ * @returns AbortSignal timeout instance or undefined.
+ */
+export function getFetchSignal(timeoutMs: number): AbortSignal | undefined {
+  const normalized = Number.isFinite(timeoutMs) ? Math.max(1, Math.floor(timeoutMs)) : 0;
+  if (normalized <= 0) {
+    return undefined;
+  }
+
+  const signalCtor = AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal };
+  if (typeof signalCtor.timeout === "function") {
+    return signalCtor.timeout(normalized);
+  }
+
+  return undefined;
+}

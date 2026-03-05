@@ -1,0 +1,42 @@
+{
+  "entries": [
+    {
+      "id": "0a286201-7691-4666-a523-c35c98c46144",
+      "createdAt": "2026-03-05T02:27:56.122Z",
+      "updatedAt": "2026-03-05T02:27:56.122Z",
+      "status": "PLANNING",
+      "ticker": "AAPL",
+      "thesis": "gud tek",
+      "eldarSnapshot": {
+        "capturedAt": "2026-03-05T02:27:56.122Z",
+        "modelVersion": "2026-03-04-v8q-production",
+        "score": 6.19,
+        "rating": "HOLD",
+        "topDrivers": [
+          "EPS Estimate Revision",
+          "ROIC",
+          "EPS Growth"
+        ]
+      },
+      "technicalSetup": "",
+      "fundamentalNote": "",
+      "marketContext": "",
+      "setupQuality": "B",
+      "entryPrice": null,
+      "targetPrice": null,
+      "stopLoss": null,
+      "positionSizePct": null,
+      "followedPlan": null,
+      "executionNotes": "",
+      "exitPrice": null,
+      "exitDate": null,
+      "returnPct": null,
+      "daysHeld": null,
+      "whatWentRight": "",
+      "whatWentWrong": "",
+      "wouldDoAgain": null,
+      "tags": [],
+      "deletedAt": null
+    }
+  ]
+}

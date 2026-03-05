@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getFetchSignal } from "@/lib/market/adapter-utils";
 import { fetchSP500Directory } from "@/lib/market/sp500";
 import { getTop100Sp500SymbolSet } from "@/lib/market/top100";
 import { publishMarketMovers } from "@/lib/realtime/publisher";
@@ -25,6 +26,7 @@ const MAX_SYMBOLS = 100;
 const CACHE_TTL_MS = 60_000;
 const CACHE_HEADER = "public, max-age=20, s-maxage=60, stale-while-revalidate=120";
 const DEFAULT_FALLBACK_SYMBOLS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"];
+const YAHOO_FETCH_TIMEOUT_MS = 3_500;
 
 let moversCache:
   | {
@@ -140,7 +142,8 @@ async function fetchYahooScreenerRows(scrId: "day_gainers" | "day_losers", count
   try {
     const response = await fetch(url.toString(), {
       headers: { "User-Agent": "Mozilla/5.0" },
-      cache: "no-store"
+      cache: "no-store",
+      signal: getFetchSignal(YAHOO_FETCH_TIMEOUT_MS)
     });
 
     if (!response.ok) {
@@ -161,34 +164,35 @@ async function fetchYahooScreenerRows(scrId: "day_gainers" | "day_losers", count
 async function fetchYahooQuotes(symbols: string[]): Promise<Array<Record<string, unknown>>> {
   if (symbols.length === 0) return [];
   const groups = chunk(symbols, CHUNK_SIZE);
-  const rows: Array<Record<string, unknown>> = [];
+  const rowGroups = await Promise.all(
+    groups.map(async (group) => {
+      const url = new URL(YAHOO_QUOTE_URL);
+      url.searchParams.set("symbols", group.join(","));
 
-  for (const group of groups) {
-    const url = new URL(YAHOO_QUOTE_URL);
-    url.searchParams.set("symbols", group.join(","));
+      try {
+        const response = await fetch(url.toString(), {
+          headers: { "User-Agent": "Mozilla/5.0" },
+          cache: "no-store",
+          signal: getFetchSignal(YAHOO_FETCH_TIMEOUT_MS)
+        });
 
-    try {
-      const response = await fetch(url.toString(), {
-        headers: { "User-Agent": "Mozilla/5.0" },
-        cache: "no-store"
-      });
+        if (!response.ok) {
+          return [] as Array<Record<string, unknown>>;
+        }
 
-      if (!response.ok) {
-        continue;
+        const payload = (await response.json()) as {
+          quoteResponse?: { result?: Array<Record<string, unknown>> };
+        };
+
+        const result = Array.isArray(payload?.quoteResponse?.result) ? payload.quoteResponse.result : [];
+        return result;
+      } catch {
+        return [] as Array<Record<string, unknown>>;
       }
+    })
+  );
 
-      const payload = (await response.json()) as {
-        quoteResponse?: { result?: Array<Record<string, unknown>> };
-      };
-
-      const result = Array.isArray(payload?.quoteResponse?.result) ? payload.quoteResponse.result : [];
-      rows.push(...result);
-    } catch {
-      continue;
-    }
-  }
-
-  return rows;
+  return rowGroups.flat();
 }
 
 async function loadDirectory(): Promise<DirectoryMap> {

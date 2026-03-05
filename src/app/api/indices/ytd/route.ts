@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getFetchSignal } from "@/lib/market/adapter-utils";
 import { isNySessionOpen } from "@/lib/market/ny-session";
 import { publishIndicesYtd } from "@/lib/realtime/publisher";
 import guard, { isGuardBlockedError } from "@/lib/security/guard";
@@ -44,6 +45,7 @@ const MAX_POINTS = 42;
 const CURRENT_YEAR = new Date().getUTCFullYear();
 const YAHOO_RANGE = "1y";
 const YAHOO_INTERVAL = "1d";
+const INDEX_FETCH_TIMEOUT_MS = 3_500;
 
 let indicesCache: CacheState | null = null;
 const lastGoodByCode: Partial<Record<IndexCode, IndexYtdRow>> = {};
@@ -78,11 +80,13 @@ async function fetchStooqYtdRow(config: IndexConfig): Promise<IndexYtdRow> {
     const [historyResponse, quoteResponse] = await Promise.all([
       fetch(historyUrl, {
         headers: { "User-Agent": "Mozilla/5.0" },
-        cache: "no-store"
+        cache: "no-store",
+        signal: getFetchSignal(INDEX_FETCH_TIMEOUT_MS)
       }),
       fetch(quoteUrl, {
         headers: { "User-Agent": "Mozilla/5.0" },
-        cache: "no-store"
+        cache: "no-store",
+        signal: getFetchSignal(INDEX_FETCH_TIMEOUT_MS)
       })
     ]);
 
@@ -199,6 +203,7 @@ async function fetchYahooYtdRow(config: IndexConfig): Promise<IndexYtdRow> {
   try {
     const response = await fetch(url, {
       cache: "no-store",
+      signal: getFetchSignal(INDEX_FETCH_TIMEOUT_MS),
       headers: { "User-Agent": "Mozilla/5.0" }
     });
 
@@ -277,12 +282,12 @@ async function fetchYahooYtdRow(config: IndexConfig): Promise<IndexYtdRow> {
 }
 
 async function fetchRobustIndexRow(config: IndexConfig): Promise<IndexYtdRow> {
-  const stooq = await fetchStooqYtdRow(config);
+  // Run both providers in parallel to cut tail latency while keeping source preference.
+  const [stooq, yahoo] = await Promise.all([fetchStooqYtdRow(config), fetchYahooYtdRow(config)]);
   if (stooq.current !== null && stooq.points.length > 0) {
     return stooq;
   }
 
-  const yahoo = await fetchYahooYtdRow(config);
   if (yahoo.current !== null && yahoo.points.length > 0) {
     return yahoo;
   }

@@ -47,4 +47,3 @@ export function CompositeScoreBreakdown({ rating }: { rating: PortfolioRating })
     </section>
   );
 }
-

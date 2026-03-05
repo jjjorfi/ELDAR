@@ -26,6 +26,8 @@ export function RiskCharts({ rating }: { rating: PortfolioRating }): JSX.Element
     1,
     ...rating.riskSeries.rollingSharpe.map((value) => Math.abs(value))
   );
+  const oneYearReturn = rating.pillars.find((pillar) => pillar.key === "return")?.metrics?.oneYearReturn;
+  const maxDrawdown = rating.pillars.find((pillar) => pillar.key === "drawdown")?.metrics?.maxDrawdown;
 
   return (
     <section className="grid gap-3 lg:grid-cols-2">
@@ -40,6 +42,11 @@ export function RiskCharts({ rating }: { rating: PortfolioRating }): JSX.Element
           ) : (
             <div className="flex h-[140px] items-center justify-center text-xs text-white/55">Not enough history for curve</div>
           )}
+        </div>
+        <div className="mt-2 flex items-center gap-2 text-xs">
+          {typeof oneYearReturn === "string" ? <span className="text-[#22C55E]">{oneYearReturn} 1Y Return</span> : null}
+          {typeof oneYearReturn === "string" && typeof maxDrawdown === "string" ? <span className="text-[#555]">·</span> : null}
+          {typeof maxDrawdown === "string" ? <span className="text-[#EF4444]">{maxDrawdown} Max DD</span> : null}
         </div>
       </article>
 
@@ -68,4 +75,3 @@ export function RiskCharts({ rating }: { rating: PortfolioRating }): JSX.Element
     </section>
   );
 }
-

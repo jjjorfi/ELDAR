@@ -3,6 +3,7 @@ import {
   fetchAlphaVantageFallbackData,
   fetchAlphaVantageQuoteSnapshot
 } from "@/lib/market/alpha-vantage";
+import { getFetchSignal } from "@/lib/market/adapter-utils";
 import { fetchEodhdFallbackData, fetchEodhdQuoteSnapshot } from "@/lib/market/eodhd";
 import { fetchFmpFallbackData, fetchFmpQuoteSnapshot } from "@/lib/market/fmp";
 import {
@@ -69,6 +70,7 @@ const COMMODITY_SYMBOL_BY_SECTOR: Record<string, string> = {
   Energy: "CL=F",
   Materials: "HG=F"
 };
+const YAHOO_FETCH_TIMEOUT_MS = 6_000;
 
 export interface YahooQuoteSnapshot {
   price: number | null;
@@ -251,6 +253,7 @@ async function fetchJson<T>(url: string): Promise<T> {
     headers: {
       "User-Agent": "Mozilla/5.0"
     },
+    signal: getFetchSignal(YAHOO_FETCH_TIMEOUT_MS),
     next: { revalidate: 300 }
   });
 

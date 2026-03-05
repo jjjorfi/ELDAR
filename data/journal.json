@@ -4,8 +4,8 @@
       "id": "3b998458-9229-4c2a-ba89-950c7dea3d9b",
       "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
       "title": "New freeform",
-      "contentMd": "## Note",
-      "contentPlain": "Note",
+      "contentMd": "",
+      "contentPlain": "",
       "entryType": "freeform",
       "sentiment": null,
       "conviction": null,
@@ -14,8 +14,9 @@
       "symbols": [],
       "tags": [],
       "createdAt": "2026-03-04T12:49:23.100Z",
-      "updatedAt": "2026-03-04T12:49:32.567Z",
-      "deletedAt": null
+      "updatedAt": "2026-03-05T01:36:32.519Z",
+      "deletedAt": null,
+      "eldarSnapshotAtEntry": null
     },
     {
       "id": "7d0b0aec-f092-4ed6-9a6d-a6621b506cd4",
@@ -32,7 +33,8 @@
       "tags": [],
       "createdAt": "2026-03-04T12:49:20.003Z",
       "updatedAt": "2026-03-04T12:49:23.118Z",
-      "deletedAt": null
+      "deletedAt": null,
+      "eldarSnapshotAtEntry": null
     },
     {
       "id": "6149f1f1-e10b-4ac0-8444-873e813f05dc",
@@ -49,7 +51,8 @@
       "tags": [],
       "createdAt": "2026-03-04T12:49:18.459Z",
       "updatedAt": "2026-03-04T12:49:20.026Z",
-      "deletedAt": null
+      "deletedAt": null,
+      "eldarSnapshotAtEntry": null
     },
     {
       "id": "2c526491-b978-45db-b078-c0a62d81d1c8",
@@ -66,7 +69,8 @@
       "tags": [],
       "createdAt": "2026-03-04T12:49:11.756Z",
       "updatedAt": "2026-03-04T12:49:18.294Z",
-      "deletedAt": null
+      "deletedAt": null,
+      "eldarSnapshotAtEntry": null
     }
   ],
   "revisions": []

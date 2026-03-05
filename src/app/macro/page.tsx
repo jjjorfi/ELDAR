@@ -4,9 +4,8 @@ import clsx from "clsx";
 import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bookmark, BriefcaseBusiness, CircleUserRound, Grid2x2, Home, LineChart, Moon, Search, Sun } from "lucide-react";
+import { BookText, Bookmark, BriefcaseBusiness, CircleUserRound, Grid2x2, Home, LineChart, Moon, Search, Sun } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { HeaderFeedStrip } from "@/components/HeaderFeedStrip";
 
 const ELDAR_BRAND_LOGO = "/brand/eldar-logo.png";
 const DASHBOARD_RETURN_STATE_KEY = "eldar:dashboard:return-state";
@@ -191,7 +190,7 @@ export default function MacroPage(): JSX.Element {
     };
   }, [indicators]);
 
-  const appBackground = themeMode === "dark" ? "#000000" : "#f3f4f6";
+  const appBackground = themeMode === "dark" ? "#000000" : "#e9e5dc";
 
   return (
     <main className="min-h-screen overflow-x-hidden text-white" style={{ background: appBackground }}>
@@ -203,7 +202,6 @@ export default function MacroPage(): JSX.Element {
                 <Image src={ELDAR_BRAND_LOGO} alt="ELDAR logo" fill sizes="40px" className="object-contain" priority />
               </div>
             </button>
-            <HeaderFeedStrip wrapperClassName="relative hidden flex-1 items-center px-2 md:flex" />
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -226,7 +224,7 @@ export default function MacroPage(): JSX.Element {
                   title="Menu"
                   aria-label="Menu"
                 >
-                  <Grid2x2 className="h-4 w-4" />
+                  <Home className="h-4 w-4" />
                 </button>
                 {isMenuOpen ? (
                   <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-44 overflow-hidden rounded-2xl border border-white/20 bg-zinc-950/90 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-2xl">
@@ -261,6 +259,17 @@ export default function MacroPage(): JSX.Element {
                     >
                       <LineChart className="h-4 w-4" />
                       Macro
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        router.push("/journal");
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
+                    >
+                      <BookText className="h-4 w-4" />
+                      Journal
                     </button>
                     <button
                       type="button"
@@ -321,12 +330,12 @@ export default function MacroPage(): JSX.Element {
             {indicators.slice(0, 4).map((item) => {
               const tone = changeTone(item.change);
               return (
-                <div key={`macro-top-${item.key}`} className="eldar-panel rounded-2xl p-4">
-                  <p className="text-xs uppercase tracking-[0.12em] text-white/55">{item.title}</p>
-                  <p className="mt-2 text-2xl font-bold text-white">{formatValue(item.value, item.unit)}</p>
+                <div key={`macro-top-${item.key}`} className="eldar-panel rounded-2xl p-6">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/55">{item.title}</p>
+                  <p className="mt-3 text-4xl font-black leading-none text-white">{formatValue(item.value, item.unit)}</p>
                   <p
                     className={clsx(
-                      "mt-2 text-sm",
+                      "mt-3 text-sm",
                       tone === "positive" && "text-emerald-300",
                       tone === "negative" && "text-red-300",
                       tone === "neutral" && "text-white/70"
@@ -334,7 +343,7 @@ export default function MacroPage(): JSX.Element {
                   >
                     {formatChange(item.change, item.changeMode)}
                   </p>
-                  <p className="mt-2 text-[11px] uppercase tracking-[0.12em] text-white/50">{item.frequency} • {item.seriesId}</p>
+                  <p className="mt-3 text-[10px] uppercase tracking-[0.12em] text-white/50">{item.frequency} • {item.seriesId}</p>
                 </div>
               );
             })}
@@ -388,7 +397,7 @@ export default function MacroPage(): JSX.Element {
           <div className="flex h-10 items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="eldar-status-star eldar-status-live" />
-              <span className="eldar-caption text-[9px] text-white/50">LIVE | {isMarketOpen ? "Market Open" : "Market Closed"}</span>
+              <span className="eldar-caption text-[8px] text-white/50">LIVE | {isMarketOpen ? "Market Open" : "Market Closed"}</span>
             </div>
             <div className="flex items-center gap-2">
               <button

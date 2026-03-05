@@ -39,6 +39,10 @@ interface ContextPayload {
 const CONTEXT_CACHE = new Map<string, { expiresAt: number; payload: ContextPayload }>();
 const CACHE_HEADER_OPEN = "public, max-age=15, s-maxage=45, stale-while-revalidate=90";
 const CACHE_HEADER_CLOSED = "public, max-age=60, s-maxage=180, stale-while-revalidate=300";
+const DIRECTORY_TIMEOUT_MS = 2_500;
+const NEWS_TIMEOUT_MS = 1_500;
+const COMPARABLE_REFRESH_TIMEOUT_OPEN_MS = 2_200;
+const COMPARABLE_REFRESH_TIMEOUT_CLOSED_MS = 1_200;
 
 function pruneContextCache(nowMs: number): void {
   for (const [key, entry] of CONTEXT_CACHE.entries()) {
@@ -91,6 +95,31 @@ function parseQueryScore(rawScore: string | null): number | null {
 
 function parseLive(rawLive: string | null): boolean {
   return rawLive === "1" || rawLive === "true";
+}
+
+async function withTimeoutFallback<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(fallback);
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch(() => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(fallback);
+      });
+  });
 }
 
 async function refreshAnalysisScore(
@@ -166,10 +195,10 @@ export async function GET(request: Request): Promise<NextResponse> {
   try {
     const [cachedAnalysis, directoryMap, recentAnalyses, watchlist, recentNews] = await Promise.all([
       getCachedAnalysis(symbol, 60 * 24, userId ?? null),
-      fetchSP500Directory(),
+      withTimeoutFallback(fetchSP500Directory(), DIRECTORY_TIMEOUT_MS, {} as Awaited<ReturnType<typeof fetchSP500Directory>>),
       getRecentAnalyses(500, userId ?? null),
       userId ? getWatchlist(userId) : Promise.resolve([]),
-      fetchFinnhubCompanyNews(symbol, 21, 6)
+      withTimeoutFallback(fetchFinnhubCompanyNews(symbol, 21, 6), NEWS_TIMEOUT_MS, [])
     ]);
 
     const top100DirectoryMap = Object.fromEntries(
@@ -192,10 +221,17 @@ export async function GET(request: Request): Promise<NextResponse> {
     const comparableSectorAnalyses = sectorAnalyses.filter((item) => item.symbol !== symbol);
     const rankedComparable = [...comparableSectorAnalyses].sort((a, b) => b.score - a.score || a.symbol.localeCompare(b.symbol));
 
+    const comparableRefreshTimeout = liveMode ? COMPARABLE_REFRESH_TIMEOUT_OPEN_MS : COMPARABLE_REFRESH_TIMEOUT_CLOSED_MS;
     const refreshedComparable = await Promise.all(
       rankedComparable
         .slice(0, liveMode ? 10 : 6)
-        .map((item) => refreshAnalysisScore(item.symbol, item, liveMode, userId ?? null))
+        .map((item) =>
+          withTimeoutFallback(
+            refreshAnalysisScore(item.symbol, item, liveMode, userId ?? null),
+            comparableRefreshTimeout,
+            item
+          )
+        )
     );
 
     const sameSectorDirectory = Object.values(top100DirectoryMap)

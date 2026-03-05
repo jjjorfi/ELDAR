@@ -1,4 +1,4 @@
-import { parseOptionalNumber, readEnvToken } from "@/lib/market/adapter-utils";
+import { getFetchSignal, parseOptionalNumber, readEnvToken } from "@/lib/market/adapter-utils";
 import { normalizeRatio } from "@/lib/utils";
 
 interface HistoryPoint {
@@ -27,6 +27,7 @@ export interface AlphaVantageFallbackData {
 }
 
 const ALPHA_VANTAGE_BASE_URL = "https://www.alphavantage.co/query";
+const ALPHA_VANTAGE_FETCH_TIMEOUT_MS = 4_500;
 
 /**
  * Reads the configured Alpha Vantage API key.
@@ -90,7 +91,10 @@ async function fetchAlphaVantage(params: Record<string, string>): Promise<Record
   url.searchParams.set("apikey", apiKey);
 
   try {
-    const response = await fetch(url.toString(), { next: { revalidate: 300 } });
+    const response = await fetch(url.toString(), {
+      next: { revalidate: 300 },
+      signal: getFetchSignal(ALPHA_VANTAGE_FETCH_TIMEOUT_MS)
+    });
 
     if (!response.ok) {
       return null;

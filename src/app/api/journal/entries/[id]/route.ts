@@ -8,24 +8,24 @@ import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 
-const patchSchema = z.object({
-  title: z.string().min(1).max(220),
-  contentMd: z.string().max(120_000),
-  entryType: z.enum(["freeform", "thesis", "earnings_review", "postmortem", "watchlist_note"]),
-  sentiment: z.enum(["bull", "bear", "neutral"]).nullable().optional(),
-  conviction: z.number().int().min(1).max(5).nullable().optional(),
-  timeHorizon: z.enum(["weeks", "months", "years"]).nullable().optional(),
-  status: z.enum(["draft", "final"]).optional(),
-  symbols: z
-    .array(
-      z.object({
-        symbol: z.string().min(1).max(12),
-        primary: z.boolean().optional()
-      })
-    )
-    .max(10)
-    .optional(),
-  tags: z.array(z.string().min(1).max(32)).max(20).optional()
+const updateSchema = z.object({
+  thesis: z.string().max(220).optional(),
+  technicalSetup: z.string().max(10_000).optional(),
+  fundamentalNote: z.string().max(10_000).optional(),
+  marketContext: z.string().max(10_000).optional(),
+  setupQuality: z.enum(["A", "B", "C"]).optional(),
+  entryPrice: z.number().positive().nullable().optional(),
+  targetPrice: z.number().positive().nullable().optional(),
+  stopLoss: z.number().positive().nullable().optional(),
+  positionSizePct: z.number().positive().max(100).nullable().optional(),
+  followedPlan: z.boolean().nullable().optional(),
+  executionNotes: z.string().max(10_000).optional(),
+  exitPrice: z.number().positive().nullable().optional(),
+  exitDate: z.string().nullable().optional(),
+  whatWentRight: z.string().max(10_000).optional(),
+  whatWentWrong: z.string().max(10_000).optional(),
+  wouldDoAgain: z.boolean().nullable().optional(),
+  tags: z.array(z.string().min(1).max(32)).max(30).optional()
 });
 
 interface RouteContext {
@@ -47,7 +47,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Next
     }
 
     const throttled = enforceRateLimit(request, {
-      bucket: "api-journal-entry-get",
+      bucket: "api-journal-v1-entry-get",
       max: 180,
       windowMs: 60_000
     });
@@ -81,7 +81,7 @@ export async function PATCH(request: Request, context: RouteContext): Promise<Ne
     }
 
     const throttled = enforceRateLimit(request, {
-      bucket: "api-journal-entry-patch",
+      bucket: "api-journal-v1-entry-patch",
       max: 90,
       windowMs: 60_000
     });
@@ -89,26 +89,12 @@ export async function PATCH(request: Request, context: RouteContext): Promise<Ne
 
     const { id } = await context.params;
     const raw = await request.json();
-    const parsed = patchSchema.safeParse(raw);
+    const parsed = updateSchema.safeParse(raw);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid update payload." }, { status: 400 });
     }
 
-    const entry = await updateJournalEntry(userId, id, {
-      title: parsed.data.title,
-      contentMd: parsed.data.contentMd,
-      entryType: parsed.data.entryType,
-      sentiment: parsed.data.sentiment ?? null,
-      conviction: parsed.data.conviction ?? null,
-      timeHorizon: parsed.data.timeHorizon ?? null,
-      status: parsed.data.status ?? "draft",
-      symbols: (parsed.data.symbols ?? []).map((item) => ({
-        symbol: item.symbol,
-        primary: Boolean(item.primary)
-      })),
-      tags: parsed.data.tags ?? []
-    });
-
+    const entry = await updateJournalEntry(userId, id, parsed.data);
     if (!entry) {
       return NextResponse.json({ error: "Entry not found." }, { status: 404 });
     }
@@ -116,11 +102,8 @@ export async function PATCH(request: Request, context: RouteContext): Promise<Ne
     return NextResponse.json({ entry }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update entry.";
-    if (message.includes("Finalized entries are locked")) {
-      return NextResponse.json({ error: message }, { status: 409 });
-    }
     console.error("/api/journal/entries/[id] PATCH error", error);
-    return NextResponse.json({ error: "Failed to update entry." }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -139,7 +122,7 @@ export async function DELETE(request: Request, context: RouteContext): Promise<N
     }
 
     const throttled = enforceRateLimit(request, {
-      bucket: "api-journal-entry-delete",
+      bucket: "api-journal-v1-entry-delete",
       max: 60,
       windowMs: 60_000
     });
@@ -150,6 +133,7 @@ export async function DELETE(request: Request, context: RouteContext): Promise<N
     if (!deleted) {
       return NextResponse.json({ error: "Entry not found." }, { status: 404 });
     }
+
     return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("/api/journal/entries/[id] DELETE error", error);

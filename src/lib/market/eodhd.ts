@@ -1,4 +1,5 @@
 import {
+  getFetchSignal,
   parseOptionalNumber,
   parseOptionalString,
   parseTimestampMs,
@@ -29,6 +30,7 @@ export interface EodhdQuoteSnapshot {
 }
 
 const EODHD_BASE_URL = "https://eodhd.com/api";
+const EODHD_FETCH_TIMEOUT_MS = 4_500;
 
 /**
  * Reads the configured EODHD API key from env.
@@ -115,6 +117,7 @@ async function fetchEodhd<T>(path: string, params: Record<string, string> = {}):
   try {
     const response = await fetch(url.toString(), {
       next: { revalidate: 300 },
+      signal: getFetchSignal(EODHD_FETCH_TIMEOUT_MS),
       headers: {
         "User-Agent": "Mozilla/5.0",
         Accept: "application/json, text/plain, */*"

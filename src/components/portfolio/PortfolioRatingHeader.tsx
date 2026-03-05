@@ -16,10 +16,35 @@ export function PortfolioRatingHeader({ rating }: { rating: PortfolioRating }): 
   const band = RATING_BANDS[rating.rating];
   const segments = 6;
   const filledSegments = Math.max(0, Math.min(segments, Math.round(rating.dataCompleteness * segments)));
+  const returnMetric = rating.pillars.find((pillar) => pillar.key === "return")?.metrics?.cagr;
+  const maxDdMetric = rating.pillars.find((pillar) => pillar.key === "drawdown")?.metrics?.maxDrawdown;
+  const shapeClip = "polygon(25% 6.7%, 75% 6.7%, 100% 50%, 75% 93.3%, 25% 93.3%, 0% 50%)";
 
   return (
-    <section className="eldar-panel rounded-2xl p-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <section className="eldar-panel rounded-2xl p-5">
+      <div className="grid gap-5 xl:grid-cols-[220px_minmax(0,1fr)_280px] xl:items-center">
+        <div className="mx-auto w-full max-w-[220px]">
+          <div className="relative h-[200px] w-[200px]">
+            <div
+              className="pointer-events-none absolute inset-0 bg-amber-300/20 blur-2xl"
+              style={{ clipPath: shapeClip }}
+            />
+            <div
+              className="absolute inset-0 border border-amber-300/45 bg-amber-200/10"
+              style={{ clipPath: shapeClip, boxShadow: "0 0 22px rgba(255,191,0,0.25)" }}
+            />
+            <div
+              className="absolute inset-[14px] border border-white/15 bg-black/45"
+              style={{ clipPath: shapeClip }}
+            >
+              <div className="flex h-full w-full flex-col items-center justify-center text-center">
+                <p className="font-mono text-4xl font-black text-white">{rating.compositeScore.toFixed(1)}</p>
+                <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-white/60">Portfolio Score</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div>
           <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Portfolio Rating</p>
           <div className="mt-1 flex items-center gap-3">
@@ -30,6 +55,13 @@ export function PortfolioRatingHeader({ rating }: { rating: PortfolioRating }): 
             {band.label}
           </p>
           <p className="mt-1 text-xs text-white/60">Rated vs: {rating.peerGroup} peers</p>
+          {typeof returnMetric === "string" || typeof maxDdMetric === "string" ? (
+            <div className="mt-2 flex items-center gap-2 text-xs">
+              {typeof returnMetric === "string" ? <span className="text-[#22C55E]">{returnMetric} CAGR</span> : null}
+              {typeof returnMetric === "string" && typeof maxDdMetric === "string" ? <span className="text-[#555]">·</span> : null}
+              {typeof maxDdMetric === "string" ? <span className="text-[#EF4444]">{maxDdMetric} Max DD</span> : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="min-w-[240px] rounded-xl border border-white/15 bg-black/20 p-3">
@@ -69,4 +101,3 @@ export function PortfolioRatingHeader({ rating }: { rating: PortfolioRating }): 
     </section>
   );
 }
-

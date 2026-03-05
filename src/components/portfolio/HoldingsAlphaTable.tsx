@@ -1,9 +1,16 @@
+"use client";
+
+import { useState } from "react";
+
 import type { PortfolioRating } from "@/lib/scoring/portfolio-types";
 import { RATING_BANDS } from "@/lib/rating";
 
 export function HoldingsAlphaTable({ rating }: { rating: PortfolioRating }): JSX.Element {
+  const [expanded, setExpanded] = useState(false);
   const weightedAverage =
     rating.holdings.reduce((sum, holding) => sum + (holding.eldarScore ?? 0) * holding.weight, 0);
+  const visibleHoldings = expanded ? rating.holdings : rating.holdings.slice(0, 10);
+  const hiddenCount = Math.max(0, rating.holdings.length - visibleHoldings.length);
 
   return (
     <section className="eldar-panel rounded-2xl p-4">
@@ -17,7 +24,7 @@ export function HoldingsAlphaTable({ rating }: { rating: PortfolioRating }): JSX
           <span className="text-right">Contrib</span>
         </div>
         <div className="max-h-[360px] overflow-auto">
-          {rating.holdings.map((holding) => {
+          {visibleHoldings.map((holding) => {
             const band = holding.rating ? RATING_BANDS[holding.rating] : null;
             return (
               <div key={holding.ticker} className="grid grid-cols-[84px_minmax(180px,1fr)_86px_120px_90px] items-center gap-2 border-b border-white/10 px-3 py-2 text-xs text-white/85 last:border-b-0">
@@ -58,6 +65,15 @@ export function HoldingsAlphaTable({ rating }: { rating: PortfolioRating }): JSX
           })}
         </div>
       </div>
+      {hiddenCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="mt-2 text-[9px] uppercase tracking-[0.12em] text-[#FFBF00]"
+        >
+          {expanded ? "Show less ↑" : `Show ${hiddenCount} more ↓`}
+        </button>
+      ) : null}
       <div className="mt-3 flex items-center justify-between text-xs">
         <p className="text-white/60">Weighted average ELDAR score</p>
         <p className="font-mono text-white">{weightedAverage.toFixed(2)}</p>
@@ -65,4 +81,3 @@ export function HoldingsAlphaTable({ rating }: { rating: PortfolioRating }): JSX
     </section>
   );
 }
-

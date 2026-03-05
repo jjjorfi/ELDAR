@@ -1,10 +1,13 @@
 import {
+  getFetchSignal,
   parseApiKeyList,
   parseOptionalNumber,
   parseOptionalString,
   pickFirstNumber,
   readEnvToken
 } from "@/lib/market/adapter-utils";
+
+const FINNHUB_FETCH_TIMEOUT_MS = 4_500;
 
 interface FinnhubRecommendationRow {
   buy?: number;
@@ -128,7 +131,10 @@ async function fetchFinnhub<T>(endpoint: string, query: Record<string, string>):
     url.searchParams.set("token", token);
 
     try {
-      const response = await fetch(url.toString(), { next: { revalidate: 300 } });
+      const response = await fetch(url.toString(), {
+        next: { revalidate: 300 },
+        signal: getFetchSignal(FINNHUB_FETCH_TIMEOUT_MS)
+      });
       if (!response.ok) continue;
 
       const payload = (await response.json()) as T | { error?: string };

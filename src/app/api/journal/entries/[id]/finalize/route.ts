@@ -2,18 +2,25 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 
-import { finalizeJournalEntry } from "@/lib/journal/store";
+import { setJournalEntryStatus } from "@/lib/journal/store";
+import type { TradeStatus } from "@/lib/journal/types";
 import guard, { isGuardBlockedError } from "@/lib/security/guard";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 
 const payloadSchema = z.object({
+  status: z.enum(["PLANNING", "OPEN", "CLOSED"]),
   reopen: z.boolean().optional()
 });
 
 interface RouteContext {
   params: Promise<{ id: string }>;
+}
+
+function resolveStatus(input: z.infer<typeof payloadSchema>): TradeStatus {
+  if (input.reopen) return "OPEN";
+  return input.status;
 }
 
 export async function POST(request: Request, context: RouteContext): Promise<NextResponse> {
@@ -31,30 +38,28 @@ export async function POST(request: Request, context: RouteContext): Promise<Nex
     }
 
     const throttled = enforceRateLimit(request, {
-      bucket: "api-journal-entry-finalize",
+      bucket: "api-journal-v1-entry-status",
       max: 60,
       windowMs: 60_000
     });
     if (throttled) return throttled;
 
-    let reopen = false;
-    try {
-      const raw = await request.json();
-      const parsed = payloadSchema.safeParse(raw);
-      reopen = parsed.success ? Boolean(parsed.data.reopen) : false;
-    } catch {
-      reopen = false;
+    const raw = await request.json();
+    const parsed = payloadSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
     }
 
-    const { id } = await context.params;
-    const entry = await finalizeJournalEntry(userId, id, reopen);
+    const status = resolveStatus(parsed.data);
+    const entry = await setJournalEntryStatus(userId, (await context.params).id, status);
     if (!entry) {
       return NextResponse.json({ error: "Entry not found." }, { status: 404 });
     }
 
     return NextResponse.json({ entry }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to update trade status.";
     console.error("/api/journal/entries/[id]/finalize POST error", error);
-    return NextResponse.json({ error: "Failed to update entry status." }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
