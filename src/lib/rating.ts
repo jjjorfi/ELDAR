@@ -100,3 +100,11 @@ export function ratingNote(score: number): string {
 export function ratingShortNote(score: number): string {
   return RATING_BANDS[toRating(score)].shortExplanation;
 }
+
+export function ratingColor(rating: RatingLabel): (typeof RATING_BANDS)[RatingLabel]["color"] {
+  return RATING_BANDS[rating].color;
+}
+
+export function ratingDisplayLabel(rating: RatingLabel): string {
+  return rating.replace(/_/g, " ");
+}

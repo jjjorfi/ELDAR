@@ -14,6 +14,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "docs:function-trail": "node scripts/generate-function-trail.mjs",
     "test:security": "tsx --test --test-concurrency=1 src/lib/security/guard.test.ts",
     "security:gate": "bash ./security-gate.sh"
   },

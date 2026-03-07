@@ -1,16 +1,24 @@
 "use client";
 
 import clsx from "clsx";
-import { SignInButton, SignedIn, SignedOut, UserButton, useAuth } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { BookText, Bookmark, BriefcaseBusiness, CircleUserRound, Grid2x2, Home, LineChart, Lock, Plus, Search, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BookText, BriefcaseBusiness, Grid2x2, Home, LineChart, Lock, Plus, Search, Trash2, X } from "lucide-react";
 
 import type { JournalEntry, JournalReviewStats, SetupQuality, TradeStatus } from "@/lib/journal/types";
+import { AppLeftSidebar } from "@/components/AppLeftSidebar";
+import { isPaletteOpenShortcut } from "@/lib/ui/command-palette";
 
 const ELDAR_BRAND_LOGO = "/brand/eldar-logo.png";
 const DASHBOARD_RETURN_STATE_KEY = "eldar:dashboard:return-state";
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
+}
 
 type JournalTab = "active" | "closed" | "review";
 type ClosedSortKey = "createdAt" | "returnPct" | "setupQuality";
@@ -136,7 +144,7 @@ export default function JournalPage(): JSX.Element {
   const [newTradeCandidates, setNewTradeCandidates] = useState<SearchCandidate[]>([]);
   const [tagInput, setTagInput] = useState("");
 
-  function openDashboardView(
+  const openDashboardView = useCallback((
     view: "home" | "portfolio" | "watchlist",
     ticker?: string,
     options?: {
@@ -144,7 +152,7 @@ export default function JournalPage(): JSX.Element {
       paletteAction?: "analyze" | "portfolio-add" | "compare-add" | "watchlist-add";
       autoAnalyze?: boolean;
     }
-  ): void {
+  ): void => {
     try {
       const payload = {
         savedAt: Date.now(),
@@ -160,7 +168,7 @@ export default function JournalPage(): JSX.Element {
       // no-op
     }
     router.push("/");
-  }
+  }, [router]);
 
   useEffect(() => {
     try {
@@ -192,6 +200,24 @@ export default function JournalPage(): JSX.Element {
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (isPaletteOpenShortcut(event)) {
+        if (isTypingTarget(event.target)) return;
+        event.preventDefault();
+        openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" });
+        return;
+      }
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isTypingTarget(event.target)) return;
+      event.preventDefault();
+      openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" });
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [openDashboardView]);
 
   const loadEntries = async (): Promise<void> => {
     if (!isSignedIn) {
@@ -493,7 +519,7 @@ export default function JournalPage(): JSX.Element {
           type="button"
           onClick={() => selectEntry(entry)}
           className={clsx(
-            "w-full rounded-2xl border bg-zinc-950/45 px-5 py-4 text-left transition",
+            "card-grain rough-border w-full rounded-2xl border bg-zinc-950/45 px-5 py-4 text-left transition",
             selectedId === entry.id ? "border-white/35" : "border-white/15 hover:border-white/30"
           )}
         >
@@ -518,8 +544,11 @@ export default function JournalPage(): JSX.Element {
         </button>
       ))}
       {activeTrades.length === 0 ? (
-        <div className="rounded-2xl border border-white/15 bg-zinc-950/45 px-6 py-16 text-center text-sm text-white/70">
-          No active trades yet. Create your first planning entry.
+        <div className="card-grain rough-border rounded-2xl border border-white/15 bg-zinc-950/45 px-6 py-16 text-center text-sm text-white/70">
+          <p>No active trades yet. Create your first planning entry.</p>
+          <p className="mt-2 text-[11px] uppercase tracking-[0.12em] text-white/45">
+            Unlock pattern review after 3 closed logs
+          </p>
         </div>
       ) : null}
     </div>
@@ -552,7 +581,7 @@ export default function JournalPage(): JSX.Element {
           type="button"
           onClick={() => selectEntry(entry)}
           className={clsx(
-            "w-full rounded-2xl border bg-zinc-950/45 px-5 py-4 text-left transition",
+            "card-grain rough-border w-full rounded-2xl border bg-zinc-950/45 px-5 py-4 text-left transition",
             selectedId === entry.id ? "border-white/35" : "border-white/15 hover:border-white/30"
           )}
         >
@@ -572,7 +601,7 @@ export default function JournalPage(): JSX.Element {
         </button>
       ))}
       {closedTrades.length === 0 ? (
-        <div className="rounded-2xl border border-white/15 bg-zinc-950/45 px-6 py-16 text-center text-sm text-white/70">
+        <div className="card-grain rough-border rounded-2xl border border-white/15 bg-zinc-950/45 px-6 py-16 text-center text-sm text-white/70">
           No closed trades yet.
         </div>
       ) : null}
@@ -967,9 +996,22 @@ export default function JournalPage(): JSX.Element {
 
   return (
     <main className="min-h-screen overflow-x-hidden text-white" style={{ background: themeMode === "dark" ? "#000000" : "#e9e5dc" }}>
-      <nav className="fixed left-0 right-0 top-0 z-50 border-b border-white/15 bg-zinc-950/80 shadow-2xl shadow-black/50 backdrop-blur-2xl">
-        <div className="container mx-auto px-6">
-          <div className="flex h-16 items-center justify-between gap-3">
+      <AppLeftSidebar
+        activeView="journal"
+        themeMode={themeMode}
+        loading={loading}
+        defaultSearchValue=""
+        onQuickSearch={() => openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" })}
+        onOpenDashboard={() => openDashboardView("home")}
+        onOpenSectors={() => router.push("/sectors")}
+        onOpenMacro={() => router.push("/macro")}
+        onOpenJournal={() => undefined}
+        onOpenPortfolio={() => openDashboardView("portfolio")}
+        onToggleTheme={() => setThemeMode((prev) => (prev === "dark" ? "light" : "dark"))}
+      />
+      <nav className="hidden fixed left-0 right-0 top-0 z-50 border-b border-white/15 bg-zinc-950/80 shadow-2xl shadow-black/50 backdrop-blur-2xl">
+        <div className="w-full px-6">
+          <div className="flex h-16 items-center justify-start gap-3">
             <button type="button" onClick={() => openDashboardView("home")} className="eldar-logo-button flex cursor-pointer items-center gap-3">
               <div className="relative h-10 w-10 overflow-hidden">
                 <Image src={ELDAR_BRAND_LOGO} alt="ELDAR logo" fill sizes="40px" className="object-contain" priority />
@@ -981,7 +1023,7 @@ export default function JournalPage(): JSX.Element {
                 onClick={() => openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" })}
                 title="Search"
                 aria-label="Search"
-                className="eldar-btn-silver flex h-11 w-11 items-center justify-center rounded-2xl border text-slate-900 transition-all backdrop-blur-xl"
+                className="eldar-chrome-glow eldar-btn-silver flex h-11 w-11 items-center justify-center rounded-2xl border text-slate-900 transition-all backdrop-blur-xl"
               >
                 <Search className="h-4 w-4" />
               </button>
@@ -992,7 +1034,7 @@ export default function JournalPage(): JSX.Element {
                   title="Menu"
                   aria-label="Menu"
                   className={clsx(
-                    "flex h-11 w-11 items-center justify-center rounded-2xl border text-sm font-semibold transition-all backdrop-blur-xl",
+                    "eldar-chrome-glow flex h-11 w-11 items-center justify-center rounded-2xl border text-sm font-semibold transition-all backdrop-blur-xl",
                     isMenuOpen ? "eldar-btn-ghost border-white/60 bg-white/10 text-white" : "eldar-btn-silver text-slate-900"
                   )}
                 >
@@ -1054,38 +1096,12 @@ export default function JournalPage(): JSX.Element {
                 ) : null}
               </div>
 
-              <button
-                type="button"
-                onClick={() => openDashboardView("watchlist")}
-                title="Watchlist"
-                aria-label="Watchlist"
-                className="eldar-btn-silver relative flex h-11 w-11 items-center justify-center rounded-2xl border text-sm font-semibold text-slate-900 transition-all backdrop-blur-xl"
-              >
-                <Bookmark className="h-4 w-4" />
-              </button>
-
-              <SignedOut>
-                <SignInButton mode="modal">
-                  <button
-                    title="Profile"
-                    aria-label="Profile"
-                    className="eldar-btn-silver flex h-11 w-11 items-center justify-center rounded-2xl border p-0 text-sm font-semibold text-slate-900 transition-all backdrop-blur-xl"
-                  >
-                    <CircleUserRound className="h-4 w-4" />
-                  </button>
-                </SignInButton>
-              </SignedOut>
-              <SignedIn>
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/30 bg-black/20 p-0.5 backdrop-blur-xl">
-                  <UserButton afterSignOutUrl="/" />
-                </div>
-              </SignedIn>
             </div>
           </div>
         </div>
       </nav>
 
-      <div className="container mx-auto px-6 pb-12 pt-24">
+      <div className="container mx-auto px-6 pb-12 pl-[104px] pr-10 pt-6">
         <div className="mx-auto max-w-6xl">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -1095,7 +1111,7 @@ export default function JournalPage(): JSX.Element {
             <button
               type="button"
               onClick={() => setNewTradeOpen(true)}
-              className="eldar-btn-silver inline-flex h-11 items-center gap-2 rounded-xl border px-4 text-sm font-semibold"
+              className="eldar-btn-silver primary-cta inline-flex h-11 items-center gap-2 rounded-xl border px-4 text-sm font-semibold"
             >
               <Plus className="h-4 w-4" />
               New trade

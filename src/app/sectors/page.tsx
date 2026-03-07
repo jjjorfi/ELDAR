@@ -1,15 +1,24 @@
 "use client";
 
 import clsx from "clsx";
-import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { BookText, Bookmark, BriefcaseBusiness, CircleUserRound, Grid2x2, Home, LineChart, Moon, Search, Sun } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BookText, BriefcaseBusiness, Grid2x2, Home, LineChart, Moon, Search, Sun } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { isTop100Sp500Symbol } from "@/lib/market/top100";
+import { AppLeftSidebar } from "@/components/AppLeftSidebar";
+import { isPaletteOpenShortcut } from "@/lib/ui/command-palette";
 
 const ELDAR_BRAND_LOGO = "/brand/eldar-logo.png";
 const DASHBOARD_RETURN_STATE_KEY = "eldar:dashboard:return-state";
+const LOCAL_SECTOR_SENTIMENT_STORAGE_KEY = "eldar:sectors:sentiment";
+const HOME_DASHBOARD_YTD_STORAGE_KEY = "eldar:home:dashboard:YTD";
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
+}
 
 interface SectorRow {
   sector: string;
@@ -58,6 +67,83 @@ function createDefaultSentimentMap(): Record<string, SectorSentimentItem> {
     };
   }
   return map;
+}
+
+function classifySectorSentiment(changePercent: number | null): "bullish" | "neutral" | "bearish" {
+  if (typeof changePercent !== "number") return "neutral";
+  if (changePercent >= 0.35) return "bullish";
+  if (changePercent <= -0.35) return "bearish";
+  return "neutral";
+}
+
+function toSectorSentimentMap(items: SectorSentimentItem[]): Record<string, SectorSentimentItem> {
+  const map = createDefaultSentimentMap();
+  for (const item of items) {
+    map[item.etf] = item;
+  }
+  return map;
+}
+
+function readCachedSectorSentimentMap(): Record<string, SectorSentimentItem> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(LOCAL_SECTOR_SENTIMENT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { sectors?: SectorSentimentItem[] };
+    if (!Array.isArray(parsed.sectors) || parsed.sectors.length === 0) return null;
+    return toSectorSentimentMap(parsed.sectors);
+  } catch {
+    return null;
+  }
+}
+
+function readDashboardSectorSentimentMap(): Record<string, SectorSentimentItem> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(HOME_DASHBOARD_YTD_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      payload?: {
+        generatedAt?: string;
+        sectorRotation?: Array<{
+          etf?: string;
+          performancePercent?: number | null;
+        }>;
+      };
+    };
+    const sectors = parsed.payload?.sectorRotation;
+    if (!Array.isArray(sectors) || sectors.length === 0) return null;
+    const asOfMs = parsed.payload?.generatedAt ? Date.parse(parsed.payload.generatedAt) : Date.now();
+    const items: SectorSentimentItem[] = sectors
+      .map((item) => {
+        const etf = typeof item.etf === "string" ? item.etf.toUpperCase() : "";
+        if (!etf) return null;
+        const changePercent = typeof item.performancePercent === "number" ? item.performancePercent : null;
+        return {
+          etf,
+          changePercent,
+          sentiment: classifySectorSentiment(changePercent),
+          asOfMs: Number.isFinite(asOfMs) ? asOfMs : null
+        };
+      })
+      .filter((item): item is SectorSentimentItem => item !== null);
+    if (items.length === 0) return null;
+    return toSectorSentimentMap(items);
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedSectorSentiment(items: SectorSentimentItem[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(
+      LOCAL_SECTOR_SENTIMENT_STORAGE_KEY,
+      JSON.stringify({ storedAt: Date.now(), sectors: items })
+    );
+  } catch {
+    // Optional cache write.
+  }
 }
 
 function sentimentLabel(sentiment: "bullish" | "neutral" | "bearish"): string {
@@ -142,8 +228,9 @@ export default function SectorsPage(): JSX.Element {
   const [sentimentLoading, setSentimentLoading] = useState(true);
   const [sortMode, setSortMode] = useState<SectorSortMode>("default");
   const [viewMode, setViewMode] = useState<SectorViewMode>("heatmap");
+  const [activeSectorEtf, setActiveSectorEtf] = useState<string | null>(null);
 
-  function openDashboardView(
+  const openDashboardView = useCallback((
     view: "home" | "portfolio" | "watchlist",
     ticker?: string,
     options?: {
@@ -151,7 +238,7 @@ export default function SectorsPage(): JSX.Element {
       paletteAction?: "analyze" | "portfolio-add" | "compare-add";
       autoAnalyze?: boolean;
     }
-  ): void {
+  ): void => {
     try {
       const payload = {
         savedAt: Date.now(),
@@ -168,7 +255,7 @@ export default function SectorsPage(): JSX.Element {
     }
 
     router.push("/");
-  }
+  }, [router]);
 
   function openMacroPage(): void {
     router.push("/macro");
@@ -183,7 +270,7 @@ export default function SectorsPage(): JSX.Element {
     } catch {
       document.documentElement.dataset.theme = "dark";
     }
-  }, []);
+  }, [openDashboardView]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = themeMode;
@@ -204,7 +291,31 @@ export default function SectorsPage(): JSX.Element {
 
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
-  }, []);
+  }, [openDashboardView]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape" && activeSectorEtf) {
+        event.preventDefault();
+        setActiveSectorEtf(null);
+        return;
+      }
+
+      if (isPaletteOpenShortcut(event)) {
+        if (isTypingTarget(event.target)) return;
+        event.preventDefault();
+        openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" });
+        return;
+      }
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isTypingTarget(event.target)) return;
+      event.preventDefault();
+      openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" });
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeSectorEtf, openDashboardView]);
 
   useEffect(() => {
     const refreshMarketStatus = (): void => {
@@ -223,20 +334,31 @@ export default function SectorsPage(): JSX.Element {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    const cachedMap = readCachedSectorSentimentMap() ?? readDashboardSectorSentimentMap();
+
+    if (cachedMap) {
+      setSentimentMap(cachedMap);
+      setSentimentLoading(false);
+    }
 
     const load = async (): Promise<void> => {
       try {
-        setSentimentLoading(true);
-        const response = await fetch("/api/sectors/sentiment");
+        if (!cachedMap) {
+          setSentimentLoading(true);
+        }
+        const response = await fetch("/api/sectors/sentiment", {
+          cache: "no-store",
+          signal: controller.signal
+        });
         const payload = (await response.json()) as { sectors?: SectorSentimentItem[] };
         if (cancelled) return;
 
-        const nextMap = createDefaultSentimentMap();
-        for (const item of payload.sectors ?? []) {
-          nextMap[item.etf] = item;
-        }
+        const nextMap = toSectorSentimentMap(payload.sectors ?? []);
         setSentimentMap(nextMap);
-      } catch {
+        writeCachedSectorSentiment(payload.sectors ?? []);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         if (!cancelled) {
           setSentimentMap((prev) => (Object.keys(prev).length > 0 ? prev : createDefaultSentimentMap()));
         }
@@ -250,10 +372,11 @@ export default function SectorsPage(): JSX.Element {
     void load();
     const interval = window.setInterval(() => {
       void load();
-    }, 60_000);
+    }, 180_000);
 
     return () => {
       cancelled = true;
+      controller.abort();
       window.clearInterval(interval);
     };
   }, []);
@@ -323,13 +446,34 @@ export default function SectorsPage(): JSX.Element {
     });
   }, [sentimentMap, sortMode]);
 
+  const activeSector = useMemo(() => {
+    if (!activeSectorEtf) return null;
+    const row = SECTOR_ROWS.find((entry) => entry.etf === activeSectorEtf);
+    if (!row) return null;
+    const live = sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf];
+    return { row, live };
+  }, [activeSectorEtf, fallbackSentimentMap, sentimentMap]);
+
   const appBackground = themeMode === "dark" ? "#000000" : "#e9e5dc";
 
   return (
     <main className="min-h-screen overflow-x-hidden text-white" style={{ background: appBackground }}>
-      <nav className="fixed left-0 right-0 top-0 z-50 border-b border-white/15 bg-zinc-950/80 shadow-2xl shadow-black/50 backdrop-blur-2xl">
-        <div className="container mx-auto px-6">
-          <div className="flex h-16 items-center justify-between gap-3">
+      <AppLeftSidebar
+        activeView="sectors"
+        themeMode={themeMode}
+        loading={sentimentLoading}
+        defaultSearchValue=""
+        onQuickSearch={() => openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" })}
+        onOpenDashboard={() => openDashboardView("home")}
+        onOpenSectors={() => undefined}
+        onOpenMacro={openMacroPage}
+        onOpenJournal={() => router.push("/journal")}
+        onOpenPortfolio={() => openDashboardView("portfolio")}
+        onToggleTheme={() => setThemeMode((prev) => (prev === "dark" ? "light" : "dark"))}
+      />
+      <nav className="hidden fixed left-0 right-0 top-0 z-50 border-b border-white/15 bg-zinc-950/80 shadow-2xl shadow-black/50 backdrop-blur-2xl">
+        <div className="w-full px-6">
+          <div className="flex h-16 items-center justify-start gap-3">
             <button type="button" onClick={() => router.push("/")} className="eldar-logo-button flex cursor-pointer items-center gap-3">
               <div className="relative h-10 w-10 overflow-hidden">
                 <Image src={ELDAR_BRAND_LOGO} alt="ELDAR logo" fill sizes="40px" className="object-contain" priority />
@@ -341,7 +485,7 @@ export default function SectorsPage(): JSX.Element {
                 onClick={() => openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" })}
                 title="Search"
                 aria-label="Search"
-                className="eldar-btn-silver flex h-11 w-11 items-center justify-center rounded-2xl border text-slate-900 transition-all backdrop-blur-xl"
+                className="eldar-chrome-glow eldar-btn-silver flex h-11 w-11 items-center justify-center rounded-2xl border text-slate-900 transition-all backdrop-blur-xl"
               >
                 <Search className="h-4 w-4" />
               </button>
@@ -350,7 +494,7 @@ export default function SectorsPage(): JSX.Element {
                   type="button"
                   onClick={() => setIsMenuOpen((prev) => !prev)}
                   className={clsx(
-                    "flex h-11 w-11 items-center justify-center rounded-2xl border text-sm font-semibold transition-all backdrop-blur-xl",
+                    "eldar-chrome-glow flex h-11 w-11 items-center justify-center rounded-2xl border text-sm font-semibold transition-all backdrop-blur-xl",
                     isMenuOpen ? "eldar-btn-ghost border-white/60 bg-white/10 text-white" : "eldar-btn-silver text-slate-900"
                   )}
                   title="Menu"
@@ -417,38 +561,12 @@ export default function SectorsPage(): JSX.Element {
                   </div>
                 ) : null}
               </div>
-              <button
-                type="button"
-                onClick={() => openDashboardView("watchlist")}
-                className="eldar-btn-silver flex h-11 w-11 items-center justify-center rounded-2xl border text-slate-900 transition-all backdrop-blur-xl"
-                title="Watchlist"
-                aria-label="Watchlist"
-              >
-                <Bookmark className="h-4 w-4" />
-              </button>
-              <SignedOut>
-                <SignInButton mode="modal">
-                  <button
-                    type="button"
-                    className="eldar-btn-silver flex h-11 w-11 items-center justify-center rounded-2xl border text-slate-900 transition-all backdrop-blur-xl"
-                    title="Profile"
-                    aria-label="Profile"
-                  >
-                    <CircleUserRound className="h-4 w-4" />
-                  </button>
-                </SignInButton>
-              </SignedOut>
-              <SignedIn>
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/30 bg-black/20 p-0.5 backdrop-blur-xl">
-                  <UserButton afterSignOutUrl="/" />
-                </div>
-              </SignedIn>
             </div>
           </div>
         </div>
       </nav>
 
-      <div className="container mx-auto px-6 pb-20 pt-24">
+      <div className="container mx-auto px-6 pb-20 pl-[104px] pr-10 pt-6">
         <div className="mx-auto max-w-6xl">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <h1 className="eldar-display text-2xl font-bold tracking-[0.14em] text-white md:text-3xl">SECTORS</h1>
@@ -480,6 +598,13 @@ export default function SectorsPage(): JSX.Element {
               >
                 Table
               </button>
+              <button
+                type="button"
+                onClick={() => openDashboardView("home", "SPY", { autoAnalyze: true })}
+                className="primary-cta h-8 border px-3 text-[10px] uppercase tracking-[0.12em] text-[#FFBF00] transition"
+              >
+                Compare to SPY
+              </button>
             </div>
           </div>
 
@@ -495,9 +620,10 @@ export default function SectorsPage(): JSX.Element {
                   <div
                     key={`tile-${row.etf}`}
                     className={clsx(
-                      "eldar-panel min-h-[148px] px-5 py-4 text-left",
+                      "eldar-panel min-h-[148px] cursor-pointer px-5 py-4 text-left transition hover:border-white/30",
                       heatTileTone(sentiment)
                     )}
+                    onClick={() => setActiveSectorEtf(row.etf)}
                     style={{ animation: `fadeUp 0.4s ease-out ${Math.min(index, 10) * 0.05}s both` }}
                   >
                     <div className="mb-2">
@@ -567,7 +693,11 @@ export default function SectorsPage(): JSX.Element {
                       const moveRank = moveRankMap[row.etf] ?? (DEFAULT_ROW_ORDER[row.etf] ?? 0) + 1;
 
                       return (
-                        <tr key={row.sector} className="border-b border-white/10 text-sm text-white/90">
+                        <tr
+                          key={row.sector}
+                          className="cursor-pointer border-b border-white/10 text-sm text-white/90 transition hover:bg-white/[0.03]"
+                          onClick={() => setActiveSectorEtf(row.etf)}
+                        >
                           <td className="px-4 py-3 font-semibold">{row.sector}</td>
                           <td className="px-4 py-3 font-mono text-white/80">{row.etf}</td>
                           <td className="px-4 py-3 font-semibold">
@@ -590,7 +720,10 @@ export default function SectorsPage(): JSX.Element {
                                 <button
                                   key={`${row.etf}-${symbol}`}
                                   type="button"
-                                  onClick={() => openDashboardView("home", symbol, { autoAnalyze: true })}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openDashboardView("home", symbol, { autoAnalyze: true });
+                                  }}
                                   className="rounded-md border border-white/15 bg-white/[0.04] px-2 py-1 font-mono text-[10px] text-white/75 transition hover:border-white/35 hover:text-white"
                                 >
                                   {symbol}
@@ -610,13 +743,80 @@ export default function SectorsPage(): JSX.Element {
         </div>
       </div>
 
-      <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/15 bg-zinc-950/80 shadow-2xl shadow-black/50 backdrop-blur-2xl">
+      {activeSector ? (
+        <div className="fixed inset-0 z-[95]">
+          <button
+            type="button"
+            aria-label="Close drawer"
+            className="absolute inset-0 bg-black/45"
+            onClick={() => setActiveSectorEtf(null)}
+          />
+          <aside className="card-grain rough-border absolute right-0 top-0 h-full w-full max-w-[480px] border-l border-white/15 bg-[#0a0a0a] p-5 shadow-2xl shadow-black/70">
+            <div className="sticky top-0 z-10 mb-4 flex items-center justify-between border-b border-white/10 bg-[#0a0a0a] pb-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Sector Detail</p>
+                <p className="mt-1 font-semibold text-white">{activeSector.row.sector}</p>
+                <p className="mt-0.5 font-mono text-xs text-white/65">{activeSector.row.etf}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveSectorEtf(null)}
+                className="eldar-btn-ghost min-h-[40px] rounded-xl px-3 text-xs font-semibold uppercase tracking-[0.12em]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+                <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Bias</p>
+                <p className={clsx("mt-1 text-sm font-semibold", sentimentClass(activeSector.live.sentiment))}>
+                  {sentimentLabel(activeSector.live.sentiment)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+                <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Move</p>
+                <p
+                  className={clsx(
+                    "mt-1 font-mono text-lg font-semibold",
+                    (activeSector.live.changePercent ?? 0) > 0 && "text-emerald-300",
+                    (activeSector.live.changePercent ?? 0) < 0 && "text-red-300",
+                    activeSector.live.changePercent === null && "text-white"
+                  )}
+                >
+                  {typeof activeSector.live.changePercent === "number"
+                    ? `${activeSector.live.changePercent > 0 ? "+" : ""}${activeSector.live.changePercent.toFixed(2)}%`
+                    : "Pending"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+                <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Focus Area</p>
+                <p className="mt-1 text-sm text-white/78">{activeSector.row.focusArea}</p>
+              </div>
+              <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+                <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Top Tickers</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {extractTopTickers(activeSector.row.topTickers).map((symbol) => (
+                    <button
+                      key={`drawer-${activeSector.row.etf}-${symbol}`}
+                      type="button"
+                      onClick={() => openDashboardView("home", symbol, { autoAnalyze: true })}
+                      className="rounded-md border border-white/20 bg-white/[0.04] px-2 py-1 font-mono text-[11px] text-white/80 transition hover:border-white/40 hover:text-white"
+                    >
+                      {symbol}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      ) : null}
+
+      <footer className="hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/15 bg-zinc-950/80 shadow-2xl shadow-black/50 backdrop-blur-2xl">
         <div className="container mx-auto px-6">
           <div className="flex h-10 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="eldar-status-star eldar-status-live" />
-              <span className="eldar-caption text-[8px] text-white/50">LIVE | {isMarketOpen ? "Market Open" : "Market Closed"}</span>
-            </div>
+            <div className="flex items-center gap-2" />
             <div className="flex items-center gap-2">
               <button
                 type="button"

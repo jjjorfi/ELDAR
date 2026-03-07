@@ -9,21 +9,21 @@ export function HoldingsAlphaTable({ rating }: { rating: PortfolioRating }): JSX
   const [expanded, setExpanded] = useState(false);
   const weightedAverage =
     rating.holdings.reduce((sum, holding) => sum + (holding.eldarScore ?? 0) * holding.weight, 0);
-  const visibleHoldings = expanded ? rating.holdings : rating.holdings.slice(0, 10);
+  const visibleHoldings = expanded ? rating.holdings : rating.holdings.slice(0, 8);
   const hiddenCount = Math.max(0, rating.holdings.length - visibleHoldings.length);
 
   return (
-    <section className="eldar-panel rounded-2xl p-4">
+    <section className="card-grain p-2">
       <h3 className="text-[10px] uppercase tracking-[0.12em] text-white/55">Holdings Alpha Table</h3>
-      <div className="mt-3 overflow-hidden rounded-xl border border-white/15">
-        <div className="grid grid-cols-[84px_minmax(180px,1fr)_86px_120px_90px] gap-2 border-b border-white/10 bg-black/25 px-3 py-2 text-[10px] uppercase tracking-[0.12em] text-white/55">
+      <div className="mt-2.5 overflow-hidden">
+        <div className="grid grid-cols-[84px_minmax(180px,1fr)_86px_120px_90px] gap-2 border-b border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.12em] text-white/55">
           <span>Ticker</span>
           <span>Weight</span>
           <span className="text-right">Score</span>
           <span className="text-right">Rating</span>
           <span className="text-right">Contrib</span>
         </div>
-        <div className="max-h-[360px] overflow-auto">
+        <div className="max-h-[280px] overflow-auto">
           {visibleHoldings.map((holding) => {
             const band = holding.rating ? RATING_BANDS[holding.rating] : null;
             return (

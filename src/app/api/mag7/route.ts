@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { runRouteGuards } from "@/lib/api/route-security";
 import { getHomepageMag7Scores, getMag7LiveScores } from "@/lib/mag7";
 import { publishMag7 } from "@/lib/realtime/publisher";
-import guard, { isGuardBlockedError } from "@/lib/security/guard";
-import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,24 +11,14 @@ const CACHE_HEADER_LIVE_CLOSED = "public, max-age=60, s-maxage=120, stale-while-
 const CACHE_HEADER_HOME = "public, max-age=20, s-maxage=30, stale-while-revalidate=60";
 
 export async function GET(request: Request): Promise<NextResponse> {
-  try {
-    // Shared security gate: protected-route policy + global rolling per-IP limit.
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) {
-      return error.response;
-    }
-    throw error;
-  }
+  const blocked = await runRouteGuards(request, {
+    bucket: "api-mag7",
+    max: 120,
+    windowMs: 60_000
+  });
+  if (blocked) return blocked;
 
   try {
-    const throttled = enforceRateLimit(request, {
-      bucket: "api-mag7",
-      max: 120,
-      windowMs: 60_000
-    });
-    if (throttled) return throttled;
-
     const url = new URL(request.url);
     const isLive = url.searchParams.get("live") === "1";
 

@@ -2,6 +2,7 @@
 
 import { scoreCircle, getRatingColor } from "@/components/share-cards/utils";
 import type { PortfolioXRayCardProps } from "@/components/share-cards/types";
+import { ratingDisplayLabel } from "@/lib/rating";
 
 export function PortfolioXRayCard({
   portfolioName,
@@ -28,7 +29,7 @@ export function PortfolioXRayCard({
         alignItems: "center",
         justifyContent: "space-between",
         gap: 36,
-        fontFamily: "'IBM Plex Mono', monospace"
+        fontFamily: "'Neue Haas Grotesk Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace"
       }}
     >
       <div style={{ textAlign: "center", width: "100%" }}>
@@ -40,7 +41,7 @@ export function PortfolioXRayCard({
         <div style={{ fontSize: 11, letterSpacing: "0.18em", color: "#FFBF00", marginBottom: 10 }}>PORTFOLIO SIGNAL</div>
         <div
           style={{
-            fontFamily: "'Syne', sans-serif",
+            fontFamily: "'Neue Haas Grotesk Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace",
             fontSize: 44,
             fontWeight: 800,
             color: "#F5F5F5",
@@ -60,7 +61,7 @@ export function PortfolioXRayCard({
         <div style={{ marginTop: 22 }}>
           <div
             style={{
-              fontFamily: "'Syne', sans-serif",
+              fontFamily: "'Neue Haas Grotesk Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace",
               fontSize: 62,
               fontWeight: 800,
               color: ratingColor,
@@ -69,7 +70,7 @@ export function PortfolioXRayCard({
               letterSpacing: "-0.02em"
             }}
           >
-            {rating.replace("_", " ")}
+            {ratingDisplayLabel(rating)}
           </div>
           <div style={{ fontSize: 16, color: "#7a7a7a" }}>Composite score {compositeScore.toFixed(1)} / 10</div>
         </div>

@@ -4,9 +4,8 @@ import { fetchFmpEarningsCalendar, type FmpEarningsItem } from "@/lib/market/fmp
 import { fetchFinnhubEarningsCalendar, type FinnhubEarningsCalendarItem } from "@/lib/market/finnhub";
 import { fetchSP500Directory } from "@/lib/market/sp500";
 import { getTop100Sp500SymbolSet } from "@/lib/market/top100";
+import { runRouteGuards } from "@/lib/api/route-security";
 import { publishEarnings } from "@/lib/realtime/publisher";
-import guard, { isGuardBlockedError } from "@/lib/security/guard";
-import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -289,24 +288,14 @@ function pickLatestCompletePassedRows(
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
-  try {
-    // Shared security gate: protected-route policy + global rolling per-IP limit.
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) {
-      return error.response;
-    }
-    throw error;
-  }
+  const blocked = await runRouteGuards(request, {
+    bucket: "api-earnings",
+    max: 90,
+    windowMs: 60_000
+  });
+  if (blocked) return blocked;
 
   try {
-    const throttled = enforceRateLimit(request, {
-      bucket: "api-earnings",
-      max: 90,
-      windowMs: 60_000
-    });
-    if (throttled) return throttled;
-
     if (earningsCache && Date.now() < earningsCache.expiresAt) {
       return NextResponse.json(earningsCache.payload, { headers: { "Cache-Control": CACHE_HEADER } });
     }

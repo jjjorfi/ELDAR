@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 
+import { getApiAuthContext } from "@/lib/api/auth-context";
+import { badRequest, internalServerError, jsonNoStore, unauthorized } from "@/lib/api/responses";
+import { runRouteGuards } from "@/lib/api/route-security";
 import { addToWatchlist, getWatchlist, removeFromWatchlist } from "@/lib/storage";
-import guard, { isGuardBlockedError } from "@/lib/security/guard";
-import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { publishWatchlistDelta } from "@/lib/realtime/publisher";
 import { sanitizeSymbol } from "@/lib/utils";
 
@@ -15,72 +15,54 @@ const payloadSchema = z.object({
 });
 
 export async function GET(request: Request): Promise<NextResponse> {
-  try {
-    // Shared security gate: protected-route policy + global rolling per-IP limit.
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) {
-      return error.response;
-    }
-    throw error;
-  }
+  const blocked = await runRouteGuards(request, {
+    bucket: "api-watchlist-get",
+    max: 180,
+    windowMs: 60_000
+  });
+  if (blocked) return blocked;
 
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
+      return unauthorized();
     }
-
-    const throttled = enforceRateLimit(request, {
-      bucket: "api-watchlist-get",
-      max: 180,
-      windowMs: 60_000
-    });
-    if (throttled) return throttled;
+    const { userId } = authContext;
 
     const watchlist = await getWatchlist(userId);
-    return NextResponse.json({ watchlist }, { headers: { "Cache-Control": "no-store" } });
+    return jsonNoStore({ watchlist });
   } catch (error) {
     console.error("/api/watchlist GET error", error);
-    return NextResponse.json({ error: "Failed to load watchlist." }, { status: 500, headers: { "Cache-Control": "no-store" } });
+    return internalServerError("Failed to load watchlist.");
   }
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
-  try {
-    // Shared security gate: protected-route policy + global rolling per-IP limit.
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) {
-      return error.response;
-    }
-    throw error;
-  }
+  const blocked = await runRouteGuards(request, {
+    bucket: "api-watchlist-post",
+    max: 120,
+    windowMs: 60_000
+  });
+  if (blocked) return blocked;
 
   try {
-    const { userId, orgId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
+      return unauthorized();
     }
-
-    const throttled = enforceRateLimit(request, {
-      bucket: "api-watchlist-post",
-      max: 120,
-      windowMs: 60_000
-    });
-    if (throttled) return throttled;
+    const { userId, orgId } = authContext;
 
     const body = await request.json();
     const parsed = payloadSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
+      return badRequest("Invalid payload.");
     }
 
     const symbol = sanitizeSymbol(parsed.data.symbol);
 
     if (!symbol) {
-      return NextResponse.json({ error: "Ticker symbol is invalid." }, { status: 400 });
+      return badRequest("Ticker symbol is invalid.");
     }
 
     await addToWatchlist(symbol, userId);
@@ -93,42 +75,33 @@ export async function POST(request: Request): Promise<NextResponse> {
       changedAt: new Date().toISOString()
     });
 
-    return NextResponse.json({ watchlist }, { headers: { "Cache-Control": "no-store" } });
+    return jsonNoStore({ watchlist });
   } catch (error) {
     console.error("/api/watchlist POST error", error);
-    return NextResponse.json({ error: "Failed to add symbol." }, { status: 500, headers: { "Cache-Control": "no-store" } });
+    return internalServerError("Failed to add symbol.");
   }
 }
 
 export async function DELETE(request: Request): Promise<NextResponse> {
-  try {
-    // Shared security gate: protected-route policy + global rolling per-IP limit.
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) {
-      return error.response;
-    }
-    throw error;
-  }
+  const blocked = await runRouteGuards(request, {
+    bucket: "api-watchlist-delete",
+    max: 120,
+    windowMs: 60_000
+  });
+  if (blocked) return blocked;
 
   try {
-    const { userId, orgId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
+      return unauthorized();
     }
-
-    const throttled = enforceRateLimit(request, {
-      bucket: "api-watchlist-delete",
-      max: 120,
-      windowMs: 60_000
-    });
-    if (throttled) return throttled;
+    const { userId, orgId } = authContext;
 
     const url = new URL(request.url);
     const symbol = sanitizeSymbol(url.searchParams.get("symbol") ?? "");
 
     if (!symbol) {
-      return NextResponse.json({ error: "Ticker symbol is required." }, { status: 400 });
+      return badRequest("Ticker symbol is required.");
     }
 
     await removeFromWatchlist(symbol, userId);
@@ -141,9 +114,9 @@ export async function DELETE(request: Request): Promise<NextResponse> {
       changedAt: new Date().toISOString()
     });
 
-    return NextResponse.json({ watchlist }, { headers: { "Cache-Control": "no-store" } });
+    return jsonNoStore({ watchlist });
   } catch (error) {
     console.error("/api/watchlist DELETE error", error);
-    return NextResponse.json({ error: "Failed to remove symbol." }, { status: 500, headers: { "Cache-Control": "no-store" } });
+    return internalServerError("Failed to remove symbol.");
   }
 }

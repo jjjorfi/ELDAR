@@ -1,13 +1,8 @@
+import { ratingColor } from "@/lib/rating";
 import type { RatingLabel } from "@/lib/types";
 
 export function getRatingColor(rating: RatingLabel): string {
-  return {
-    STRONG_BUY: "#FFBF00",
-    BUY: "#10B981",
-    HOLD: "#6B7280",
-    SELL: "#EF4444",
-    STRONG_SELL: "#B91C1C"
-  }[rating];
+  return ratingColor(rating);
 }
 
 export function scoreCircle(
@@ -33,7 +28,7 @@ export function scoreCircle(
       <div style={{ textAlign: "center" }}>
         <div
           style={{
-            fontFamily: "'Syne', sans-serif",
+            fontFamily: "'Neue Haas Grotesk Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace",
             fontSize: size >= 140 ? 48 : size >= 100 ? 32 : 22,
             fontWeight: 800,
             letterSpacing: "-0.02em",
@@ -46,7 +41,7 @@ export function scoreCircle(
         <div
           style={{
             marginTop: 4,
-            fontFamily: "'IBM Plex Mono', monospace",
+            fontFamily: "'Neue Haas Grotesk Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace",
             fontSize: 9,
             letterSpacing: "0.12em",
             color: "#444"

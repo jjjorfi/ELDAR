@@ -1,0 +1,120 @@
+:root {
+  --dg-space-8: 8px;
+  --dg-space-16: 16px;
+  --dg-space-24: 24px;
+  --dg-space-32: 32px;
+  --dg-space-48: 48px;
+  --dg-space-64: 64px;
+
+  --dg-border: 1px solid rgba(226, 231, 238, 0.12);
+  --dg-bg-page: #0f1115;
+  --dg-bg-card: #1b1f27;
+  --dg-bg-table: #232833;
+  --dg-text-primary: #f3f5f6;
+  --dg-text-secondary: #b8bac2;
+
+  --dg-motion-fast: 150ms;
+  --dg-motion-base: 180ms;
+  --dg-motion-slow: 220ms;
+  --dg-motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.texture-bg {
+  background-image:
+    radial-gradient(950px 500px at 88% -8%, rgba(52, 121, 224, 0.15), transparent 62%),
+    radial-gradient(860px 420px at -12% 16%, rgba(25, 8, 151, 0.12), transparent 65%);
+  background-blend-mode: normal;
+}
+
+.texture-card {
+  background-image: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0.03) 42%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  background-blend-mode: normal;
+}
+
+.texture-table {
+  background-image: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(255, 255, 255, 0.02) 46%,
+    rgba(255, 255, 255, 0.07) 100%
+  );
+  background-blend-mode: normal;
+}
+
+.texture-none,
+.texture-none textarea,
+.texture-none pre,
+.texture-none code {
+  background-image: none !important;
+}
+
+.primary-cta {
+  border-color: rgba(243, 245, 246, 0.64) !important;
+  box-shadow:
+    0 0 0 1px rgba(243, 245, 246, 0.22),
+    0 0 12px rgba(52, 121, 224, 0.22),
+    0 10px 24px rgba(2, 6, 14, 0.42) !important;
+}
+
+.primary-cta:hover {
+  box-shadow:
+    0 0 0 1px rgba(243, 245, 246, 0.3),
+    0 0 16px rgba(52, 121, 224, 0.26),
+    0 12px 26px rgba(2, 6, 14, 0.52) !important;
+}
+
+.section-gap-lg {
+  gap: var(--dg-space-32);
+}
+
+.section-gap-xl {
+  gap: var(--dg-space-48);
+}
+
+.text-crisp {
+  color: #f7f7f7;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.evidence-accordion > details {
+  border: var(--dg-border);
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.evidence-accordion > details + details {
+  margin-top: var(--dg-space-16);
+}
+
+.evidence-accordion summary {
+  list-style: none;
+  cursor: pointer;
+  padding: var(--dg-space-16) var(--dg-space-24);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #b0b0b0;
+}
+
+.evidence-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.evidence-accordion details > div {
+  padding: 0 var(--dg-space-24) var(--dg-space-24);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .texture-bg,
+  .texture-card,
+  .texture-table,
+  .primary-cta {
+    transition: none !important;
+    animation: none !important;
+  }
+}

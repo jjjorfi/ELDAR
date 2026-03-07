@@ -1,9 +1,10 @@
 import {
-  getFetchSignal,
+  fetchJsonOrNull,
   parseOptionalNumber,
   parseOptionalString,
   parseTimestampMs,
   readEnvToken,
+  setUrlSearchParams,
   toRecord
 } from "@/lib/market/adapter-utils";
 import { normalizeRatio } from "@/lib/utils";
@@ -107,36 +108,25 @@ async function fetchEodhd<T>(path: string, params: Record<string, string> = {}):
 
   const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
   const url = new URL(`${EODHD_BASE_URL}/${normalizedPath}`);
-  url.searchParams.set("api_token", apiKey);
-  url.searchParams.set("fmt", "json");
+  setUrlSearchParams(url, {
+    api_token: apiKey,
+    fmt: "json",
+    ...params
+  });
 
-  for (const [key, value] of Object.entries(params)) {
-    url.searchParams.set(key, value);
-  }
-
-  try {
-    const response = await fetch(url.toString(), {
-      next: { revalidate: 300 },
-      signal: getFetchSignal(EODHD_FETCH_TIMEOUT_MS),
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        Accept: "application/json, text/plain, */*"
-      }
-    });
-
-    if (!response.ok) {
-      return null;
+  return fetchJsonOrNull<T>(url, {
+    timeoutMs: EODHD_FETCH_TIMEOUT_MS,
+    revalidateSeconds: 300,
+    headers: {
+      "User-Agent": "Mozilla/5.0",
+      Accept: "application/json, text/plain, */*"
+    },
+    isInvalidPayload: (payload) => {
+      if (typeof payload !== "object" || payload === null) return false;
+      const record = payload as Record<string, unknown>;
+      return typeof record.message === "string" || typeof record.error === "string";
     }
-
-    const payload = (await response.json()) as T | { code?: number; message?: string; error?: string };
-    if (typeof payload === "object" && payload !== null && ("message" in payload || "error" in payload)) {
-      return null;
-    }
-
-    return payload as T;
-  } catch {
-    return null;
-  }
+  });
 }
 
 /**

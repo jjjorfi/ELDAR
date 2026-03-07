@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-import guard, { isGuardBlockedError } from "@/lib/security/guard";
-import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { runRouteGuards } from "@/lib/api/route-security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -237,22 +236,12 @@ async function fetchIndicator(definition: MacroIndicatorDefinition, apiKey: stri
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
-  try {
-    // Shared security gate: protected-route policy + global rolling per-IP limit.
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) {
-      return error.response;
-    }
-    throw error;
-  }
-
-  const throttled = enforceRateLimit(request, {
+  const blocked = await runRouteGuards(request, {
     bucket: "api-macro-fred",
     max: 90,
     windowMs: 60_000
   });
-  if (throttled) return throttled;
+  if (blocked) return blocked;
 
   const key = (process.env.FRED_API_KEY ?? "").trim();
   if (!key) {

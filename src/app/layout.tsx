@@ -1,22 +1,25 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { IBM_Plex_Mono, Syne } from "next/font/google";
+import { Fragment_Mono, Inter } from "next/font/google";
 
 import { SmoothScrollProvider } from "@/components/SmoothScrollProvider";
 import { ThemedClerkProvider } from "@/components/ThemedClerkProvider";
+import { GlobalCommandPalette } from "@/components/ui/GlobalCommandPalette";
 
 import "./globals.css";
+import "@/ui/theme/theme.css";
 
-const ibmPlexMono = IBM_Plex_Mono({
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  variable: "--font-mono"
+  display: "swap",
+  variable: "--font-fastino-sans"
 });
 
-const syne = Syne({
+const fragmentMono = Fragment_Mono({
   subsets: ["latin"],
-  weight: ["700", "800"],
-  variable: "--font-display"
+  weight: "400",
+  display: "swap",
+  variable: "--font-fastino-mono"
 });
 
 const metadataBase = (() => {
@@ -57,6 +60,10 @@ export const metadata: Metadata = {
   }
 };
 
+function PageVignette(): JSX.Element {
+  return <div aria-hidden="true" className="page-vignette" />;
+}
+
 export default function RootLayout({ children }: { children: ReactNode }): JSX.Element {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const clerkEnabled = typeof publishableKey === "string" && publishableKey.trim().length > 0;
@@ -77,16 +84,20 @@ export default function RootLayout({ children }: { children: ReactNode }): JSX.E
           }}
         />
       </head>
-      <body className={`${ibmPlexMono.variable} ${syne.variable} min-h-screen bg-ink text-slate-100`}>
+      <body className={`${inter.variable} ${fragmentMono.variable} min-h-screen bg-ink text-slate-100`}>
         {clerkEnabled ? (
           <ThemedClerkProvider>
             <SmoothScrollProvider />
+            <PageVignette />
             {children}
+            <GlobalCommandPalette />
           </ThemedClerkProvider>
         ) : (
           <>
             <SmoothScrollProvider />
+            <PageVignette />
             {children}
+            <GlobalCommandPalette />
           </>
         )}
       </body>

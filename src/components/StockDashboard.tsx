@@ -10,8 +10,7 @@ import {
   Bookmark,
   BriefcaseBusiness,
   Grid2x2,
-  Home,
-  CircleUserRound,
+  LayoutDashboard,
   LineChart,
   BookText,
   Loader2,
@@ -39,6 +38,7 @@ import {
   LinesSkeleton,
   RatingCardSkeleton
 } from "@/components/ui/FintechPrimitives";
+import { DriversList } from "@/components/ui/AnalysisPrimitives";
 import { RATING_BANDS, toRating } from "@/lib/rating";
 import { scorePortfolio } from "@/lib/scoring/portfolio-engine";
 import type { PersistedPortfolioSnapshot, PortfolioEngineInput, PortfolioInputHolding } from "@/lib/scoring/portfolio-types";
@@ -54,6 +54,8 @@ import type { FactorResult, Mag7ScoreCard, PersistedAnalysis, RatingLabel, Watch
 import { formatMarketCap, formatPrice } from "@/lib/utils";
 import { getTop100Sp500Symbols, isTop100Sp500Symbol } from "@/lib/market/top100";
 import { exportCard } from "@/lib/share/export-card";
+import { isPaletteOpenShortcut } from "@/lib/ui/command-palette";
+import { pushRecentTicker } from "@/lib/ui/recent-tickers";
 import { useSocket } from "@/hooks/useSocket";
 
 type ViewMode = "home" | "results" | "watchlist" | "portfolio";
@@ -62,6 +64,7 @@ type AuthMode = "login" | "signup";
 type AnalysisPhase = "idle" | "fetching" | "rendering";
 type PaletteAction = "analyze" | "portfolio-add" | "compare-add" | "watchlist-add";
 type PriceRange = "1W" | "1M" | "3M" | "1Y";
+type SectorRotationWindow = "YTD" | "1M" | "3M" | "6M";
 
 interface StockDashboardProps {
   initialHistory: PersistedAnalysis[];
@@ -132,6 +135,51 @@ interface UpcomingEarningsItem {
   epsEstimate: number | null;
 }
 
+interface HomeRegimeMetric {
+  key: "tenYearYield" | "vix" | "dxy" | "oil";
+  label: string;
+  value: number | null;
+  changePercent: number | null;
+}
+
+interface HomeSnapshotItem {
+  symbol: string;
+  label: string;
+  price: number | null;
+  changePercent: number | null;
+}
+
+interface HomeSectorRotationItem {
+  etf: string;
+  name: string;
+  performancePercent: number | null;
+  signalScore: number | null;
+  signalStrength: "STRONG" | "CONSTRUCTIVE" | "NEUTRAL" | "WEAK" | "UNAVAILABLE";
+}
+
+interface HomeDashboardPayload {
+  generatedAt: string;
+  sectorWindow: SectorRotationWindow;
+  regime: {
+    label: "RISK_ON" | "BALANCED" | "RISK_OFF";
+    summary: string;
+    metrics: HomeRegimeMetric[];
+  };
+  snapshot: HomeSnapshotItem[];
+  marketMovers: MarketMoverItem[];
+  sectorRotation: HomeSectorRotationItem[];
+}
+
+interface HomeTickerDrawerState {
+  source: "earnings" | "movers";
+  symbol: string;
+  companyName: string;
+  date: string | null;
+  epsEstimate: number | null;
+  currentPrice: number | null;
+  changePercent: number | null;
+}
+
 interface PriceHistoryPoint {
   time: string;
   price: number;
@@ -168,8 +216,9 @@ const TOP_100_SYMBOLS = getTop100Sp500Symbols();
 const COMMAND_PALETTE_LIMIT = 12;
 const JOURNAL_VISIBLE_COUNT = 5;
 const PRICE_RANGE_OPTIONS: PriceRange[] = ["1W", "1M", "3M", "1Y"];
+const SECTOR_ROTATION_WINDOW_OPTIONS: SectorRotationWindow[] = ["YTD", "1M", "3M", "6M"];
 const SHORTCUTS = [
-  { key: "?", description: "Show shortcuts" },
+  { key: "/", description: "Open search" },
   { key: "S", description: "Search stocks" },
   { key: "P", description: "Go to portfolio" },
   { key: "J", description: "New journal entry" },
@@ -181,6 +230,7 @@ const DASHBOARD_RETURN_STATE_KEY = "eldar:dashboard:return-state";
 const ANALYSIS_CACHE_TTL_MS = 90_000;
 const LOCAL_WATCHLIST_STORAGE_KEY = "eldar:watchlist:local";
 const LOCAL_INDICES_STORAGE_KEY = "eldar:indices:ytd";
+const LOCAL_HOME_DASHBOARD_STORAGE_PREFIX = "eldar:home:dashboard";
 
 interface EldarLogoProps {
   onClick: () => void;
@@ -192,6 +242,34 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
 }
 
+function homeDashboardStorageKey(windowKey: SectorRotationWindow): string {
+  return `${LOCAL_HOME_DASHBOARD_STORAGE_PREFIX}:${windowKey}`;
+}
+
+function readCachedHomeDashboard(windowKey: SectorRotationWindow): HomeDashboardPayload | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(homeDashboardStorageKey(windowKey));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { payload?: HomeDashboardPayload };
+    return parsed.payload ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedHomeDashboard(payload: HomeDashboardPayload): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(
+      homeDashboardStorageKey(payload.sectorWindow),
+      JSON.stringify({ storedAt: Date.now(), payload })
+    );
+  } catch {
+    // Session storage writes are optional.
+  }
+}
+
 function EldarLogo({ onClick }: EldarLogoProps): JSX.Element {
   return (
     <button
@@ -199,12 +277,12 @@ function EldarLogo({ onClick }: EldarLogoProps): JSX.Element {
       className="eldar-logo-button flex cursor-pointer items-center gap-3"
       onClick={onClick}
     >
-      <div className="relative h-10 w-10 overflow-hidden">
+      <div className="relative h-[60px] w-[60px] overflow-hidden">
         <Image
           src={ELDAR_BRAND_LOGO}
           alt="ELDAR logo"
           fill
-          sizes="40px"
+          sizes="60px"
           className="object-contain"
           priority
         />
@@ -217,17 +295,18 @@ interface NavigationBarProps {
   view: ViewMode;
   themeMode: ThemeMode;
   loading: boolean;
+  marketOpen: boolean;
   profileOpen: boolean;
   menuContext: "home" | "sectors";
   headerVisible: boolean;
   showFadeTransition: boolean;
   defaultSearchValue: string;
+  onToggleTheme: () => void;
   onHome: () => void;
   onOpenSectors: () => void;
   onOpenMacro: () => void;
   onOpenJournal: () => void;
   onPortfolio: () => void;
-  onWatchlist: () => void;
   onQuickSearch: (value: string) => void;
 }
 
@@ -235,172 +314,138 @@ function NavigationBar({
   view,
   themeMode,
   loading,
+  marketOpen,
   profileOpen,
   menuContext,
   headerVisible,
   showFadeTransition,
   defaultSearchValue,
+  onToggleTheme,
   onHome,
   onOpenSectors,
   onOpenMacro,
   onOpenJournal,
   onPortfolio,
-  onWatchlist,
   onQuickSearch
 }: NavigationBarProps): JSX.Element {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const MenuIcon = menuContext === "sectors" ? Grid2x2 : Home;
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent): void {
-      if (!menuRef.current) return;
-      if (!menuRef.current.contains(event.target as Node)) {
-        setIsMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  void headerVisible;
+  void showFadeTransition;
 
   return (
-    <nav
+    <aside
       className={clsx(
-        "fixed left-0 right-0 top-0 z-50 border-b border-white/15 bg-zinc-950/80 shadow-2xl shadow-black/50 backdrop-blur-2xl transition-all duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]",
-        showFadeTransition
-          ? headerVisible
-            ? "pointer-events-auto translate-y-0 opacity-100"
-            : "pointer-events-none -translate-y-2 opacity-0"
-          : "pointer-events-auto translate-y-0 opacity-100"
+        "eldar-sidebar-liquid fixed bottom-0 left-0 top-0 z-50 w-[84px] transition-all duration-[220ms] ease-out",
+        "pointer-events-auto translate-y-0 opacity-100"
       )}
     >
-      <div className="container mx-auto px-6">
-        <div className="flex h-16 items-center justify-between gap-3">
+      <div className="flex h-full flex-col items-center justify-between px-1 pb-4 pt-6">
+        <div className="flex w-full flex-col items-center gap-3">
           <EldarLogo onClick={onHome} />
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col items-center gap-2 pb-1">
             <button
               type="button"
               onClick={() => onQuickSearch(defaultSearchValue)}
               title="Search"
               aria-label="Search"
-              className="eldar-btn-silver flex h-11 w-11 items-center justify-center rounded-2xl border text-slate-900 transition-all backdrop-blur-xl"
+              className="eldar-nav-icon text-white/75 transition-colors hover:text-white flex h-11 w-11 items-center justify-center"
             >
               <Search className="h-4 w-4" />
             </button>
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setIsMenuOpen((prev) => !prev)}
-                title="Menu"
-                aria-label="Menu"
-                className={clsx(
-                  "flex h-11 w-11 items-center justify-center rounded-2xl border text-sm font-semibold transition-all backdrop-blur-xl",
-                  isMenuOpen ? "eldar-btn-ghost border-white/60 bg-white/10 text-white" : "eldar-btn-silver text-slate-900"
-                )}
-              >
-                <MenuIcon className="h-4 w-4" />
-              </button>
-              {isMenuOpen ? (
-                <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-44 overflow-hidden rounded-2xl border border-white/20 bg-zinc-950/90 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-2xl">
-                  <button
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      onHome();
-                    }}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                  >
-                    <Home className="h-4 w-4" />
-                    Home
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      onOpenSectors();
-                    }}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                  >
-                    <Grid2x2 className="h-4 w-4" />
-                    Sectors
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      onOpenMacro();
-                    }}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                  >
-                    <LineChart className="h-4 w-4" />
-                    Macro
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      onOpenJournal();
-                    }}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                  >
-                    <BookText className="h-4 w-4" />
-                    Journal
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      onPortfolio();
-                    }}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                  >
-                    <BriefcaseBusiness className="h-4 w-4" />
-                    Portfolio
-                  </button>
-                </div>
-              ) : null}
-            </div>
             <button
-              onClick={onWatchlist}
-              title="Watchlist"
-              aria-label="Watchlist"
+              type="button"
+              onClick={onHome}
+              title="Dashboard"
+              aria-label="Dashboard"
               className={clsx(
-                "relative flex h-11 w-11 items-center justify-center rounded-2xl border text-sm font-semibold transition-all backdrop-blur-xl",
-                view === "watchlist" ? "eldar-btn-ghost border-white/60 bg-white/10 text-white" : "eldar-btn-silver text-slate-900"
+                "eldar-nav-icon text-white/75 transition-colors hover:text-white flex h-11 w-11 items-center justify-center text-sm font-semibold",
+                view === "home" ? "text-white" : "text-white/75"
               )}
             >
-              <Bookmark className="h-4 w-4" />
+              <LayoutDashboard className="h-4 w-4" />
             </button>
-            <SignedOut>
-              <SignInButton mode="modal">
-                <button
-                  title="Profile"
-                  aria-label="Profile"
-                  className={clsx(
-                    "flex h-11 w-11 items-center justify-center rounded-2xl border p-0 text-sm font-semibold transition-all backdrop-blur-xl",
-                    profileOpen ? "eldar-btn-ghost border-white/60 bg-white/10 text-white" : "eldar-btn-silver text-slate-900"
-                  )}
-                >
-                  <CircleUserRound className="h-4 w-4" />
-                </button>
-              </SignInButton>
-            </SignedOut>
-            <SignedIn>
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/30 bg-black/20 p-0.5 backdrop-blur-xl">
-                <UserButton afterSignOutUrl="/" />
-              </div>
-            </SignedIn>
+            <button
+              type="button"
+              onClick={onOpenSectors}
+              title="Sectors"
+              aria-label="Sectors"
+              className="eldar-nav-icon text-white/75 transition-colors hover:text-white flex h-11 w-11 items-center justify-center text-sm font-semibold"
+            >
+              <Grid2x2 className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onOpenMacro}
+              title="Macro"
+              aria-label="Macro"
+              className="eldar-nav-icon text-white/75 transition-colors hover:text-white flex h-11 w-11 items-center justify-center text-sm font-semibold"
+            >
+              <LineChart className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onOpenJournal}
+              title="Journal"
+              aria-label="Journal"
+              className="eldar-nav-icon text-white/75 transition-colors hover:text-white flex h-11 w-11 items-center justify-center text-sm font-semibold"
+            >
+              <BookText className="h-4 w-4" />
+            </button>
+            <button
+              onClick={onPortfolio}
+              title="Portfolio"
+              aria-label="Portfolio"
+              className="eldar-nav-icon text-white/75 transition-colors hover:text-white flex h-11 w-11 items-center justify-center text-sm font-semibold"
+            >
+              <BriefcaseBusiness className="h-4 w-4" />
+            </button>
           </div>
+          {loading ? (
+            <div className="mt-2 flex flex-col items-center gap-1">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/90" />
+              <span className="h-6 w-[2px] animate-[eldar-request-sheen_900ms_linear_infinite] bg-gradient-to-b from-transparent via-white to-transparent" />
+            </div>
+          ) : null}
         </div>
-        {loading ? (
-          <div className="relative h-[2px] w-full overflow-hidden rounded-full bg-white/10">
-            <div className="absolute inset-y-0 left-0 w-1/3 animate-[eldar-request-sheen_900ms_linear_infinite] rounded-full bg-gradient-to-r from-transparent via-zinc-100/90 to-transparent" />
-          </div>
-        ) : null}
-      </div>
-    </nav>
-  );
-}
 
-interface BottomPanelProps {
-  marketOpen: boolean;
-  themeMode: ThemeMode;
-  onToggleTheme: () => void;
+          <div className="flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={onToggleTheme}
+            className={clsx(
+              "eldar-menu-icon p-1.5 text-white/75 transition hover:text-white",
+              themeMode === "dark"
+                ? "text-white"
+                : "bg-transparent text-white/85"
+            )}
+            aria-label="Toggle theme"
+            title="Toggle theme"
+          >
+            {themeMode === "dark" ? <Sun className="eldar-theme-glyph h-3.5 w-3.5" /> : <Moon className="eldar-theme-glyph h-3.5 w-3.5" />}
+          </button>
+          <a
+            href="https://x.com/ELDAR_AI?s=20"
+            target="_blank"
+            rel="noreferrer"
+            className="eldar-menu-icon p-1.5 text-white/75 transition hover:text-white"
+            aria-label="X"
+            title="X"
+          >
+            <XBrandIcon />
+          </a>
+          <a
+            href="https://t.me"
+            target="_blank"
+            rel="noreferrer"
+            className="eldar-menu-icon p-1.5 text-white/75 transition hover:text-white"
+            aria-label="Telegram"
+            title="Telegram"
+          >
+            <TelegramBrandIcon />
+          </a>
+        </div>
+      </div>
+    </aside>
+  );
 }
 
 function XBrandIcon(): JSX.Element {
@@ -416,57 +461,6 @@ function TelegramBrandIcon(): JSX.Element {
     <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
       <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.62 8.17-1.95 9.19c-.15.65-.54.81-1.09.5l-3.02-2.23-1.46 1.41c-.16.16-.3.3-.62.3l.22-3.11 5.66-5.11c.25-.22-.05-.34-.38-.12l-7 4.41-3.02-.94c-.66-.2-.67-.66.14-.97l11.79-4.55c.55-.2 1.03.13.85.93z" />
     </svg>
-  );
-}
-
-function BottomPanel({ marketOpen, themeMode, onToggleTheme }: BottomPanelProps): JSX.Element {
-  return (
-    <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/15 bg-zinc-950/80 shadow-2xl shadow-black/50 backdrop-blur-2xl">
-      <div className="container mx-auto px-6">
-        <div className="flex h-10 items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="eldar-status-star eldar-status-live" />
-          <span className="eldar-caption text-[8px] text-white/50">LIVE | {marketOpen ? "Market Open" : "Market Closed"}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onToggleTheme}
-            className={clsx(
-              "eldar-theme-toggle rounded-lg border p-1.5 transition",
-              themeMode === "dark"
-                ? "border-amber-300/45 bg-amber-200/10 text-[#F5C451] hover:border-amber-200/75 hover:bg-amber-200/18"
-                : "border-sky-200/45 bg-sky-100/12 text-[#BCD4FF] hover:border-sky-100/75 hover:bg-sky-100/22"
-            )}
-            aria-label="Toggle theme"
-            title="Toggle theme"
-          >
-            {themeMode === "dark" ? <Sun className="eldar-theme-glyph h-3.5 w-3.5" /> : <Moon className="eldar-theme-glyph h-3.5 w-3.5" />}
-          </button>
-          <a
-            href="https://x.com/ELDAR_AI?s=20"
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-lg border border-white/20 bg-white/5 p-1.5 text-white/80 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
-            aria-label="X"
-            title="X"
-          >
-            <XBrandIcon />
-          </a>
-          <a
-            href="https://t.me"
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-lg border border-white/20 bg-white/5 p-1.5 text-white/80 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
-            aria-label="Telegram"
-            title="Telegram"
-          >
-            <TelegramBrandIcon />
-          </a>
-        </div>
-        </div>
-      </div>
-    </footer>
   );
 }
 
@@ -512,6 +506,7 @@ function ratingLabelFromKey(rating: RatingLabel): string {
 
 function ratingLabelToneClass(label: string): string {
   const normalized = label.toLowerCase();
+  if (normalized.includes("strongly bullish") || normalized.includes("strong buy")) return "text-[#FFBF00]";
   if (normalized.includes("bullish") || normalized.includes("buy")) return "text-emerald-300";
   if (normalized.includes("bearish") || normalized.includes("sell")) return "text-red-300";
   return "text-slate-300";
@@ -570,7 +565,7 @@ interface HackingScoreProps {
   durationMs?: number;
 }
 
-function HackingScore({ value, triggerKey, className, durationMs = 900 }: HackingScoreProps): JSX.Element {
+function HackingScore({ value, triggerKey, className, durationMs = 200 }: HackingScoreProps): JSX.Element {
   const [displayValue, setDisplayValue] = useState<number>(value);
 
   useEffect(() => {
@@ -627,7 +622,7 @@ function HackingValueText({
   loading,
   triggerKey,
   className,
-  settleDurationMs = 1000
+  settleDurationMs = 300
 }: HackingValueTextProps): JSX.Element {
   const [displayText, setDisplayText] = useState<string>(finalText);
   const [isHacking, setIsHacking] = useState<boolean>(true);
@@ -681,6 +676,12 @@ function formatEarningsDate(value: string | null): string {
   return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function formatChartDate(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "N/A";
+  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
 function dedupeSearchResultsBySymbol(results: SearchResultItem[]): SearchResultItem[] {
   const seen = new Set<string>();
   const deduped: SearchResultItem[] = [];
@@ -723,6 +724,46 @@ function buildSparklinePath(points: number[], width: number, height: number): st
       return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
     })
     .join(" ");
+}
+
+function polarToCartesian(cx: number, cy: number, radius: number, angleDeg: number): { x: number; y: number } {
+  const angle = ((angleDeg - 90) * Math.PI) / 180;
+  return {
+    x: cx + radius * Math.cos(angle),
+    y: cy + radius * Math.sin(angle)
+  };
+}
+
+function describeDonutSlicePath(
+  cx: number,
+  cy: number,
+  innerRadius: number,
+  outerRadius: number,
+  startAngle: number,
+  endAngle: number
+): string {
+  const outerStart = polarToCartesian(cx, cy, outerRadius, startAngle);
+  const outerEnd = polarToCartesian(cx, cy, outerRadius, endAngle);
+  const innerEnd = polarToCartesian(cx, cy, innerRadius, endAngle);
+  const innerStart = polarToCartesian(cx, cy, innerRadius, startAngle);
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+
+  return [
+    `M ${outerStart.x.toFixed(2)} ${outerStart.y.toFixed(2)}`,
+    `A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${outerEnd.x.toFixed(2)} ${outerEnd.y.toFixed(2)}`,
+    `L ${innerEnd.x.toFixed(2)} ${innerEnd.y.toFixed(2)}`,
+    `A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${innerStart.x.toFixed(2)} ${innerStart.y.toFixed(2)}`,
+    "Z"
+  ].join(" ");
+}
+
+function scoreBandColor(score: number | null): string {
+  if (typeof score !== "number" || !Number.isFinite(score)) return "#6B7280";
+  if (score >= 7.9) return "#FFBF00";
+  if (score >= 6.3) return "#10B981";
+  if (score >= 4.1) return "#6B7280";
+  if (score >= 2.8) return "#EF4444";
+  return "#B91C1C";
 }
 
 function mergeIndexRows(primary: IndexYtdItem[], fallback: IndexYtdItem[]): IndexYtdItem[] {
@@ -796,6 +837,17 @@ function factorSignalToneClass(signal: FactorResult["signal"] | null): string {
 function formatSignedPercent(value: number | null, digits = 1): string {
   if (value === null || !Number.isFinite(value)) return "N/A";
   return `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(digits)}%`;
+}
+
+function snapSectorAxisMagnitude(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 5;
+  return Math.max(5, Math.ceil(value / 5) * 5);
+}
+
+function formatSectorAxisLabel(value: number): string {
+  if (!Number.isFinite(value) || value === 0) return "0%";
+  const snapped = Math.round(value / 5) * 5;
+  return `${snapped > 0 ? "+" : "−"}${Math.abs(snapped)}%`;
 }
 
 function factorActionHint(factorName: string): string {
@@ -878,6 +930,251 @@ function areMag7CardsEqual(a: Mag7ScoreCard[], b: Mag7ScoreCard[]): boolean {
   return true;
 }
 
+function dashboardValueToneClass(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "text-white/45";
+  if (value > 0) return "text-emerald-300";
+  if (value < 0) return "text-red-300";
+  return "text-white/70";
+}
+
+function formatHomeMetricValue(metric: HomeRegimeMetric): string {
+  if (metric.value === null || !Number.isFinite(metric.value)) return "—";
+  if (metric.key === "tenYearYield") return `${metric.value.toFixed(2)}%`;
+  if (metric.key === "oil") return `$${metric.value.toFixed(2)}`;
+  return metric.value.toFixed(2);
+}
+
+function formatSnapshotDisplayValue(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "—";
+  const absValue = Math.abs(value);
+  if (absValue >= 1000) {
+    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
+  }
+  if (absValue >= 100) {
+    return new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  }
+  return value.toFixed(2);
+}
+
+function signalStrengthClass(strength: HomeSectorRotationItem["signalStrength"]): string {
+  if (strength === "STRONG") return "text-[#FFBF00]";
+  if (strength === "CONSTRUCTIVE") return "text-emerald-300";
+  if (strength === "WEAK") return "text-red-300";
+  return "text-white/55";
+}
+
+function DashboardMetricTile({ metric }: { metric: HomeRegimeMetric }): JSX.Element {
+  return (
+    <div className="eldar-dashboard-surface px-4 py-3">
+      <p className="text-[10px] uppercase tracking-[0.16em] text-white/42">{metric.label}</p>
+      <p className="mt-3 text-[24px] font-semibold tracking-[-0.03em] text-white">{formatHomeMetricValue(metric)}</p>
+      <p className={clsx("mt-2 text-[11px] font-medium", dashboardValueToneClass(metric.changePercent))}>
+        {metric.changePercent === null ? "No session delta" : formatSignedPercent(metric.changePercent, 2)}
+      </p>
+    </div>
+  );
+}
+
+function SnapshotTile({ item }: { item: HomeSnapshotItem }): JSX.Element {
+  return (
+    <div className="eldar-dashboard-surface min-h-[124px] px-4 py-4">
+      <p className="text-[10px] uppercase tracking-[0.16em] text-white/42">{item.label}</p>
+      <p className="mt-5 font-mono text-[22px] font-semibold tracking-[-0.03em] text-white">
+        {formatSnapshotDisplayValue(item.price)}
+      </p>
+      <div className="mt-5 flex items-center justify-between">
+        <span className={clsx("text-[11px] font-medium", dashboardValueToneClass(item.changePercent))}>
+          {item.changePercent === null ? "Flat feed" : formatSignedPercent(item.changePercent, 2)}
+        </span>
+        <span
+          className={clsx(
+            "h-2.5 w-2.5 rounded-full",
+            item.changePercent === null && "bg-white/25",
+            typeof item.changePercent === "number" && item.changePercent > 0 && "bg-emerald-300",
+            typeof item.changePercent === "number" && item.changePercent < 0 && "bg-red-300"
+          )}
+        />
+      </div>
+    </div>
+  );
+}
+
+interface SectorRotationBoardProps {
+  rows: HomeSectorRotationItem[];
+  currentWindow: SectorRotationWindow;
+  onWindowChange: (window: SectorRotationWindow) => void;
+}
+
+function SectorRotationBoard({ rows, currentWindow, onWindowChange }: SectorRotationBoardProps): JSX.Element {
+  const [hoveredEtf, setHoveredEtf] = useState<string | null>(rows[0]?.etf ?? null);
+
+  useEffect(() => {
+    setHoveredEtf((current) => {
+      if (current && rows.some((row) => row.etf === current)) return current;
+      return rows[0]?.etf ?? null;
+    });
+  }, [rows]);
+
+  const activeRow = rows.find((row) => row.etf === hoveredEtf) ?? rows[0] ?? null;
+  const axisAbsMax = snapSectorAxisMagnitude(Math.max(
+    5,
+    ...rows
+      .map((row) => row.performancePercent)
+      .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+      .map((value) => Math.abs(value))
+  ));
+
+  return (
+    <section className="eldar-panel texture-none xl:col-span-8 p-6">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Sector Rotation</p>
+          <p className="mt-2 text-sm text-white/64">Leadership map by sector.</p>
+        </div>
+        <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1">
+          {SECTOR_ROTATION_WINDOW_OPTIONS.map((windowOption) => (
+            <button
+              key={`sector-window-${windowOption}`}
+              type="button"
+              onClick={() => onWindowChange(windowOption)}
+              aria-pressed={currentWindow === windowOption}
+              className={clsx(
+                "eldar-dashboard-pill rounded-full px-3 py-1.5 text-[10px] uppercase tracking-[0.14em]",
+                currentWindow === windowOption && "bg-white text-black hover:bg-white"
+              )}
+            >
+              {windowOption}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="flex min-h-[280px] items-center justify-center rounded-[24px] border border-dashed border-white/10 text-sm text-white/48">
+          Sector rotation data is unavailable.
+        </div>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
+          <div className="eldar-dashboard-surface flex min-h-[252px] flex-col justify-between px-5 py-5">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">Selected Sector</p>
+              <p className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-white">{activeRow?.name ?? "—"}</p>
+              <p className="mt-2 font-mono text-[13px] text-white/46">{activeRow?.etf ?? "—"}</p>
+            </div>
+            <div>
+              <p className={clsx("text-[32px] font-semibold tracking-[-0.04em]", dashboardValueToneClass(activeRow?.performancePercent ?? null))}>
+                {formatSignedPercent(activeRow?.performancePercent ?? null, 1)}
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className={clsx("text-[10px] uppercase tracking-[0.14em]", signalStrengthClass(activeRow?.signalStrength ?? "UNAVAILABLE"))}>
+                  {activeRow?.signalStrength === "CONSTRUCTIVE" ? "Constructive" : activeRow?.signalStrength ?? "UNAVAILABLE"}
+                </span>
+                <span className="text-[10px] uppercase tracking-[0.14em] text-white/42">
+                  {activeRow?.signalScore !== null && activeRow?.signalScore !== undefined
+                    ? `${activeRow.signalScore.toFixed(1)} composite`
+                    : "Signal score pending"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-black/25 px-4 pb-4 pt-5">
+            <div className="pointer-events-none absolute inset-x-4 top-[18%] border-t border-dashed border-white/10" />
+            <div className="pointer-events-none absolute inset-x-4 top-1/2 border-t border-white/12" />
+            <div className="pointer-events-none absolute inset-x-4 bottom-[18%] border-t border-dashed border-white/10" />
+
+            <div className="pointer-events-none absolute bottom-4 right-0 top-5 flex w-12 flex-col items-start justify-between text-[10px] text-white/34">
+              <span>{formatSectorAxisLabel(axisAbsMax)}</span>
+              <span>0%</span>
+              <span>{formatSectorAxisLabel(-axisAbsMax)}</span>
+            </div>
+
+            <div className="mr-12 grid h-[252px] grid-cols-4 gap-3 sm:grid-cols-8">
+              {rows.map((sector) => {
+                const raw = typeof sector.performancePercent === "number" && Number.isFinite(sector.performancePercent)
+                  ? sector.performancePercent
+                  : 0;
+                const heightPercent = Math.max(10, (Math.abs(raw) / axisAbsMax) * 46);
+                const isPositive = raw >= 0;
+                const isActive = sector.etf === activeRow?.etf;
+
+                return (
+                  <button
+                    key={`sector-map-${sector.etf}`}
+                    type="button"
+                    onMouseEnter={() => setHoveredEtf(sector.etf)}
+                    onFocus={() => setHoveredEtf(sector.etf)}
+                    className="group relative h-full rounded-[18px] px-1 pb-3 pt-2 text-center"
+                  >
+                    <div className={clsx("absolute inset-0 rounded-[18px] transition", isActive ? "bg-white/[0.06]" : "bg-transparent group-hover:bg-white/[0.035]")} />
+                    <div
+                      className={clsx(
+                        "eldar-sector-bar absolute left-1/2 w-[68%] -translate-x-1/2 rounded-[10px]",
+                        isPositive
+                          ? "bg-gradient-to-t from-[#00D212] to-[#5CFF76] shadow-[0_0_18px_rgba(0,210,18,0.26)]"
+                          : "bg-gradient-to-b from-[#FF7B2B] to-[#FF4D00] shadow-[0_0_18px_rgba(255,90,0,0.24)]",
+                        isActive ? "opacity-100" : "opacity-72 group-hover:opacity-100"
+                      )}
+                      style={
+                        isPositive
+                          ? { bottom: "50%", height: `${heightPercent}%` }
+                          : { top: "50%", height: `${heightPercent}%` }
+                      }
+                    />
+                    <div className="absolute bottom-0 left-1/2 w-full -translate-x-1/2">
+                      <p className={clsx("font-mono text-[11px] transition", isActive ? "text-white" : "text-white/68 group-hover:text-white")}>
+                        {sector.etf}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MarketMoverStack({
+  items,
+  onAnalyze
+}: {
+  items: MarketMoverItem[];
+  onAnalyze: (symbol: string) => void;
+}): JSX.Element {
+  return (
+    <div className="space-y-2.5">
+      {items.slice(0, 3).map((item, index) => (
+        <button
+          key={`market-mover-${item.symbol}`}
+          type="button"
+          onClick={() => onAnalyze(item.symbol)}
+          className="eldar-dashboard-surface w-full px-4 py-3 text-left"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/34">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <p className="mt-2 font-mono text-[14px] font-semibold text-white">{item.symbol}</p>
+            </div>
+            <div className="text-right">
+              <p className={clsx("text-[13px] font-semibold", dashboardValueToneClass(item.changePercent ?? null))}>
+                {formatSignedPercent(item.changePercent, 2)}
+              </p>
+              <p className="mt-1 text-[11px] text-white/38">
+                {typeof item.currentPrice === "number" ? formatPrice(item.currentPrice, "USD") : "Price unavailable"}
+              </p>
+            </div>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function StockDashboard({
   initialHistory,
   initialWatchlist,
@@ -886,7 +1183,7 @@ export function StockDashboard({
   initialSymbol = null
 }: StockDashboardProps): JSX.Element {
   const router = useRouter();
-  const [isAppOpen] = useState(true);
+  const [isAppOpen, setIsAppOpen] = useState(false);
   const [view, setView] = useState<ViewMode>("home");
   const [ticker, setTicker] = useState(initialSymbol && isTop100Sp500Symbol(initialSymbol) ? initialSymbol.toUpperCase() : "");
   const [loading, setLoading] = useState(false);
@@ -915,9 +1212,13 @@ export function StockDashboard({
   const [journalRelatedEntries, setJournalRelatedEntries] = useState<JournalRelatedEntry[]>([]);
   const [journalRelatedLoading, setJournalRelatedLoading] = useState(false);
   const [journalRelatedError, setJournalRelatedError] = useState("");
-  const [resultsContextReady, setResultsContextReady] = useState(true);
+  const [, setResultsContextReady] = useState(true);
   const [marketMovers, setMarketMovers] = useState<MarketMoverItem[]>([]);
   const [marketMoversLoading, setMarketMoversLoading] = useState(false);
+  const [homeDashboard, setHomeDashboard] = useState<HomeDashboardPayload | null>(null);
+  const [homeDashboardLoading, setHomeDashboardLoading] = useState(false);
+  const [homeDashboardError, setHomeDashboardError] = useState("");
+  const [sectorRotationWindow, setSectorRotationWindow] = useState<SectorRotationWindow>("YTD");
   const [indicesYtd, setIndicesYtd] = useState<IndexYtdItem[]>(FALLBACK_INDICES_YTD);
   const [indicesError, setIndicesError] = useState("");
   const [isPageVisible, setIsPageVisible] = useState(true);
@@ -925,9 +1226,7 @@ export function StockDashboard({
   const [earningsLoading, setEarningsLoading] = useState(false);
   const [earningsError, setEarningsError] = useState("");
   const [homeHeaderVisible, setHomeHeaderVisible] = useState(false);
-  const [heroScrollY, setHeroScrollY] = useState(0);
   const [isNewsExpanded, setIsNewsExpanded] = useState(false);
-  const [showAllDrivers, setShowAllDrivers] = useState(false);
   const [showAllJournalLinks, setShowAllJournalLinks] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [priceRange, setPriceRange] = useState<PriceRange>("3M");
@@ -935,9 +1234,14 @@ export function StockDashboard({
   const [priceHistoryChangePercent, setPriceHistoryChangePercent] = useState<number | null>(null);
   const [priceHistoryLoading, setPriceHistoryLoading] = useState(false);
   const [priceHistoryError, setPriceHistoryError] = useState("");
+  const [priceChartHoverIndex, setPriceChartHoverIndex] = useState<number | null>(null);
+  const [scoreChartHoverIndex, setScoreChartHoverIndex] = useState<number | null>(null);
+  const [homeTickerDrawer, setHomeTickerDrawer] = useState<HomeTickerDrawerState | null>(null);
   const [portfolioInputTicker, setPortfolioInputTicker] = useState("");
   const [portfolioInputShares, setPortfolioInputShares] = useState("1");
   const [portfolioHoldings, setPortfolioHoldings] = useState<PortfolioHolding[]>([]);
+  const [portfolioDrawerHoldingId, setPortfolioDrawerHoldingId] = useState<string | null>(null);
+  const [portfolioWheelHoverId, setPortfolioWheelHoverId] = useState<string | null>(null);
   const [persistedPortfolioSnapshot, setPersistedPortfolioSnapshot] = useState<PersistedPortfolioSnapshot | null>(null);
   const [portfolioError, setPortfolioError] = useState("");
   const [portfolioLoading, setPortfolioLoading] = useState(false);
@@ -960,12 +1264,13 @@ export function StockDashboard({
   const portfolioHydratedFromServerRef = useRef(false);
   const watchlistHintTimeoutRef = useRef<number | null>(null);
   const priceHistoryCacheRef = useRef<Map<string, { points: PriceHistoryPoint[]; changePercent: number | null }>>(new Map());
+  const homeDashboardLoadedRef = useRef(false);
   const mouseRafRef = useRef<number | null>(null);
   const mousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const mouseLastPaintRef = useRef(0);
   const analyzeSymbolRef = useRef<(symbol?: string) => Promise<void>>(async () => {});
   const deferredPaletteQuery = useDeferredValue(paletteQuery);
-  const appBackground = themeMode === "dark" ? "#000000" : "#e9e5dc";
+  const appBackground = "var(--eldar-bg-primary)";
   const portfolioStorageKey = useMemo(
     () => `eldar-portfolio-holdings:${currentUserId ?? "anon"}`,
     [currentUserId]
@@ -976,7 +1281,6 @@ export function StockDashboard({
   });
   const headerVisible = view === "home" ? homeHeaderVisible : true;
   const showFadeTransition = view === "home";
-  const heroParallaxOffset = Math.min(heroScrollY * 0.2, 120);
 
   const closeCommandPalette = useCallback((): void => {
     setIsCommandPaletteOpen(false);
@@ -1007,6 +1311,11 @@ export function StockDashboard({
     setIsProfileOpen(false);
     setIsCommandPaletteOpen(true);
   }, [ticker]);
+
+  const openApp = useCallback((): void => {
+    setIsAppOpen(true);
+    setView("home");
+  }, []);
 
   function toggleThemeMode(): void {
     setThemeMode((prev) => (prev === "dark" ? "light" : "dark"));
@@ -1091,6 +1400,10 @@ export function StockDashboard({
         return;
       }
 
+      if (parsed.isAppOpen) {
+        setIsAppOpen(true);
+      }
+
       if (parsed.view === "home" || parsed.view === "results" || parsed.view === "watchlist" || parsed.view === "portfolio") {
         setView(parsed.view);
       }
@@ -1132,6 +1445,7 @@ export function StockDashboard({
   }, []);
 
   useEffect(() => {
+    if (!isAppOpen) return;
     if (!initialSymbol) return;
     const symbol = initialSymbol.trim().toUpperCase();
     if (!symbol || !isTop100Sp500Symbol(symbol)) return;
@@ -1139,7 +1453,7 @@ export function StockDashboard({
     window.setTimeout(() => {
       void analyzeSymbolRef.current(symbol);
     }, 0);
-  }, [initialSymbol]);
+  }, [initialSymbol, isAppOpen]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = themeMode;
@@ -1480,7 +1794,6 @@ export function StockDashboard({
   useEffect(() => {
     if (view !== "home") {
       setHomeHeaderVisible(true);
-      setHeroScrollY(0);
       return;
     }
 
@@ -1488,7 +1801,6 @@ export function StockDashboard({
       const y = window.scrollY;
       const heroHeight = heroSectionRef.current?.offsetHeight ?? 420;
       const threshold = Math.max(220, Math.floor(heroHeight * 0.58));
-      setHeroScrollY(y);
       setHomeHeaderVisible(y > threshold);
     };
 
@@ -1529,16 +1841,33 @@ export function StockDashboard({
     if (view !== "results") {
       setIsNewsExpanded(false);
       setComparisonOpen(false);
-      setShowAllDrivers(false);
       setShowAllJournalLinks(false);
     }
   }, [view, currentRating?.symbol]);
+
+  useEffect(() => {
+    if (view !== "home" && homeTickerDrawer) {
+      setHomeTickerDrawer(null);
+    }
+  }, [homeTickerDrawer, view]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       if (event.key === "Escape" && shareModalOpen) {
         event.preventDefault();
         closeShareModal();
+        return;
+      }
+
+      if (event.key === "Escape" && homeTickerDrawer) {
+        event.preventDefault();
+        setHomeTickerDrawer(null);
+        return;
+      }
+
+      if (event.key === "Escape" && view === "portfolio" && portfolioDrawerHoldingId) {
+        event.preventDefault();
+        setPortfolioDrawerHoldingId(null);
         return;
       }
 
@@ -1560,7 +1889,7 @@ export function StockDashboard({
         return;
       }
 
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      if (isPaletteOpenShortcut(event)) {
         event.preventDefault();
         setPaletteQuery(ticker);
         setPaletteError("");
@@ -1577,6 +1906,11 @@ export function StockDashboard({
       }
 
       if (!event.ctrlKey && !event.metaKey) {
+        if (event.key === "/") {
+          event.preventDefault();
+          openCommandPalette(ticker);
+          return;
+        }
         const lower = event.key.toLowerCase();
         if (lower === "s") {
           event.preventDefault();
@@ -1614,7 +1948,10 @@ export function StockDashboard({
     closeCommandPalette,
     closeProfileModal,
     shareModalOpen,
-    closeShareModal
+    closeShareModal,
+    homeTickerDrawer,
+    portfolioDrawerHoldingId,
+    view
   ]);
 
   useEffect(() => {
@@ -1696,7 +2033,6 @@ export function StockDashboard({
   useEffect(() => {
     if (analysisPhase !== "rendering") return;
     if (view !== "results" || !currentRating) return;
-    if (!resultsContextReady) return;
 
     let cancelled = false;
     let rafOne = 0;
@@ -1718,14 +2054,14 @@ export function StockDashboard({
         };
 
         if (typeof withIdleCallback.requestIdleCallback === "function") {
-          idleId = withIdleCallback.requestIdleCallback(finalize, { timeout: 140 });
+          idleId = withIdleCallback.requestIdleCallback(finalize, { timeout: 70 });
         } else {
           finalize();
         }
       });
     });
 
-    timeoutId = window.setTimeout(finalize, 650);
+    timeoutId = window.setTimeout(finalize, 90);
 
     return () => {
       cancelled = true;
@@ -1737,7 +2073,7 @@ export function StockDashboard({
         withIdleCallback.cancelIdleCallback(idleId);
       }
     };
-  }, [analysisPhase, view, currentRating, resultsContextReady]);
+  }, [analysisPhase, view, currentRating]);
 
   useEffect(() => {
     if (!isAppOpen) {
@@ -1958,6 +2294,132 @@ export function StockDashboard({
       }
     };
   }, [isAppOpen, view, isMarketOpen, isPageVisible, indicesYtd.length]);
+
+  useEffect(() => {
+    if (isAppOpen) return;
+    if (readCachedHomeDashboard("YTD")) return;
+
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let idleId: number | null = null;
+    const controller = new AbortController();
+
+    const prewarmDashboard = async (): Promise<void> => {
+      try {
+        const response = await fetch("/api/home/dashboard?sectorWindow=YTD", {
+          cache: "no-store",
+          signal: controller.signal
+        });
+        if (!response.ok) return;
+        const payload = (await response.json()) as HomeDashboardPayload;
+        if (cancelled) return;
+        writeCachedHomeDashboard(payload);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      }
+    };
+
+    const withIdleCallback = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    if (typeof withIdleCallback.requestIdleCallback === "function") {
+      idleId = withIdleCallback.requestIdleCallback(() => {
+        void prewarmDashboard();
+      }, { timeout: 180 });
+    } else {
+      timeoutId = window.setTimeout(() => {
+        void prewarmDashboard();
+      }, 160);
+    }
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+      if (idleId !== null && typeof withIdleCallback.cancelIdleCallback === "function") {
+        withIdleCallback.cancelIdleCallback(idleId);
+      }
+    };
+  }, [isAppOpen]);
+
+  useEffect(() => {
+    if (!isAppOpen || view !== "home") return;
+
+    let disposed = false;
+    let timer: number | null = null;
+    const controller = new AbortController();
+    const cachedDashboard = readCachedHomeDashboard(sectorRotationWindow);
+
+    if (cachedDashboard) {
+      setHomeDashboard((current) => {
+        if (!current) return cachedDashboard;
+        if (current.sectorWindow !== sectorRotationWindow) return cachedDashboard;
+
+        const currentTs = Date.parse(current.generatedAt);
+        const cachedTs = Date.parse(cachedDashboard.generatedAt);
+        if (Number.isFinite(currentTs) && Number.isFinite(cachedTs) && currentTs >= cachedTs) {
+          return current;
+        }
+        return cachedDashboard;
+      });
+      homeDashboardLoadedRef.current = true;
+    }
+
+    const schedule = (delayMs: number): void => {
+      if (disposed) return;
+      timer = window.setTimeout(() => {
+        void loadDashboard(false);
+      }, delayMs);
+    };
+
+    const loadDashboard = async (showSkeleton: boolean): Promise<void> => {
+      if (showSkeleton) {
+        setHomeDashboardLoading(true);
+      }
+      setHomeDashboardError("");
+
+      try {
+        const params = new URLSearchParams({ sectorWindow: sectorRotationWindow });
+        const response = await fetch(`/api/home/dashboard?${params.toString()}`, {
+          cache: "no-store",
+          signal: controller.signal
+        });
+        const payload = (await response.json()) as HomeDashboardPayload & { error?: string };
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Failed to load dashboard modules.");
+        }
+        if (disposed) return;
+        setHomeDashboard(payload);
+        writeCachedHomeDashboard(payload);
+        homeDashboardLoadedRef.current = true;
+        schedule(isMarketOpen ? 75_000 : 180_000);
+      } catch (error) {
+        if (disposed) return;
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        const message = error instanceof Error ? error.message : "Failed to load dashboard modules.";
+        setHomeDashboardError(message);
+        schedule(45_000);
+      } finally {
+        if (!disposed) {
+          setHomeDashboardLoading(false);
+        }
+      }
+    };
+
+    void loadDashboard(!homeDashboardLoadedRef.current && !cachedDashboard);
+
+    return () => {
+      disposed = true;
+      controller.abort();
+      if (timer !== null) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [isAppOpen, view, isMarketOpen, sectorRotationWindow]);
 
   useEffect(() => {
     if (!isCommandPaletteOpen) return;
@@ -2530,8 +2992,10 @@ export function StockDashboard({
     setPendingSymbol(symbol);
     setLoading(true);
     setAnalysisPhase("fetching");
-    setResultsContextReady(false);
+    setResultsContextReady(true);
     setApiError("");
+    setHomeTickerDrawer(null);
+    setView("results");
 
     let movedToRendering = false;
 
@@ -2544,7 +3008,6 @@ export function StockDashboard({
 
       setCurrentRating(analysis);
       setTicker(analysis.symbol);
-      setView("results");
 
       setHistory((prev) => {
         const deduped = [analysis, ...prev.filter((item) => item.id !== analysis.id)];
@@ -2864,25 +3327,79 @@ export function StockDashboard({
     };
   }, [currentRating]);
 
-  const scoreHistoryPoints = useMemo(() => {
-    if (!currentRating) return [0];
+  const scoreHistorySeries = useMemo(() => {
+    if (!currentRating) {
+      return [{ score: 0, createdAt: new Date().toISOString() }];
+    }
 
     const symbolRows = history
       .filter((item) => item.symbol === currentRating.symbol)
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-    const fromHistory = symbolRows.map((item) => item.score).filter((value) => Number.isFinite(value));
+    const fromHistory = symbolRows
+      .filter((item) => Number.isFinite(item.score))
+      .map((item) => ({ score: item.score, createdAt: item.createdAt }));
+
     if (fromHistory.length >= 2) {
       return fromHistory.slice(-30);
     }
-    return [Math.max(0, currentRating.score - 0.4), currentRating.score];
+
+    return [
+      { score: Math.max(0, currentRating.score - 0.4), createdAt: currentRating.createdAt },
+      { score: currentRating.score, createdAt: currentRating.createdAt }
+    ];
   }, [currentRating, history]);
+
+  const scoreHistoryPoints = useMemo(() => scoreHistorySeries.map((row) => row.score), [scoreHistorySeries]);
+
+  const priceChartOverlay = useMemo(() => {
+    if (priceHistory.length < 2 || !currentRating) return null;
+
+    const values = priceHistory.map((row) => row.price);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const span = Math.max(max - min, 0.000001);
+    const activeIndex = Math.max(0, Math.min(priceHistory.length - 1, priceChartHoverIndex ?? priceHistory.length - 1));
+    const active = priceHistory[activeIndex];
+    const x = (activeIndex / (priceHistory.length - 1)) * 720;
+    const y = 220 - ((active.price - min) / span) * 220;
+
+    return {
+      index: activeIndex,
+      x,
+      y,
+      xLabel: formatChartDate(active.time),
+      yLabel: formatPrice(active.price, currentRating.currency),
+      min,
+      max
+    };
+  }, [currentRating, priceChartHoverIndex, priceHistory]);
+
+  const scoreChartOverlay = useMemo(() => {
+    if (scoreHistorySeries.length < 2) return null;
+
+    const values = scoreHistorySeries.map((row) => row.score);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const span = Math.max(max - min, 0.000001);
+    const activeIndex = Math.max(0, Math.min(scoreHistorySeries.length - 1, scoreChartHoverIndex ?? scoreHistorySeries.length - 1));
+    const active = scoreHistorySeries[activeIndex];
+    const x = (activeIndex / (scoreHistorySeries.length - 1)) * 320;
+    const y = 60 - ((active.score - min) / span) * 60;
+
+    return {
+      index: activeIndex,
+      x,
+      y,
+      xLabel: formatChartDate(active.createdAt),
+      yLabel: active.score.toFixed(2)
+    };
+  }, [scoreChartHoverIndex, scoreHistorySeries]);
 
   const upgradePath = useMemo(() => {
     if (!currentRating) {
       return {
         targetLabel: null as string | null,
-        targetMin: null as number | null,
         actions: [] as string[]
       };
     }
@@ -2900,10 +3417,22 @@ export function StockDashboard({
 
     return {
       targetLabel: targetBand?.label ?? null,
-      targetMin: targetBand?.min ?? null,
       actions: weakestFactors
     };
   }, [currentRating]);
+
+  useEffect(() => {
+    if (!currentRating?.symbol) return;
+    pushRecentTicker(currentRating.symbol);
+  }, [currentRating?.symbol]);
+
+  useEffect(() => {
+    setPriceChartHoverIndex(priceHistory.length > 0 ? priceHistory.length - 1 : null);
+  }, [priceHistory]);
+
+  useEffect(() => {
+    setScoreChartHoverIndex(scoreHistorySeries.length > 0 ? scoreHistorySeries.length - 1 : null);
+  }, [scoreHistorySeries]);
 
   const sectorRelative = useMemo(
     () => sectorRelativeState(stockContext?.vsSectorPercent ?? null),
@@ -2975,6 +3504,66 @@ export function StockDashboard({
       })
       .sort((a, b) => (b.allocationPct ?? -1) - (a.allocationPct ?? -1));
   }, [currentRating?.currency, portfolioAllocationById, portfolioHoldings]);
+
+  const portfolioWheelRows = useMemo(() => {
+    if (portfolioAggregatorRows.length === 0) return [];
+    const baseWeights = portfolioAggregatorRows.map((row) => {
+      if (typeof row.allocationPct === "number" && Number.isFinite(row.allocationPct)) {
+        return Math.max(row.allocationPct, 0);
+      }
+      return 0;
+    });
+    const hasAllocation = baseWeights.some((weight) => weight > 0);
+    const fallbackWeight = 100 / Math.max(1, portfolioAggregatorRows.length);
+    const weights = hasAllocation ? baseWeights : portfolioAggregatorRows.map(() => fallbackWeight);
+    const totalWeight = Math.max(0.00001, weights.reduce((sum, weight) => sum + weight, 0));
+
+    let cursor = -90;
+    return portfolioAggregatorRows.map((row, index) => {
+      const normalizedWeight = weights[index] / totalWeight;
+      const startAngle = cursor;
+      const endAngle = cursor + normalizedWeight * 360;
+      cursor = endAngle;
+      return {
+        ...row,
+        normalizedWeight,
+        startAngle,
+        endAngle
+      };
+    });
+  }, [portfolioAggregatorRows]);
+
+  const activePortfolioWheelRow = useMemo(() => {
+    if (portfolioWheelRows.length === 0) return null;
+    const preferredId = portfolioWheelHoverId ?? portfolioDrawerHoldingId;
+    if (preferredId) {
+      const found = portfolioWheelRows.find((row) => row.id === preferredId);
+      if (found) return found;
+    }
+    return portfolioWheelRows[0] ?? null;
+  }, [portfolioDrawerHoldingId, portfolioWheelHoverId, portfolioWheelRows]);
+
+  const portfolioDrawerRow = useMemo(
+    () => portfolioAggregatorRows.find((row) => row.id === portfolioDrawerHoldingId) ?? null,
+    [portfolioAggregatorRows, portfolioDrawerHoldingId]
+  );
+
+  useEffect(() => {
+    if (view !== "portfolio") {
+      setPortfolioDrawerHoldingId(null);
+      setPortfolioWheelHoverId(null);
+      return;
+    }
+    if (portfolioAggregatorRows.length === 0) {
+      setPortfolioDrawerHoldingId(null);
+      return;
+    }
+    setPortfolioDrawerHoldingId((prev) => {
+      if (!prev) return null;
+      if (portfolioAggregatorRows.some((row) => row.id === prev)) return prev;
+      return null;
+    });
+  }, [portfolioAggregatorRows, view]);
 
   const portfolioEngineInput = useMemo<PortfolioEngineInput | null>(() => {
     const rows = portfolioAggregatorRows;
@@ -3405,7 +3994,7 @@ export function StockDashboard({
                 <EmptyState
                   icon="🔎"
                   message="No matching symbols found"
-                  action={{ label: "Try AAPL", onClick: () => setPaletteQuery("AAPL") }}
+                  action={{ label: "Clear", onClick: () => setPaletteQuery("") }}
                 />
               </div>
             ) : null}
@@ -3463,7 +4052,7 @@ export function StockDashboard({
                 <EmptyState
                   icon="⌨️"
                   message="Type a ticker or company name"
-                  action={{ label: "Use AAPL", onClick: () => setPaletteQuery("AAPL") }}
+                  action={{ label: "Search", onClick: () => paletteInputRef.current?.focus() }}
                 />
               </div>
             ) : null}
@@ -3622,9 +4211,9 @@ export function StockDashboard({
   const renderShareModal = (): JSX.Element | null => {
     if (!shareModalOpen) return null;
 
-    const previewWidth = shareCardKind === "portfolio" ? 1080 : 1200;
-    const previewHeight = shareCardKind === "portfolio" ? 1920 : 628;
-    const previewScale = shareCardKind === "portfolio" ? 0.31 : 0.45;
+    const previewWidth = 1080;
+    const previewHeight = 1920;
+    const previewScale = 0.31;
     const title = shareCardKind === "portfolio" ? "Portfolio Share Card" : "Share Card Export";
 
     let cardNode: JSX.Element | null = null;
@@ -3687,10 +4276,178 @@ export function StockDashboard({
     );
   };
 
-  if (view === "home" || (view === "results" && !currentRating)) {
-    const displayedUpcomingEarnings = upcomingEarnings.length > 0 ? upcomingEarnings : FALLBACK_UPCOMING_EARNINGS;
-    const displayedIndicesYtd = mergeIndexRows(indicesYtd, FALLBACK_INDICES_YTD);
+  const renderHomeTickerDrawer = (): JSX.Element | null => {
+    if (!homeTickerDrawer) return null;
 
+    return (
+      <div className="fixed inset-0 z-[95]">
+        <button
+          type="button"
+          aria-label="Close drawer"
+          className="absolute inset-0 bg-black/45"
+          onClick={() => setHomeTickerDrawer(null)}
+        />
+        <aside className="card-grain rough-border absolute right-0 top-0 h-full w-full max-w-[480px] border-l border-white/15 bg-[#0a0a0a] p-5 shadow-2xl shadow-black/70">
+          <div className="sticky top-0 z-10 mb-4 flex items-center justify-between border-b border-white/10 bg-[#0a0a0a] pb-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">
+                {homeTickerDrawer.source === "earnings" ? "Earnings Detail" : "Market Mover"}
+              </p>
+              <p className="mt-1 font-mono text-xl font-bold text-white">${homeTickerDrawer.symbol}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setHomeTickerDrawer(null)}
+              className="eldar-btn-ghost min-h-[40px] rounded-xl px-3 text-xs font-semibold uppercase tracking-[0.12em]"
+            >
+              Close
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+              <p className="text-sm font-semibold text-white">{homeTickerDrawer.companyName}</p>
+              <p className="mt-2 text-xs text-white/70">
+                {homeTickerDrawer.date ? formatEarningsDate(homeTickerDrawer.date) : "No scheduled date"}
+                {homeTickerDrawer.epsEstimate !== null ? ` · Est EPS ${homeTickerDrawer.epsEstimate.toFixed(2)}` : ""}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+                <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Price</p>
+                <p className="mt-1 font-mono text-lg font-semibold text-white">
+                  {homeTickerDrawer.currentPrice !== null ? `$${homeTickerDrawer.currentPrice.toFixed(2)}` : "Pending"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+                <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Move</p>
+                <p
+                  className={clsx(
+                    "mt-1 font-mono text-lg font-semibold",
+                    homeTickerDrawer.changePercent !== null && homeTickerDrawer.changePercent > 0 && "text-emerald-300",
+                    homeTickerDrawer.changePercent !== null && homeTickerDrawer.changePercent < 0 && "text-red-300",
+                    homeTickerDrawer.changePercent === null && "text-white"
+                  )}
+                >
+                  {homeTickerDrawer.changePercent !== null
+                    ? `${homeTickerDrawer.changePercent > 0 ? "+" : ""}${homeTickerDrawer.changePercent.toFixed(2)}%`
+                    : "Pending"}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+              <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">ELDAR</p>
+              <p className="mt-1 text-xs text-white/75">
+                Instant full analysis with fundamentals, valuation, momentum, and sentiment context.
+              </p>
+            </div>
+          </div>
+
+          <div className="sticky bottom-0 z-10 mt-5 flex items-center gap-2 border-t border-white/10 bg-[#0a0a0a] pt-3">
+            <button
+              type="button"
+              onClick={() => {
+                const symbol = homeTickerDrawer.symbol;
+                setHomeTickerDrawer(null);
+                setTicker(symbol);
+                void analyzeSymbol(symbol);
+              }}
+              className="eldar-btn-silver min-h-[44px] flex-1 rounded-xl px-4 text-xs font-semibold uppercase tracking-[0.12em]"
+            >
+              Analyze
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const symbol = homeTickerDrawer.symbol;
+                setHomeTickerDrawer(null);
+                void addWatchlistSymbolDirect(symbol);
+              }}
+              className="eldar-btn-ghost min-h-[44px] flex-1 rounded-xl px-4 text-xs font-semibold uppercase tracking-[0.12em]"
+            >
+              Add to Watchlist
+            </button>
+          </div>
+        </aside>
+      </div>
+    );
+  };
+
+  const topRightAccountDock = view === "home" ? (
+    <div className="fixed right-6 top-4 z-[65] flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => setView("watchlist")}
+        className="eldar-nav-icon inline-flex h-10 w-10 items-center justify-center text-white/85"
+        title="Watchlist"
+        aria-label="Watchlist"
+      >
+        <Bookmark className="h-4 w-4" />
+      </button>
+      <SignedOut>
+        <SignInButton mode="modal">
+          <button
+            type="button"
+            className="inline-flex min-h-[38px] items-center gap-2 rounded-lg border border-white/25 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white/85 transition hover:border-white/55 hover:text-white"
+          >
+            Sign In
+          </button>
+        </SignInButton>
+      </SignedOut>
+      <SignedIn>
+        <UserButton afterSignOutUrl="/" />
+      </SignedIn>
+    </div>
+  ) : null;
+
+  if (!isAppOpen) {
+    return (
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 text-white" style={{ background: appBackground }}>
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -right-24 -top-20 h-80 w-80 rounded-full bg-[#133cf0]/20 blur-3xl" />
+          <div className="absolute -left-16 top-1/3 h-72 w-72 rounded-full bg-[#190897]/16 blur-3xl" />
+        </div>
+        <div className="eldar-panel card-grain relative mx-auto w-full max-w-4xl rounded-[28px] p-12 text-center">
+          <div className="mx-auto mb-5 flex w-full justify-center">
+            <button type="button" className="eldar-logo-button flex items-center justify-center" onClick={openApp} aria-label="Open App">
+              <div className="relative h-[82px] w-[82px] overflow-hidden">
+                <Image src={ELDAR_BRAND_LOGO} alt="ELDAR logo" fill sizes="82px" className="object-contain" priority />
+              </div>
+            </button>
+          </div>
+          <p className="mx-auto mb-5 inline-flex rounded-full border border-white/20 bg-white/5 px-4 py-1.5 text-[11px] font-medium tracking-[0.08em] text-white/70">
+            ELDAR TERMINAL
+          </p>
+          <h1 className="mx-auto mb-3 max-w-2xl text-4xl font-semibold tracking-[-0.02em] text-white md:text-5xl">
+            Institutional analysis.
+            <span className="block text-[#e2e7ee]">Built for execution speed.</span>
+          </h1>
+          <p className="mx-auto mb-10 max-w-2xl text-base text-white/65">
+            Signal-first market intelligence, sector rotation context, and portfolio health in one operating surface.
+          </p>
+          <button
+            type="button"
+            onClick={openApp}
+            className="eldar-btn-silver primary-cta inline-flex min-h-[50px] items-center justify-center rounded-full px-9 text-sm font-semibold tracking-[0.03em]"
+          >
+            Open App
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === "home") {
+    const regimeMetrics = homeDashboard?.regime.metrics ?? [];
+    const snapshotItems = homeDashboard?.snapshot ?? [];
+    const rankedMarketMovers = homeDashboard?.marketMovers ?? [];
+    const sectorRotationRows = homeDashboard?.sectorRotation ?? [];
+    const analyzeHomeSymbol = (symbol: string): void => {
+      setTicker(symbol);
+      void analyzeSymbol(symbol);
+    };
     return (
       <div
         className="min-h-screen overflow-x-hidden text-white"
@@ -3702,249 +4459,133 @@ export function StockDashboard({
           view={view}
           themeMode={themeMode}
           loading={loading}
+          marketOpen={isMarketOpen}
           profileOpen={isProfileOpen}
           menuContext="home"
           headerVisible={headerVisible}
           showFadeTransition={showFadeTransition}
           defaultSearchValue={ticker}
+          onToggleTheme={toggleThemeMode}
           onHome={goHomeView}
           onOpenSectors={openSectorsPage}
           onOpenMacro={openMacroPage}
           onOpenJournal={() => openJournalPage()}
           onPortfolio={() => setView("portfolio")}
-          onWatchlist={() => setView("watchlist")}
           onQuickSearch={(value) => openCommandPalette(value)}
         />
-        <div className="container mx-auto px-6 pb-32 pt-36">
-          <div ref={heroSectionRef} className="mx-auto max-w-4xl text-center">
-            <div className="reveal-block mb-8 flex justify-center" style={{ transform: `translate3d(0, ${-heroParallaxOffset}px, 0)` }}>
-              <div className="relative h-28 w-28 md:h-36 md:w-36">
-                <Image src={ELDAR_BRAND_LOGO} alt="ELDAR logo" fill sizes="144px" className="object-contain" priority />
-              </div>
-            </div>
-            <div className="reveal-block mx-auto mb-20 max-w-2xl" style={{ transitionDelay: "80ms" }}>
+        {topRightAccountDock}
+        <div className="container mx-auto px-6 pb-20 pl-[104px] pr-10 pt-6">
+          <div ref={heroSectionRef} className="mx-auto max-w-[1240px]">
+            <div className="reveal-block mb-6 flex flex-col items-start gap-3">
               <button
                 type="button"
                 onClick={() => openCommandPalette(ticker)}
                 disabled={loading}
-                className="eldar-btn-silver flex h-16 w-full items-center justify-between rounded-3xl px-6 text-left text-base font-semibold backdrop-blur-xl transition-all duration-300 hover:scale-[1.01]"
+                className="eldar-btn-silver primary-cta flex h-14 w-full max-w-[560px] items-center justify-between rounded-3xl px-5 text-left text-base font-semibold backdrop-blur-xl transition-all duration-300"
               >
                 <span className="flex items-center gap-3 text-slate-900">
                   {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
-                  {loading ? `Analyzing ${ticker || "symbol"}...` : ticker ? ticker : "Ticker or company..."}
+                  {loading ? `Analyzing ${ticker || "symbol"}...` : "search stock"}
                 </span>
-                <span className="rounded-md border border-black/20 bg-black/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-700">
-                  /
-                </span>
+                <span className="rounded-md border border-black/20 bg-black/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/90">/</span>
               </button>
 
               {apiError ? (
-                <div className="mt-4 rounded-2xl border border-zinc-400/35 bg-zinc-300/10 p-4 backdrop-blur-xl">
+                <div className="w-full max-w-[560px] rounded-2xl border border-zinc-400/35 bg-zinc-300/10 p-4 backdrop-blur-xl">
                   <p className="text-sm text-zinc-100">{apiError}</p>
                 </div>
               ) : null}
             </div>
 
-            <div className="reveal-block mb-20" style={{ transitionDelay: "140ms" }}>
-              <p className="eldar-caption mb-6 text-xs text-white/50">MAG 7</p>
-              <div className="mx-auto max-w-6xl overflow-x-auto">
-                <div className="mx-auto flex w-max min-w-full flex-nowrap items-center justify-center gap-2 px-1">
-                {(mag7Cards.length > 0 ? mag7Cards : POPULAR_STOCKS.map((symbol) => ({
-                  symbol,
-                  companyName: symbol,
-                  score: 0,
-                  rating: "HOLD" as RatingLabel,
-                  currentPrice: 0,
-                  changePercent: null,
-                  updatedAt: new Date(0).toISOString()
-                }))).map((item, index) => {
-                  return (
-                    <button
-                      key={item.symbol}
-                      onClick={() => {
-                        setTicker(item.symbol);
-                        void analyzeSymbol(item.symbol);
-                      }}
-                      className={clsx(
-                        "group relative w-[116px] overflow-hidden rounded-xl border border-white/20 bg-zinc-900/45 px-3 py-2 text-left backdrop-blur-xl transition-all duration-300 hover:border-[#FFBF00] hover:bg-zinc-900/65",
-                        pendingSymbol === item.symbol && loading && "eldar-processing"
-                      )}
-                      style={{ transitionDelay: `${Math.min(index, 6) * 100}ms` }}
-                    >
-                      <p className="font-mono text-xs font-bold tracking-wide text-white">${item.symbol}</p>
-                      <p
-                        className={clsx(
-                          "mt-0.5 text-[10px] font-semibold",
-                          typeof item.changePercent === "number" && item.changePercent > 0 && "text-emerald-300",
-                          typeof item.changePercent === "number" && item.changePercent < 0 && "text-red-300",
-                          (item.changePercent === null || item.changePercent === 0) && "text-white/70"
-                        )}
-                      >
-                        {typeof item.changePercent === "number"
-                          ? `${item.changePercent > 0 ? "+" : ""}${item.changePercent.toFixed(2)}%`
-                          : "Change pending"}
-                      </p>
-                    </button>
-                  );
-                })}
+            <div className="reveal-block grid gap-5 xl:grid-cols-12" style={{ transitionDelay: "80ms" }}>
+              <section className="eldar-panel texture-none xl:col-span-5 p-6">
+                <div className="mb-5 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Macro Environment</p>
+                    <h2 className="mt-3 text-[28px] font-semibold tracking-[-0.03em] text-white">
+                      {homeDashboard?.regime.label?.replace("_", " ") ?? "Loading"}
+                    </h2>
+                  </div>
+                  <span
+                    className={clsx(
+                      "rounded-full border px-3 py-1.5 text-[10px] uppercase tracking-[0.14em]",
+                      homeDashboard?.regime.label === "RISK_ON" && "border-emerald-400/35 text-emerald-300",
+                      homeDashboard?.regime.label === "RISK_OFF" && "border-red-400/35 text-red-300",
+                      homeDashboard?.regime.label === "BALANCED" && "border-white/15 text-white/68"
+                    )}
+                  >
+                    Live regime
+                  </span>
                 </div>
-              </div>
-            </div>
-
-            <div className="reveal-block mb-16 grid gap-4 md:grid-cols-2 xl:grid-cols-3" style={{ transitionDelay: "200ms" }}>
-              <div className="eldar-panel mx-auto flex h-[248px] w-full max-w-sm flex-col rounded-xl p-1.5 text-left sm:h-[258px] md:h-[268px]">
-                <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
-                  <h3 className="eldar-caption text-[11px] text-white/65">EARNINGS</h3>
-                  <span aria-hidden="true" className="h-7 w-[156px] rounded-lg border border-transparent opacity-0" />
-                </div>
-
-                <div className="flex-1 overflow-hidden">
-                  {earningsLoading && displayedUpcomingEarnings.length === 0 ? (
-                    <div className="h-full rounded-md border border-white/10 bg-black/20 p-2">
-                      <LinesSkeleton rows={4} />
-                    </div>
-                  ) : displayedUpcomingEarnings.length === 0 ? (
-                    <EmptyState icon="📅" message="No upcoming earnings yet" action={{ label: "Refresh", onClick: () => void analyzeSymbol(ticker || "AAPL") }} />
-                  ) : (
-                    <div className="h-full space-y-1">
-                      {displayedUpcomingEarnings.slice(0, 3).map((item, index) => (
-                        <div
-                          key={`${item.symbol}-${item.date ?? "na"}`}
-                          className="reveal-block min-h-[56px] rounded-md border border-white/15 bg-zinc-950/40 px-2 py-1"
-                          style={{ transitionDelay: `${index * 100}ms` }}
-                        >
-                          <p className="font-mono text-[11px] font-semibold text-white">${item.symbol}</p>
-                          <p className="truncate text-[9px] text-white/60">{item.companyName}</p>
-                          <p className="mt-0.5 text-[10px] text-white/70">
-                            {formatEarningsDate(item.date)}
-                            {formatOptionalDecimal(item.epsEstimate, 2) ? ` • Est EPS ${formatOptionalDecimal(item.epsEstimate, 2)}` : ""}
-                          </p>
-                        </div>
+                {homeDashboardLoading && !homeDashboard ? (
+                  <LinesSkeleton rows={4} />
+                ) : (
+                  <>
+                    <p className="mb-5 max-w-xl text-[15px] leading-7 text-white/72">
+                      {homeDashboard?.regime.summary ?? "Loading macro regime..."}
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {regimeMetrics.map((metric) => (
+                        <DashboardMetricTile key={metric.key} metric={metric} />
                       ))}
                     </div>
-                  )}
-                </div>
-                {earningsError ? <p className="mt-1 truncate text-[10px] text-zinc-200/80">{earningsError}</p> : null}
-              </div>
+                  </>
+                )}
+              </section>
 
-              <div className="eldar-panel mx-auto flex h-[248px] w-full max-w-sm flex-col rounded-xl p-1.5 text-left sm:h-[258px] md:h-[268px]">
-                <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
-                  <h3 className="eldar-caption whitespace-nowrap text-[11px] text-white/65">MARKET MOVERS</h3>
-                  <span aria-hidden="true" className="h-7 w-[156px] rounded-lg border border-transparent opacity-0" />
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  {marketMoversLoading && marketMovers.length === 0 ? (
-                    <div className="h-full rounded-md border border-white/10 bg-black/20 p-2">
-                      <LinesSkeleton rows={4} />
-                    </div>
-                  ) : marketMovers.length === 0 ? (
-                    <EmptyState icon="📈" message="No movers available" action={{ label: "Refresh", onClick: () => void analyzeSymbol(ticker || "AAPL") }} />
-                  ) : (
-                    <div className="h-full space-y-1">
-                      {marketMovers.slice(0, 3).map((item, index) => (
-                        <button
-                          key={item.symbol}
-                          onClick={() => {
-                            setTicker(item.symbol);
-                            void analyzeSymbol(item.symbol);
-                          }}
-                          className="reveal-block flex min-h-[56px] w-full items-center justify-between rounded-md border border-white/15 bg-zinc-950/40 px-2 py-1 text-left transition hover:border-white/35"
-                          style={{ transitionDelay: `${index * 100}ms` }}
-                        >
-                          <div>
-                            <p className="font-mono text-[11px] font-semibold text-white">${item.symbol}</p>
-                            <p className="truncate text-[9px] text-white/60">{item.companyName}</p>
-                            <p className="mt-0.5 text-[10px] text-white/70">
-                              {typeof item.currentPrice === "number" ? `$${item.currentPrice.toFixed(2)}` : "Price pending"}
-                            </p>
-                          </div>
-                          <p
-                            className={clsx(
-                              "text-[10px] font-semibold",
-                              typeof item.changePercent === "number" && item.changePercent > 0 && "text-emerald-300",
-                              typeof item.changePercent === "number" && item.changePercent < 0 && "text-red-300",
-                              (item.changePercent === null || item.changePercent === 0) && "text-white/70"
-                            )}
-                          >
-                            {typeof item.changePercent === "number"
-                              ? `${item.changePercent > 0 ? "+" : ""}${item.changePercent.toFixed(2)}%`
-                              : "Pending"}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="eldar-panel mx-auto flex h-[248px] w-full max-w-sm flex-col rounded-xl p-1.5 text-left sm:h-[258px] md:h-[268px]">
-                <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
-                  <h3 className="eldar-caption whitespace-nowrap text-[11px] text-white/65">US INDICES (YTD)</h3>
-                  <span aria-hidden="true" className="h-7 w-[156px] rounded-lg border border-transparent opacity-0" />
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <div className="h-full space-y-1">
-                    {displayedIndicesYtd.slice(0, 3).map((item, index) => {
-                      const sparklinePath = buildSparklinePath(item.points, 112, 28);
-                      return (
-                        <div
-                          key={item.code}
-                          className="reveal-block flex min-h-[56px] items-center justify-between rounded-md border border-white/15 bg-zinc-950/40 px-2 py-1"
-                          style={{ transitionDelay: `${index * 100}ms` }}
-                        >
-                          <div className="min-w-0">
-                            <p className="font-mono text-[11px] font-semibold text-white">{item.label}</p>
-                            <p className="mt-0.5 text-[10px] text-white/70">
-                              {typeof item.current === "number" ? item.current.toFixed(2) : "Pending"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {sparklinePath ? (
-                              <svg
-                                width="112"
-                                height="28"
-                                viewBox="0 0 112 28"
-                                className="overflow-visible"
-                                aria-hidden="true"
-                              >
-                                <path
-                                  d={sparklinePath}
-                                  fill="none"
-                                  stroke={
-                                    typeof item.ytdChangePercent === "number" && item.ytdChangePercent < 0
-                                      ? "rgba(252, 165, 165, 0.85)"
-                                      : "rgba(167, 243, 208, 0.85)"
-                                  }
-                                  strokeWidth="1.8"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            ) : (
-                              <span className="text-[10px] text-white/55">No chart</span>
-                            )}
-                            <p
-                              className={clsx(
-                                "text-right text-[10px] font-semibold",
-                                typeof item.ytdChangePercent === "number" && item.ytdChangePercent > 0 && "text-emerald-300",
-                                typeof item.ytdChangePercent === "number" && item.ytdChangePercent < 0 && "text-red-300",
-                                item.ytdChangePercent === null && "text-white/70"
-                              )}
-                            >
-                              {typeof item.ytdChangePercent === "number"
-                                ? `${item.ytdChangePercent > 0 ? "+" : ""}${item.ytdChangePercent.toFixed(2)}%`
-                                : "Pending"}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
+              <section className="eldar-panel texture-none xl:col-span-7 p-6">
+                <div className="mb-5 flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Market Snapshot</p>
+                    <p className="mt-2 text-sm text-white/62">Core tape for the current New York session.</p>
                   </div>
                 </div>
-                {indicesError ? <p className="mt-1 truncate text-[10px] text-zinc-200/80">{indicesError}</p> : null}
-              </div>
-            </div>
+                {homeDashboardLoading && !homeDashboard ? (
+                  <LinesSkeleton rows={3} />
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-5">
+                    {snapshotItems.map((item) => (
+                      <SnapshotTile key={item.label} item={item} />
+                    ))}
+                  </div>
+                )}
+              </section>
 
+              {homeDashboardLoading && !homeDashboard ? (
+                <section className="eldar-panel texture-none xl:col-span-8 p-6">
+                  <div className="mb-5 flex items-center justify-between gap-3">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Sector Rotation</p>
+                    <div className="h-8 w-[168px] rounded-full border border-white/10 bg-white/[0.03]" />
+                  </div>
+                  <LinesSkeleton rows={6} />
+                </section>
+              ) : (
+                <SectorRotationBoard
+                  rows={sectorRotationRows}
+                  currentWindow={homeDashboard?.sectorWindow ?? sectorRotationWindow}
+                  onWindowChange={setSectorRotationWindow}
+                />
+              )}
+
+              <section className="eldar-panel texture-none xl:col-span-4 p-6">
+                <div className="mb-5">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Market Movers</p>
+                  <p className="mt-2 text-sm text-white/62">Top 3 absolute movers.</p>
+                </div>
+                {homeDashboardLoading && !homeDashboard ? (
+                  <LinesSkeleton rows={5} />
+                ) : rankedMarketMovers.length === 0 ? (
+                  <div className="flex min-h-[280px] items-center justify-center rounded-[24px] border border-dashed border-white/10 text-center text-sm text-white/46">
+                    No New York session mover data available.
+                  </div>
+                ) : (
+                  <MarketMoverStack items={rankedMarketMovers} onAnalyze={analyzeHomeSymbol} />
+                )}
+              </section>
+            </div>
+            {homeDashboardError ? (
+              <p className="mt-3 text-xs text-zinc-200/80">{homeDashboardError}</p>
+            ) : null}
           </div>
         </div>
         {analysisPhase !== "idle" ? <AnalysisRadarOverlay symbol={(pendingSymbol ?? ticker) || null} phase={analysisPhase} /> : null}
@@ -3952,7 +4593,58 @@ export function StockDashboard({
         {renderShortcutsModal()}
         {renderProfileModal()}
         {renderShareModal()}
-        <BottomPanel marketOpen={isMarketOpen} themeMode={themeMode} onToggleTheme={toggleThemeMode} />
+        {renderHomeTickerDrawer()}
+      </div>
+    );
+  }
+
+  if (view === "results" && !currentRating) {
+    return (
+      <div className="min-h-screen text-white" style={{ background: appBackground }}>
+        <NavigationBar
+          view={view}
+          themeMode={themeMode}
+          loading={loading}
+          marketOpen={isMarketOpen}
+          profileOpen={isProfileOpen}
+          menuContext="home"
+          headerVisible={headerVisible}
+          showFadeTransition={showFadeTransition}
+          defaultSearchValue={ticker}
+          onToggleTheme={toggleThemeMode}
+          onHome={goHomeView}
+          onOpenSectors={openSectorsPage}
+          onOpenMacro={openMacroPage}
+          onOpenJournal={() => openJournalPage()}
+          onPortfolio={() => setView("portfolio")}
+          onQuickSearch={(value) => openCommandPalette(value)}
+        />
+        {topRightAccountDock}
+        <div className="container mx-auto px-6 pb-28 pl-[104px] pr-10 pt-6">
+          <div className="mx-auto max-w-6xl">
+            <div className="eldar-panel rounded-3xl p-8 text-center">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-white/55">ELDAR Analysis</p>
+              <p className="mt-3 text-2xl font-bold text-white">{pendingSymbol ?? ticker ?? "Loading"}</p>
+              <p className="mt-2 text-sm text-white/70">Pulling data and computing signal context...</p>
+              <div className="mt-6 grid gap-4 md:grid-cols-3">
+                <div className="rounded-2xl border border-white/15 bg-zinc-950/45 p-4">
+                  <LinesSkeleton rows={4} />
+                </div>
+                <div className="rounded-2xl border border-white/15 bg-zinc-950/45 p-4">
+                  <LinesSkeleton rows={4} />
+                </div>
+                <div className="rounded-2xl border border-white/15 bg-zinc-950/45 p-4">
+                  <LinesSkeleton rows={4} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {analysisPhase !== "idle" ? <AnalysisRadarOverlay symbol={(pendingSymbol ?? ticker) || null} phase={analysisPhase} /> : null}
+        {renderCommandPalette()}
+        {renderShortcutsModal()}
+        {renderProfileModal()}
+        {renderShareModal()}
       </div>
     );
   }
@@ -3960,12 +4652,13 @@ export function StockDashboard({
   if (view === "results" && currentRating) {
     const ratingBand = RATING_BANDS[currentRating.rating];
     const isStrongBullish = currentRating.rating === "STRONG_BUY";
-    const isStrongBearish = currentRating.rating === "STRONG_SELL";
+    const isBullish = currentRating.rating === "BUY";
+    const isBearishOrLower = currentRating.rating === "SELL" || currentRating.rating === "STRONG_SELL";
     const isInWatchlist = watchlist.some((item) => item.symbol === currentRating.symbol);
-    const visibleDrivers = showAllDrivers
-      ? ratingContextSummary.topDrivers
-      : ratingContextSummary.topDrivers.slice(0, 3);
-    const hiddenDriversCount = Math.max(0, ratingContextSummary.topDrivers.length - visibleDrivers.length);
+    const driverBullets = ratingContextSummary.topDrivers.slice(0, 10);
+    const riskBullets = ratingContextSummary.keySignals
+      .filter((signal) => signal.tone === "risk")
+      .map((signal) => signal.text);
     const visibleJournalEntries = showAllJournalLinks
       ? journalRelatedEntries
       : journalRelatedEntries.slice(0, JOURNAL_VISIBLE_COUNT);
@@ -3982,20 +4675,22 @@ export function StockDashboard({
           view={view}
           themeMode={themeMode}
           loading={loading}
+          marketOpen={isMarketOpen}
           profileOpen={isProfileOpen}
           menuContext="home"
           headerVisible={headerVisible}
           showFadeTransition={showFadeTransition}
           defaultSearchValue={ticker}
+          onToggleTheme={toggleThemeMode}
           onHome={goHomeView}
           onOpenSectors={openSectorsPage}
           onOpenMacro={openMacroPage}
           onOpenJournal={() => openJournalPage()}
           onPortfolio={() => setView("portfolio")}
-          onWatchlist={() => setView("watchlist")}
           onQuickSearch={(value) => openCommandPalette(value)}
         />
-        <div className="container mx-auto px-6 pb-28 pt-24">
+        {topRightAccountDock}
+        <div className="container mx-auto px-6 pb-28 pl-[104px] pr-10 pt-6">
           <div className="mx-auto max-w-6xl">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <button
@@ -4017,14 +4712,19 @@ export function StockDashboard({
 
             <div className="reveal-block grid gap-6 xl:grid-cols-[2fr_1fr]">
               <div className="space-y-6">
-                <div className="eldar-panel reveal-block relative overflow-hidden rounded-3xl px-6 py-10">
+                <div
+                  key={`hero-${currentRating.symbol}-${currentRating.generatedAt ?? currentRating.createdAt}`}
+                  className="eldar-panel reveal-block relative overflow-hidden rounded-3xl px-6 py-10"
+                  style={{ animation: "fadeUp 0.28s ease-out both" }}
+                >
                   <div
                     aria-hidden="true"
                     className={clsx(
                       "pointer-events-none absolute left-1/2 top-1/2 h-[320px] w-[320px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl",
-                      isStrongBullish && "bg-amber-300/10",
-                      isStrongBearish && "bg-red-400/10",
-                      !isStrongBullish && !isStrongBearish && "bg-white/5"
+                      isStrongBullish && "bg-[#FFBF00]/15",
+                      isBullish && "bg-emerald-300/12",
+                      isBearishOrLower && "bg-red-400/12",
+                      !isStrongBullish && !isBullish && !isBearishOrLower && "bg-white/5"
                     )}
                   />
                   <div className="relative z-10 flex flex-col items-center text-center">
@@ -4056,7 +4756,7 @@ export function StockDashboard({
                         onClick={() => openShareModal("signal")}
                         title="Share card"
                         aria-label="Share card"
-                        className="eldar-share-trigger eldar-btn-silver inline-flex h-7 w-7 items-center justify-center transition"
+                        className="eldar-share-icon inline-flex h-7 w-7 items-center justify-center transition"
                       >
                         <Share2 className="h-4 w-4" />
                       </button>
@@ -4068,12 +4768,13 @@ export function StockDashboard({
                     <div
                       className={clsx(
                         "mt-5 flex h-44 w-44 flex-col items-center justify-center rounded-full border",
-                        isStrongBullish && "border-amber-300/40 bg-amber-200/10",
-                        isStrongBearish && "border-red-300/40 bg-red-300/10",
-                        !isStrongBullish && !isStrongBearish && "border-white/20 bg-white/[0.04]"
+                        isStrongBullish && "border-[#FFBF00]/40 bg-[#FFBF00]/10",
+                        isBullish && "border-emerald-300/35 bg-emerald-300/10",
+                        isBearishOrLower && "border-red-300/40 bg-red-300/10",
+                        !isStrongBullish && !isBullish && !isBearishOrLower && "border-white/20 bg-white/[0.04]"
                       )}
                     >
-                      <p className="text-4xl font-black leading-none text-white">
+                      <p className="inked-number glow-amber text-4xl font-black leading-none text-white">
                         <HackingScore
                           value={currentRating.score}
                           triggerKey={String(currentRating.id ?? `${currentRating.symbol}:${currentRating.createdAt}`)}
@@ -4085,9 +4786,10 @@ export function StockDashboard({
                     <p
                       className={clsx(
                         "mt-4 text-2xl font-black",
-                        isStrongBullish && "text-amber-100",
-                        isStrongBearish && "text-red-100",
-                        !isStrongBullish && !isStrongBearish && "text-white"
+                        isStrongBullish && "text-[#FFBF00]",
+                        isBullish && "text-emerald-300",
+                        isBearishOrLower && "text-red-300",
+                        !isStrongBullish && !isBullish && !isBearishOrLower && "text-white"
                       )}
                     >
                       {ratingBand.label}
@@ -4138,9 +4840,38 @@ export function StockDashboard({
                     {priceHistoryLoading ? (
                       <LinesSkeleton rows={4} />
                     ) : priceHistory.length >= 2 ? (
-                      <svg viewBox="0 0 720 220" className="h-44 w-full" preserveAspectRatio="none" aria-hidden="true">
-                        <path d={buildSparklinePath(priceHistory.map((row) => row.price), 720, 220)} fill="none" stroke="rgba(255,191,0,0.88)" strokeWidth="2.4" strokeLinecap="round" />
-                      </svg>
+                      <div className="space-y-2">
+                        <svg
+                          viewBox="0 0 720 220"
+                          className="h-44 w-full"
+                          preserveAspectRatio="none"
+                          aria-label="Price history chart"
+                          role="img"
+                          onMouseMove={(event) => {
+                            const rect = event.currentTarget.getBoundingClientRect();
+                            if (rect.width <= 0 || priceHistory.length <= 1) return;
+                            const ratio = (event.clientX - rect.left) / rect.width;
+                            const index = Math.round(Math.max(0, Math.min(1, ratio)) * (priceHistory.length - 1));
+                            setPriceChartHoverIndex(index);
+                          }}
+                        >
+                          <path d={buildSparklinePath(priceHistory.map((row) => row.price), 720, 220)} fill="none" stroke="rgba(255,191,0,0.88)" strokeWidth="2.4" strokeLinecap="round" />
+                          {priceChartOverlay ? (
+                            <>
+                              <line x1={priceChartOverlay.x} y1="0" x2={priceChartOverlay.x} y2="220" stroke="rgba(255,255,255,0.28)" strokeDasharray="4 3" />
+                              <line x1="0" y1={priceChartOverlay.y} x2="720" y2={priceChartOverlay.y} stroke="rgba(255,255,255,0.14)" strokeDasharray="3 4" />
+                              <circle cx={priceChartOverlay.x} cy={priceChartOverlay.y} r="4.2" fill="#FFBF00" stroke="rgba(0,0,0,0.6)" strokeWidth="1.2" />
+                            </>
+                          ) : null}
+                        </svg>
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-white/72">
+                          <p className="font-mono">X: {priceChartOverlay?.xLabel ?? "N/A"}</p>
+                          <p className="font-mono">Y: {priceChartOverlay?.yLabel ?? "N/A"}</p>
+                          <p className="font-mono text-white/52">
+                            Axis: X=time • Y=price
+                          </p>
+                        </div>
+                      </div>
                     ) : (
                       <p className="text-sm text-white/60">{priceHistoryError || "Price history is not available yet."}</p>
                     )}
@@ -4197,9 +4928,34 @@ export function StockDashboard({
                   <div className="eldar-panel reveal-block rounded-3xl p-6" style={{ transitionDelay: "75ms" }}>
                     <h2 className="mb-4 text-lg font-semibold text-white">SCORE HISTORY</h2>
                     <div className="rounded-xl border border-white/15 bg-zinc-950/45 px-4 py-4">
-                      <svg viewBox="0 0 320 60" className="h-16 w-full" preserveAspectRatio="none" aria-hidden="true">
+                      <svg
+                        viewBox="0 0 320 60"
+                        className="h-16 w-full"
+                        preserveAspectRatio="none"
+                        aria-label="Score history chart"
+                        role="img"
+                        onMouseMove={(event) => {
+                          const rect = event.currentTarget.getBoundingClientRect();
+                          if (rect.width <= 0 || scoreHistorySeries.length <= 1) return;
+                          const ratio = (event.clientX - rect.left) / rect.width;
+                          const index = Math.round(Math.max(0, Math.min(1, ratio)) * (scoreHistorySeries.length - 1));
+                          setScoreChartHoverIndex(index);
+                        }}
+                      >
                         <path d={buildSparklinePath(scoreHistoryPoints, 320, 60)} fill="none" stroke="rgba(245,245,245,0.88)" strokeWidth="2" strokeLinecap="round" />
+                        {scoreChartOverlay ? (
+                          <>
+                            <line x1={scoreChartOverlay.x} y1="0" x2={scoreChartOverlay.x} y2="60" stroke="rgba(255,255,255,0.28)" strokeDasharray="3 3" />
+                            <line x1="0" y1={scoreChartOverlay.y} x2="320" y2={scoreChartOverlay.y} stroke="rgba(255,255,255,0.16)" strokeDasharray="3 4" />
+                            <circle cx={scoreChartOverlay.x} cy={scoreChartOverlay.y} r="3.6" fill="#F5F5F5" stroke="rgba(0,0,0,0.55)" strokeWidth="1" />
+                          </>
+                        ) : null}
                       </svg>
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-white/70">
+                        <p className="font-mono">X: {scoreChartOverlay?.xLabel ?? "N/A"}</p>
+                        <p className="font-mono">Y: {scoreChartOverlay?.yLabel ?? "N/A"}</p>
+                        <p className="font-mono text-white/52">Axis: X=timestamp • Y=score</p>
+                      </div>
                       <p className="mt-3 text-xs text-white/65">
                         {scoreHistoryPoints[scoreHistoryPoints.length - 1] >= scoreHistoryPoints[0] ? "Improving trend" : "Deteriorating trend"}
                       </p>
@@ -4207,64 +4963,10 @@ export function StockDashboard({
                   </div>
                 </div>
 
-                <div className="eldar-panel reveal-block rounded-3xl p-6" style={{ transitionDelay: "78ms" }}>
-                  <h2 className="mb-3 text-lg font-semibold text-white">WHAT WOULD CHANGE THE RATING</h2>
-                  {upgradePath.targetLabel && upgradePath.targetMin !== null ? (
-                    <p className="mb-3 text-sm text-white/75">
-                      To reach {upgradePath.targetLabel} ({upgradePath.targetMin.toFixed(1)}+):
-                    </p>
-                  ) : (
-                    <p className="mb-3 text-sm text-white/75">Current rating is already at the top band.</p>
-                  )}
-                  <div className="space-y-1.5 text-sm text-white/82">
-                    {upgradePath.actions.map((action, index) => (
-                      <p key={`upgrade-action-${index}`}>· {action}</p>
-                    ))}
-                  </div>
-                </div>
-
                 <div className="eldar-panel reveal-block rounded-3xl p-6" style={{ transitionDelay: "80ms" }}>
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-2xl border border-white/15 bg-zinc-950/45 px-4 py-3">
-                      <p className="mb-2 text-xs uppercase tracking-[0.14em] text-white/55">Key Signals</p>
-                      <div className="space-y-1.5 text-sm text-white/82">
-                        {ratingContextSummary.keySignals.map((signal, index) => (
-                          <p key={`signal-${index}`}>
-                            <span
-                              className={clsx(
-                                "mr-2 text-[11px] font-semibold uppercase tracking-[0.12em]",
-                                signal.tone === "positive" ? "text-emerald-300" : "text-amber-300"
-                              )}
-                            >
-                              {signal.tone === "positive" ? "Positive" : "Risk"}
-                            </span>
-                            {signal.text}
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/15 bg-zinc-950/45 px-4 py-3">
-                      <p className="mb-2 text-[10px] uppercase tracking-[0.12em] text-white/55">Top Drivers</p>
-                      {visibleDrivers.length > 0 ? (
-                        <div className="space-y-1.5 text-xs text-white/75">
-                          {visibleDrivers.map((driver, index) => (
-                            <p key={`driver-${index}`}>· {driver}</p>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-white/65">No driver details available yet.</p>
-                      )}
-                      {hiddenDriversCount > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => setShowAllDrivers((value) => !value)}
-                          className="mt-2 text-[9px] uppercase tracking-[0.12em] text-[#FFBF00]"
-                        >
-                          {showAllDrivers ? "Less" : "More"}
-                        </button>
-                      ) : null}
-                    </div>
+                    <DriversList title="Top Drivers" items={driverBullets} maxCollapsed={3} />
+                    <DriversList title="Risks" items={riskBullets} maxCollapsed={3} tone="risks" />
                   </div>
                 </div>
               </div>
@@ -4541,6 +5243,22 @@ export function StockDashboard({
                     </div>
                   ) : null}
                 </div>
+
+                <div className="eldar-panel reveal-block rounded-3xl p-5" style={{ transitionDelay: "340ms" }}>
+                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.12em] text-white">WHAT WOULD CHANGE THE RATING</h3>
+                  {upgradePath.targetLabel ? (
+                    <p className="mb-3 text-sm text-white/75">
+                      To reach {upgradePath.targetLabel}:
+                    </p>
+                  ) : (
+                    <p className="mb-3 text-sm text-white/75">Current rating is already at the top band.</p>
+                  )}
+                  <div className="space-y-1.5 text-sm text-white/82">
+                    {upgradePath.actions.map((action, index) => (
+                      <p key={`upgrade-action-bottom-${index}`}>· {action}</p>
+                    ))}
+                  </div>
+                </div>
               </aside>
             </div>
           </div>
@@ -4550,7 +5268,6 @@ export function StockDashboard({
         {renderShortcutsModal()}
         {renderProfileModal()}
         {renderShareModal()}
-        <BottomPanel marketOpen={isMarketOpen} themeMode={themeMode} onToggleTheme={toggleThemeMode} />
       </div>
     );
   }
@@ -4562,146 +5279,251 @@ export function StockDashboard({
           view={view}
           themeMode={themeMode}
           loading={loading || portfolioLoading}
+          marketOpen={isMarketOpen}
           profileOpen={isProfileOpen}
           menuContext="home"
           headerVisible={headerVisible}
           showFadeTransition={showFadeTransition}
           defaultSearchValue={ticker}
+          onToggleTheme={toggleThemeMode}
           onHome={goHomeView}
           onOpenSectors={openSectorsPage}
           onOpenMacro={openMacroPage}
           onOpenJournal={() => openJournalPage()}
           onPortfolio={() => setView("portfolio")}
-          onWatchlist={() => setView("watchlist")}
           onQuickSearch={(value) => openCommandPalette(value, "portfolio-add")}
         />
-        <div className="container mx-auto px-6 pb-28 pt-24">
+        {topRightAccountDock}
+        <div className="container mx-auto px-6 pb-28 pl-[104px] pr-10 pt-6">
           <div className="mx-auto max-w-6xl">
-            <div className="eldar-panel reveal-block rounded-3xl p-6">
-              <div className="mb-6">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                  <h1 className="text-2xl font-black tracking-tight text-white md:text-3xl">PORTFOLIO HEALTH CHECKER</h1>
-                  <p className="mt-2 text-sm text-white/70">Build and evaluate your holdings with a weighted ELDAR portfolio score.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => openShareModal("portfolio")}
-                    disabled={!activePortfolioRating}
-                    className="eldar-share-trigger eldar-btn-silver inline-flex min-h-[40px] items-center gap-2 rounded-xl px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] disabled:opacity-60"
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h1 className="text-2xl font-black tracking-tight text-white md:text-3xl">Portfolio Health Checker</h1>
+                <p className="mt-2 text-sm text-white/70">Build and evaluate your holdings with a weighted ELDAR portfolio score.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => openShareModal("portfolio")}
+                disabled={!activePortfolioRating}
+                className="eldar-share-inline inline-flex min-h-[40px] items-center gap-2 px-1 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] disabled:opacity-60"
+              >
+                <Share2 className="h-4 w-4" />
+                Share
+              </button>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-[minmax(250px,0.55fr)_minmax(0,1.45fr)]">
+              <div className="space-y-3">
+                <div className="eldar-panel reveal-block rounded-3xl p-4">
+                  <p className="mb-2 text-sm text-white/75">Add Your Stocks:</p>
+                  <form
+                    className="card-grain grid gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_86px_auto]"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void addPortfolioHolding();
+                    }}
                   >
-                    <Share2 className="h-4 w-4" />
-                    Share
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => openCommandPalette(portfolioInputTicker || "", "portfolio-add")}
+                      className="eldar-btn-silver flex min-h-[44px] items-center justify-between rounded-xl px-4 text-left text-sm font-semibold backdrop-blur-xl transition-all duration-300 hover:scale-[1.01]"
+                    >
+                      <span className="flex items-center gap-2 text-slate-900">
+                        <Search className="h-4 w-4" />
+                        {portfolioInputTicker ? portfolioInputTicker : "Ticker or company..."}
+                      </span>
+                      <span className="rounded-md border border-black/20 bg-black/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-700">
+                        /
+                      </span>
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      inputMode="numeric"
+                      value={portfolioInputShares}
+                      onChange={(event) => setPortfolioInputShares(event.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder="Quantity"
+                      className="min-h-[44px] w-full rounded-xl border border-white/20 bg-white/5 px-2 py-2 text-center text-sm text-white outline-none placeholder:text-white/45"
+                    />
+                    <button
+                      type="submit"
+                      className="eldar-btn-silver primary-cta flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em]"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add
+                    </button>
+                  </form>
+                  {portfolioError ? (
+                    <p className="mt-2 text-xs text-zinc-200/85">{portfolioError}</p>
+                  ) : null}
+                </div>
+
+                <div className="eldar-panel reveal-block rounded-3xl p-4">
+                  {portfolioHoldings.length === 0 ? (
+                    <EmptyState
+                      icon="📊"
+                      message="No holdings yet"
+                      action={{ label: "Add holdings", onClick: () => openCommandPalette("", "portfolio-add") }}
+                    />
+                  ) : (
+                    <div className="p-1">
+                      <div className="flex items-center justify-center">
+                        <svg viewBox="0 0 260 260" className="h-[210px] w-[210px]" role="img" aria-label="Portfolio holdings wheel">
+                          <circle cx="130" cy="130" r="108" fill="#0c0c0c" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+                          {portfolioWheelRows.map((row) => (
+                            <path
+                              key={`wheel-${row.id}`}
+                              d={describeDonutSlicePath(130, 130, 52, 108, row.startAngle, row.endAngle)}
+                              fill={scoreBandColor(row.score)}
+                              fillOpacity={portfolioWheelHoverId === row.id || portfolioDrawerHoldingId === row.id ? 0.8 : 0.38}
+                              stroke="rgba(255,255,255,0.16)"
+                              strokeWidth={portfolioWheelHoverId === row.id || portfolioDrawerHoldingId === row.id ? 1.8 : 1}
+                              className="cursor-pointer transition-all duration-150"
+                              onMouseEnter={() => setPortfolioWheelHoverId(row.id)}
+                              onMouseLeave={() => setPortfolioWheelHoverId((prev) => (prev === row.id ? null : prev))}
+                              onClick={() => setPortfolioDrawerHoldingId(row.id)}
+                            />
+                          ))}
+                          <circle cx="130" cy="130" r="52" fill="#0a0a0a" stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
+                          <text
+                            x="130"
+                            y="121"
+                            textAnchor="middle"
+                            fontSize="15"
+                            fontWeight="700"
+                            fontFamily="Neue Haas Grotesk Mono, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+                            fill="#f5f5f5"
+                          >
+                            {activePortfolioWheelRow?.symbol ?? "—"}
+                          </text>
+                          <text
+                            x="130"
+                            y="141"
+                            textAnchor="middle"
+                            fontSize="10"
+                            fontFamily="Neue Haas Grotesk Mono, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+                            fill="#9ca3af"
+                          >
+                            {activePortfolioWheelRow?.allocationPct !== null && activePortfolioWheelRow?.allocationPct !== undefined
+                              ? `${activePortfolioWheelRow.allocationPct.toFixed(1)}%`
+                              : "allocation"}
+                          </text>
+                        </svg>
+                      </div>
+                      {activePortfolioRating ? (
+                        <div className="mt-2 text-center">
+                          <p className="text-xl font-bold text-white">
+                            {"★".repeat(activePortfolioRating.stars)}
+                            {"☆".repeat(5 - activePortfolioRating.stars)}
+                          </p>
+                          <p
+                            className="mt-1 text-sm font-semibold"
+                            style={{ color: RATING_BANDS[activePortfolioRating.rating].color }}
+                          >
+                            {RATING_BANDS[activePortfolioRating.rating].label}
+                          </p>
+                          <p className="mt-1 text-xs text-white/60">
+                            Rated vs: {activePortfolioRating.peerGroup} peers
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-center text-sm font-semibold text-white/75">Portfolio Rating</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="mb-6">
-                <p className="mb-2 text-sm text-white/75">Add Your Stocks:</p>
-                <form
-                  className="grid gap-2 rounded-2xl border border-white/15 bg-zinc-950/40 p-3 sm:grid-cols-[minmax(0,1fr)_86px_auto]"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void addPortfolioHolding();
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => openCommandPalette(portfolioInputTicker || "", "portfolio-add")}
-                    className="eldar-btn-silver flex min-h-[44px] items-center justify-between rounded-xl px-4 text-left text-sm font-semibold backdrop-blur-xl transition-all duration-300 hover:scale-[1.01]"
-                  >
-                    <span className="flex items-center gap-2 text-slate-900">
-                      <Search className="h-4 w-4" />
-                      {portfolioInputTicker ? portfolioInputTicker : "Ticker or company..."}
-                    </span>
-                    <span className="rounded-md border border-black/20 bg-black/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-700">
-                      /
-                    </span>
-                  </button>
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    inputMode="numeric"
-                    value={portfolioInputShares}
-                    onChange={(event) => setPortfolioInputShares(event.target.value.replace(/[^0-9]/g, ""))}
-                    placeholder="Quantity"
-                    className="min-h-[44px] w-full rounded-xl border border-white/20 bg-white/5 px-2 py-2 text-center text-sm text-white outline-none placeholder:text-white/45"
-                  />
-                  <button
-                    type="submit"
-                    className="eldar-btn-silver flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em]"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add
-                  </button>
-                </form>
-                {portfolioError ? (
-                  <p className="mt-2 text-xs text-zinc-200/85">{portfolioError}</p>
-                ) : null}
-              </div>
-
-              <div className="space-y-3">
-                <h2 className="text-lg font-semibold text-white">Your Portfolio</h2>
-                {portfolioHoldings.length === 0 ? (
-                  <EmptyState
-                    icon="📊"
-                    message="No holdings yet"
-                    action={{ label: "Add holdings", onClick: () => openCommandPalette("", "portfolio-add") }}
-                  />
+              <div className="eldar-panel reveal-block rounded-3xl p-4">
+                {activePortfolioRating ? (
+                  <PortfolioRatingPanel rating={activePortfolioRating} />
                 ) : (
-                  <div className="space-y-4">
-                    <div className="rounded-2xl border border-white/15 bg-zinc-950/45 p-3">
-                      <p className="text-[10px] uppercase tracking-[0.12em] text-white/60">Holdings Control</p>
-                      <div className="mt-2 space-y-1.5">
-                        {portfolioAggregatorRows.map((row) => (
-                          <div key={`hold-ctl-${row.id}`} className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 text-xs">
-                            <div className="min-w-0">
-                              <p className="font-mono font-semibold text-white">{row.symbol}</p>
-                              <p className="truncate text-[10px] text-white/60">
-                                {row.allocationPct !== null ? `${row.allocationPct.toFixed(1)}%` : "Pending allocation"} • {row.shares} shares
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  void refreshPortfolioHolding(row.symbol);
-                                }}
-                                className="text-[10px] uppercase tracking-[0.12em] text-white/70 hover:text-white"
-                              >
-                                Refresh
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => removePortfolioHolding(row.id)}
-                                className="text-[10px] uppercase tracking-[0.12em] text-white/70 hover:text-white"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {activePortfolioRating ? (
-                      <PortfolioRatingPanel rating={activePortfolioRating} />
-                    ) : (
-                      <RatingCardSkeleton />
-                    )}
-                  </div>
+                  <RatingCardSkeleton />
                 )}
               </div>
             </div>
           </div>
         </div>
+        {portfolioDrawerRow ? (
+          <div className="fixed inset-0 z-[95]">
+            <button
+              type="button"
+              aria-label="Close drawer"
+              className="absolute inset-0 bg-black/45"
+              onClick={() => setPortfolioDrawerHoldingId(null)}
+            />
+            <aside className="card-grain rough-border absolute right-0 top-0 h-full w-full max-w-[480px] border-l border-white/15 bg-[#0a0a0a] p-5 shadow-2xl shadow-black/70">
+              <div className="sticky top-0 z-10 mb-4 flex items-center justify-between border-b border-white/10 bg-[#0a0a0a] pb-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Holding Details</p>
+                  <p className="mt-1 font-mono text-xl font-bold text-white">{portfolioDrawerRow.symbol}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPortfolioDrawerHoldingId(null)}
+                  className="eldar-btn-ghost min-h-[40px] rounded-xl px-3 text-xs font-semibold uppercase tracking-[0.12em]"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="space-y-3 overflow-y-auto pb-24">
+                <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Allocation</p>
+                  <p className="mt-1 font-mono text-2xl font-bold text-white">
+                    {portfolioDrawerRow.allocationPct !== null ? `${portfolioDrawerRow.allocationPct.toFixed(1)}%` : "Pending"}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Shares</p>
+                    <p className="mt-1 font-mono text-lg font-semibold text-white">{portfolioDrawerRow.shares}</p>
+                  </div>
+                  <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Position Value</p>
+                    <p className="mt-1 font-mono text-lg font-semibold text-white">
+                      {portfolioDrawerRow.positionValue !== null
+                        ? formatPrice(portfolioDrawerRow.positionValue, portfolioDrawerRow.currency)
+                        : "N/A"}
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">ELDAR Band</p>
+                  <p className="mt-1 text-sm font-semibold" style={{ color: scoreBandColor(portfolioDrawerRow.score) }}>
+                    {portfolioDrawerRow.ratingLabel ?? "Pending"}
+                  </p>
+                </div>
+                {portfolioDrawerRow.error ? (
+                  <div className="rounded-xl border border-red-300/30 bg-red-400/10 p-3 text-xs text-red-100">{portfolioDrawerRow.error}</div>
+                ) : null}
+              </div>
+              <div className="sticky bottom-0 z-10 mt-4 flex items-center gap-2 border-t border-white/10 bg-[#0a0a0a] pt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void refreshPortfolioHolding(portfolioDrawerRow.symbol);
+                  }}
+                  className="eldar-btn-silver min-h-[44px] flex-1 rounded-xl px-4 text-xs font-semibold uppercase tracking-[0.12em]"
+                >
+                  Refresh
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removePortfolioHolding(portfolioDrawerRow.id)}
+                  className="eldar-btn-ghost min-h-[44px] flex-1 rounded-xl px-4 text-xs font-semibold uppercase tracking-[0.12em]"
+                >
+                  Remove
+                </button>
+              </div>
+            </aside>
+          </div>
+        ) : null}
         {analysisPhase !== "idle" ? <AnalysisRadarOverlay symbol={(pendingSymbol ?? ticker) || null} phase={analysisPhase} /> : null}
         {renderCommandPalette()}
         {renderShortcutsModal()}
         {renderProfileModal()}
         {renderShareModal()}
-        <BottomPanel marketOpen={isMarketOpen} themeMode={themeMode} onToggleTheme={toggleThemeMode} />
       </div>
     );
   }
@@ -4712,25 +5534,27 @@ export function StockDashboard({
         view={view}
         themeMode={themeMode}
         loading={loading}
+        marketOpen={isMarketOpen}
         profileOpen={isProfileOpen}
         menuContext="home"
         headerVisible={headerVisible}
         showFadeTransition={showFadeTransition}
         defaultSearchValue={ticker}
+        onToggleTheme={toggleThemeMode}
         onHome={goHomeView}
         onOpenSectors={openSectorsPage}
         onOpenMacro={openMacroPage}
         onOpenJournal={() => openJournalPage()}
         onPortfolio={() => setView("portfolio")}
-        onWatchlist={() => setView("watchlist")}
         onQuickSearch={(value) => openCommandPalette(value)}
       />
-      <div className="container mx-auto px-6 pb-28 pt-24">
+      {topRightAccountDock}
+      <div className="container mx-auto px-6 pb-28 pl-[104px] pr-10 pt-6">
         <div className="mx-auto max-w-4xl">
           <h1 className="mb-8 text-4xl font-black tracking-tight">Watchlist</h1>
           {watchlist.length === 0 ? (
             <div className="eldar-panel rounded-3xl p-8">
-              <EmptyState icon="⭐" message="No watchlist symbols yet" action={{ label: "Add stocks", onClick: () => openCommandPalette(ticker || "AAPL", "watchlist-add") }} />
+              <EmptyState icon="⭐" message="No watchlist symbols yet" action={{ label: "Add stocks", onClick: () => openCommandPalette("", "watchlist-add") }} />
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -4799,7 +5623,6 @@ export function StockDashboard({
       {renderShortcutsModal()}
       {renderProfileModal()}
       {renderShareModal()}
-      <BottomPanel marketOpen={isMarketOpen} themeMode={themeMode} onToggleTheme={toggleThemeMode} />
     </div>
   );
 }

@@ -1,14 +1,19 @@
 "use client";
 
 import clsx from "clsx";
-import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
-import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { BookText, Bookmark, BriefcaseBusiness, CircleUserRound, Grid2x2, Home, LineChart, Moon, Search, Sun } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Moon, Sun } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { AppLeftSidebar } from "@/components/AppLeftSidebar";
+import { isPaletteOpenShortcut } from "@/lib/ui/command-palette";
 
-const ELDAR_BRAND_LOGO = "/brand/eldar-logo.png";
 const DASHBOARD_RETURN_STATE_KEY = "eldar:dashboard:return-state";
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
+}
 
 interface MacroIndicatorSnapshot {
   key: string;
@@ -62,19 +67,16 @@ function TelegramBrandIcon(): JSX.Element {
 
 export default function MacroPage(): JSX.Element {
   const router = useRouter();
-  const menuRef = useRef<HTMLDivElement | null>(null);
   const [themeMode, setThemeMode] = useState<"dark" | "light">("dark");
-  const [isMarketOpen, setIsMarketOpen] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [indicators, setIndicators] = useState<MacroIndicatorSnapshot[]>([]);
 
-  function openDashboardView(
+  const openDashboardView = useCallback((
     view: "home" | "portfolio" | "watchlist",
     ticker?: string,
     options?: { openPalette?: boolean; paletteAction?: "analyze" | "portfolio-add" | "compare-add" }
-  ): void {
+  ): void => {
     try {
       const payload = {
         savedAt: Date.now(),
@@ -90,7 +92,7 @@ export default function MacroPage(): JSX.Element {
     }
 
     router.push("/");
-  }
+  }, [router]);
 
   useEffect(() => {
     try {
@@ -101,7 +103,7 @@ export default function MacroPage(): JSX.Element {
     } catch {
       document.documentElement.dataset.theme = "dark";
     }
-  }, []);
+  }, [openDashboardView]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = themeMode;
@@ -113,31 +115,22 @@ export default function MacroPage(): JSX.Element {
   }, [themeMode]);
 
   useEffect(() => {
-    const handleOutside = (event: MouseEvent): void => {
-      if (!menuRef.current) return;
-      if (!menuRef.current.contains(event.target as Node)) {
-        setIsMenuOpen(false);
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (isPaletteOpenShortcut(event)) {
+        if (isTypingTarget(event.target)) return;
+        event.preventDefault();
+        openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" });
+        return;
       }
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isTypingTarget(event.target)) return;
+      event.preventDefault();
+      openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" });
     };
 
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, []);
-
-  useEffect(() => {
-    const refreshMarketStatus = (): void => {
-      const now = new Date();
-      const day = now.getDay();
-      const hour = now.getHours();
-      const minutes = now.getMinutes();
-      const open = day >= 1 && day <= 5 && (hour > 9 || (hour === 9 && minutes >= 30)) && hour < 16;
-      setIsMarketOpen(open);
-    };
-
-    refreshMarketStatus();
-    const interval = window.setInterval(refreshMarketStatus, 30_000);
-    return () => window.clearInterval(interval);
-  }, []);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [openDashboardView]);
 
   useEffect(() => {
     let cancelled = false;
@@ -194,129 +187,20 @@ export default function MacroPage(): JSX.Element {
 
   return (
     <main className="min-h-screen overflow-x-hidden text-white" style={{ background: appBackground }}>
-      <nav className="fixed left-0 right-0 top-0 z-50 border-b border-white/15 bg-zinc-950/80 shadow-2xl shadow-black/50 backdrop-blur-2xl">
-        <div className="container mx-auto px-6">
-          <div className="flex h-16 items-center justify-between gap-3">
-            <button type="button" onClick={() => openDashboardView("home")} className="eldar-logo-button flex cursor-pointer items-center gap-3">
-              <div className="relative h-10 w-10 overflow-hidden">
-                <Image src={ELDAR_BRAND_LOGO} alt="ELDAR logo" fill sizes="40px" className="object-contain" priority />
-              </div>
-            </button>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" })}
-                title="Search"
-                aria-label="Search"
-                className="eldar-btn-silver flex h-11 w-11 items-center justify-center rounded-2xl border text-slate-900 transition-all backdrop-blur-xl"
-              >
-                <Search className="h-4 w-4" />
-              </button>
-
-              <div className="relative" ref={menuRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsMenuOpen((prev) => !prev)}
-                  className={clsx(
-                    "flex h-11 w-11 items-center justify-center rounded-2xl border text-sm font-semibold transition-all backdrop-blur-xl",
-                    isMenuOpen ? "eldar-btn-ghost border-white/60 bg-white/10 text-white" : "eldar-btn-silver text-slate-900"
-                  )}
-                  title="Menu"
-                  aria-label="Menu"
-                >
-                  <Home className="h-4 w-4" />
-                </button>
-                {isMenuOpen ? (
-                  <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-44 overflow-hidden rounded-2xl border border-white/20 bg-zinc-950/90 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-2xl">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        openDashboardView("home");
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <Home className="h-4 w-4" />
-                      Home
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        router.push("/sectors");
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <Grid2x2 className="h-4 w-4" />
-                      Sectors
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white transition hover:bg-white/10"
-                    >
-                      <LineChart className="h-4 w-4" />
-                      Macro
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        router.push("/journal");
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <BookText className="h-4 w-4" />
-                      Journal
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        openDashboardView("portfolio");
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <BriefcaseBusiness className="h-4 w-4" />
-                      Portfolio
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                onClick={() => openDashboardView("watchlist")}
-                className="eldar-btn-silver flex h-11 w-11 items-center justify-center rounded-2xl border text-slate-900 transition-all backdrop-blur-xl"
-                title="Watchlist"
-                aria-label="Watchlist"
-              >
-                <Bookmark className="h-4 w-4" />
-              </button>
-              <SignedOut>
-                <SignInButton mode="modal">
-                  <button
-                    type="button"
-                    className="eldar-btn-silver flex h-11 w-11 items-center justify-center rounded-2xl border text-slate-900 transition-all backdrop-blur-xl"
-                    title="Profile"
-                    aria-label="Profile"
-                  >
-                    <CircleUserRound className="h-4 w-4" />
-                  </button>
-                </SignInButton>
-              </SignedOut>
-              <SignedIn>
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/30 bg-black/20 p-0.5 backdrop-blur-xl">
-                  <UserButton afterSignOutUrl="/" />
-                </div>
-              </SignedIn>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="container mx-auto px-6 pb-20 pt-24">
+      <AppLeftSidebar
+        activeView="macro"
+        themeMode={themeMode}
+        loading={loading}
+        defaultSearchValue=""
+        onQuickSearch={() => openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" })}
+        onOpenDashboard={() => openDashboardView("home")}
+        onOpenSectors={() => router.push("/sectors")}
+        onOpenMacro={() => undefined}
+        onOpenJournal={() => router.push("/journal")}
+        onOpenPortfolio={() => openDashboardView("portfolio")}
+        onToggleTheme={() => setThemeMode((prev) => (prev === "dark" ? "light" : "dark"))}
+      />
+      <div className="container mx-auto px-6 pb-20 pl-[104px] pr-10 pt-6">
         <div className="mx-auto max-w-6xl">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <h1 className="eldar-display text-2xl font-bold tracking-[0.14em] text-white md:text-3xl">MACRO</h1>
@@ -392,13 +276,10 @@ export default function MacroPage(): JSX.Element {
         </div>
       </div>
 
-      <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/15 bg-zinc-950/80 shadow-2xl shadow-black/50 backdrop-blur-2xl">
+      <footer className="hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/15 bg-zinc-950/80 shadow-2xl shadow-black/50 backdrop-blur-2xl">
         <div className="container mx-auto px-6">
           <div className="flex h-10 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="eldar-status-star eldar-status-live" />
-              <span className="eldar-caption text-[8px] text-white/50">LIVE | {isMarketOpen ? "Market Open" : "Market Closed"}</span>
-            </div>
+              <div className="flex items-center gap-2" />
             <div className="flex items-center gap-2">
               <button
                 type="button"

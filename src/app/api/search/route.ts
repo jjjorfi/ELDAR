@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { resolveDomainForTicker } from "@/lib/branding/ticker-domain";
-import { getFetchSignal } from "@/lib/market/adapter-utils";
+import { runRouteGuards } from "@/lib/api/route-security";
+import { fetchJsonOrNull, setUrlSearchParams } from "@/lib/market/adapter-utils";
 import { fetchSP500Directory, fetchSP500SectorMap } from "@/lib/market/sp500";
 import { getTop100Sp500SymbolSet } from "@/lib/market/top100";
-import guard, { isGuardBlockedError } from "@/lib/security/guard";
-import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { resolveSectorFromCandidates } from "@/lib/scoring/sector-config";
 import { sanitizeSymbol } from "@/lib/utils";
 
@@ -63,29 +62,18 @@ async function fetchFmp<T>(path: string, params: Record<string, string>): Promis
   if (!key) return null;
 
   const url = new URL(`${FMP_STABLE_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`);
-  url.searchParams.set("apikey", key);
+  setUrlSearchParams(url, {
+    apikey: key,
+    ...params
+  });
 
-  for (const [paramKey, value] of Object.entries(params)) {
-    url.searchParams.set(paramKey, value);
-  }
-
-  try {
-    const response = await fetch(url.toString(), {
-      next: { revalidate: 180 },
-      signal: getFetchSignal(SEARCH_FETCH_TIMEOUT_MS),
-      headers: {
-        "User-Agent": "Mozilla/5.0"
-      }
-    });
-
-    if (!response.ok) {
-      return null;
+  return fetchJsonOrNull<T>(url, {
+    timeoutMs: SEARCH_FETCH_TIMEOUT_MS,
+    revalidateSeconds: 180,
+    headers: {
+      "User-Agent": "Mozilla/5.0"
     }
-
-    return (await response.json()) as T;
-  } catch {
-    return null;
-  }
+  });
 }
 
 function normalizeSearchRows(payload: unknown): SearchRow[] {
@@ -247,22 +235,12 @@ function setCachedResults(cacheKey: string, results: SearchResultItem[]): void {
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
-  try {
-    // Shared security gate: protected-route policy + global rolling per-IP limit.
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) {
-      return error.response;
-    }
-    throw error;
-  }
-
-  const throttled = enforceRateLimit(request, {
+  const blocked = await runRouteGuards(request, {
     bucket: "api-search",
     max: 120,
     windowMs: 60_000
   });
-  if (throttled) return throttled;
+  if (blocked) return blocked;
 
   try {
     const url = new URL(request.url);

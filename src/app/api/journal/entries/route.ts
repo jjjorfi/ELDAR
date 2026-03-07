@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 
 import { analyzeStock } from "@/lib/analyze";
+import { getApiAuthContext } from "@/lib/api/auth-context";
+import { badRequest, jsonError, jsonNoStore, unauthorized } from "@/lib/api/responses";
+import { runRouteGuards } from "@/lib/api/route-security";
 import { createJournalEntry, listJournalEntries } from "@/lib/journal/store";
 import type { TradeStatus } from "@/lib/journal/types";
-import guard, { isGuardBlockedError } from "@/lib/security/guard";
-import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -21,25 +21,19 @@ function parseStatus(raw: string | null): TradeStatus | null {
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
-  try {
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) return error.response;
-    throw error;
-  }
+  const blocked = await runRouteGuards(request, {
+    bucket: "api-journal-v1-entries-get",
+    max: 120,
+    windowMs: 60_000
+  });
+  if (blocked) return blocked;
 
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
+      return unauthorized();
     }
-
-    const throttled = enforceRateLimit(request, {
-      bucket: "api-journal-v1-entries-get",
-      max: 120,
-      windowMs: 60_000
-    });
-    if (throttled) return throttled;
+    const { userId } = authContext;
 
     const { searchParams } = new URL(request.url);
     const status = parseStatus(searchParams.get("status"));
@@ -53,38 +47,32 @@ export async function GET(request: Request): Promise<NextResponse> {
       limit: Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 500) : 200
     });
 
-    return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
+    return jsonNoStore(result);
   } catch (error) {
     console.error("/api/journal/entries GET error", error);
-    return NextResponse.json({ error: "Failed to load journal entries." }, { status: 500 });
+    return jsonError("Failed to load journal entries.", 500, { noStore: false });
   }
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
-  try {
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) return error.response;
-    throw error;
-  }
+  const blocked = await runRouteGuards(request, {
+    bucket: "api-journal-v1-entries-post",
+    max: 60,
+    windowMs: 60_000
+  });
+  if (blocked) return blocked;
 
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
+      return unauthorized();
     }
-
-    const throttled = enforceRateLimit(request, {
-      bucket: "api-journal-v1-entries-post",
-      max: 60,
-      windowMs: 60_000
-    });
-    if (throttled) return throttled;
+    const { userId } = authContext;
 
     const raw = await request.json();
     const parsed = createSchema.safeParse(raw);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
+      return badRequest("Invalid payload.");
     }
 
     const analysis = await analyzeStock(parsed.data.ticker);
@@ -106,10 +94,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       eldarSnapshot: snapshot
     });
 
-    return NextResponse.json({ entry }, { status: 201, headers: { "Cache-Control": "no-store" } });
+    return jsonNoStore({ entry }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create journal entry.";
     console.error("/api/journal/entries POST error", error);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonError(message, 500, { noStore: false });
   }
 }

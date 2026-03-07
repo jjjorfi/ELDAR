@@ -16,8 +16,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { sign } from "jsonwebtoken";
 
-import guard, { isGuardBlockedError } from "@/lib/security/guard";
-import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { runRouteGuards } from "@/lib/api/route-security";
 
 export const runtime = "nodejs";
 
@@ -32,21 +31,12 @@ interface SocketTokenClaims {
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
-  try {
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) {
-      return error.response;
-    }
-    throw error;
-  }
-
-  const throttled = enforceRateLimit(request, {
+  const blocked = await runRouteGuards(request, {
     bucket: "api-realtime-token",
     max: 120,
     windowMs: 60_000
   });
-  if (throttled) return throttled;
+  if (blocked) return blocked;
 
   const { userId, orgId, sessionId } = await auth();
   const effectiveUserId = userId ?? `anon:${randomUUID()}`;

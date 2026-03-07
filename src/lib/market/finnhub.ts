@@ -1,10 +1,11 @@
 import {
-  getFetchSignal,
+  fetchJsonOrNull,
   parseApiKeyList,
   parseOptionalNumber,
   parseOptionalString,
   pickFirstNumber,
-  readEnvToken
+  readEnvToken,
+  setUrlSearchParams
 } from "@/lib/market/adapter-utils";
 
 const FINNHUB_FETCH_TIMEOUT_MS = 4_500;
@@ -125,27 +126,25 @@ async function fetchFinnhub<T>(endpoint: string, query: Record<string, string>):
 
   for (const token of tokens) {
     const url = new URL(`https://finnhub.io/api/v1/${endpoint}`);
-    for (const [key, value] of Object.entries(query)) {
-      url.searchParams.set(key, value);
-    }
-    url.searchParams.set("token", token);
+    setUrlSearchParams(url, {
+      ...query,
+      token
+    });
 
-    try {
-      const response = await fetch(url.toString(), {
-        next: { revalidate: 300 },
-        signal: getFetchSignal(FINNHUB_FETCH_TIMEOUT_MS)
-      });
-      if (!response.ok) continue;
-
-      const payload = (await response.json()) as T | { error?: string };
-      if (typeof payload === "object" && payload !== null && "error" in payload) {
-        continue;
+    const payload = await fetchJsonOrNull<T | { error?: string }>(url, {
+      timeoutMs: FINNHUB_FETCH_TIMEOUT_MS,
+      revalidateSeconds: 300,
+      isInvalidPayload: (value) => {
+        if (typeof value !== "object" || value === null) return false;
+        return typeof (value as Record<string, unknown>).error === "string";
       }
+    });
 
-      return payload as T;
-    } catch {
+    if (!payload) {
       continue;
     }
+
+    return payload as T;
   }
 
   return null;

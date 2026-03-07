@@ -1,5 +1,5 @@
 import {
-  getFetchSignal,
+  fetchJsonOrNull,
   parseApiKeyList,
   parseOptionalNumber,
   parseTimestampMs,
@@ -126,24 +126,14 @@ function normalizeContractType(raw: unknown): "call" | "put" | null {
  * @returns Parsed payload or null when request fails.
  */
 async function fetchMassiveJson<T>(url: string): Promise<T | null> {
-  try {
-    const response = await fetch(url, {
-      next: { revalidate: 120 },
-      signal: getFetchSignal(MASSIVE_FETCH_TIMEOUT_MS),
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "Mozilla/5.0"
-      }
-    });
-
-    if (!response.ok) {
-      return null;
+  return fetchJsonOrNull<T>(url, {
+    timeoutMs: MASSIVE_FETCH_TIMEOUT_MS,
+    revalidateSeconds: 120,
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "Mozilla/5.0"
     }
-
-    return (await response.json()) as T;
-  } catch {
-    return null;
-  }
+  });
 }
 
 /**

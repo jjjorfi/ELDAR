@@ -1,5 +1,8 @@
+/* eslint-disable @next/next/no-img-element */
+
 import { scoreCircle, getRatingColor } from "@/components/share-cards/utils";
 import type { SignalCardProps } from "@/components/share-cards/types";
+import { ratingDisplayLabel } from "@/lib/rating";
 
 export function SignalCard({
   ticker,
@@ -14,137 +17,101 @@ export function SignalCard({
   scoreChange
 }: SignalCardProps): JSX.Element {
   const ratingColor = getRatingColor(rating);
-  const ratingLabel = rating.replace("_", " ");
+  const ratingLabel = ratingDisplayLabel(rating);
 
   return (
     <div
       style={{
-        width: 1200,
-        height: 628,
+        width: 1080,
+        height: 1920,
         background: "#000",
         border: "1px solid #1E1E1E",
-        padding: "48px 56px",
+        padding: "64px 72px",
         display: "flex",
         flexDirection: "column",
+        alignItems: "center",
         justifyContent: "space-between",
-        fontFamily: "'IBM Plex Mono', monospace",
-        position: "relative",
-        overflow: "hidden"
+        gap: 36,
+        fontFamily: "'Neue Haas Grotesk Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace"
       }}
     >
-      <div
-        style={{
-          position: "absolute",
-          right: 120,
-          top: "50%",
-          transform: "translateY(-50%)",
-          width: 300,
-          height: 300,
-          borderRadius: "50%",
-          background: `radial-gradient(circle, ${ratingColor}14 0%, transparent 70%)`,
-          pointerEvents: "none"
-        }}
-      />
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
-          <div
-            style={{
-              fontFamily: "'Syne', sans-serif",
-              fontSize: 32,
-              fontWeight: 800,
-              color: "#F5F5F5",
-              letterSpacing: "-0.02em",
-              marginBottom: 6
-            }}
-          >
-            {companyName}
-          </div>
-          <div style={{ fontSize: 12, color: "#444", letterSpacing: "0.14em" }}>${ticker} · {sector.toUpperCase()}</div>
+      <div style={{ textAlign: "center", width: "100%" }}>
+        <img
+          src="/brand/eldar-logo.png"
+          alt="ELDAR"
+          style={{ width: 92, height: 92, objectFit: "contain", margin: "0 auto 22px" }}
+        />
+        <div style={{ fontSize: 11, letterSpacing: "0.18em", color: "#FFBF00", marginBottom: 10 }}>ELDAR SIGNAL</div>
+        <div
+          style={{
+            fontFamily: "'Neue Haas Grotesk Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace",
+            fontSize: 44,
+            fontWeight: 800,
+            color: "#F5F5F5",
+            letterSpacing: "-0.02em"
+          }}
+        >
+          {companyName}
         </div>
-
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 9, letterSpacing: "0.18em", color: "#FFBF00", marginBottom: 4 }}>ELDAR SIGNAL</div>
-          <div style={{ fontSize: 9, letterSpacing: "0.12em", color: "#333" }}>
-            {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }).toUpperCase()}
-          </div>
+        <div style={{ fontSize: 13, color: "#666", marginTop: 8, letterSpacing: "0.12em" }}>
+          ${ticker} · {sector.toUpperCase()}
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 64 }}>
-        <div style={{ position: "relative", flexShrink: 0 }}>{scoreCircle(score, rating, 160)}</div>
-
-        <div style={{ flex: 1, display: "flex", gap: 48 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 9, letterSpacing: "0.14em", color: "#FFBF00", marginBottom: 14 }}>KEY DRIVERS</div>
-            {drivers.slice(0, 4).map((d, i) => (
-              <div key={`${d}-${i}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10 }}>
-                <span style={{ color: "#10B981", marginTop: 1, flexShrink: 0 }}>↑</span>
-                <span style={{ fontSize: 11, color: "#888", lineHeight: 1.5 }}>{d}</span>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 9, letterSpacing: "0.14em", color: "#555", marginBottom: 14 }}>KEY RISKS</div>
-            {risks.slice(0, 3).map((r, i) => (
-              <div key={`${r}-${i}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10 }}>
-                <span style={{ color: "#EF4444", marginTop: 1, flexShrink: 0 }}>↓</span>
-                <span style={{ fontSize: 11, color: "#555", lineHeight: 1.5 }}>{r}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ textAlign: "right", flexShrink: 0 }}>
+      <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+        {scoreCircle(score, rating, 240)}
+        <div style={{ marginTop: 22 }}>
           <div
             style={{
-              fontFamily: "'Syne', sans-serif",
-              fontSize: 42,
+              fontFamily: "'Neue Haas Grotesk Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace",
+              fontSize: 62,
               fontWeight: 800,
               color: ratingColor,
-              letterSpacing: "-0.02em",
               lineHeight: 1,
-              marginBottom: 8
+              marginBottom: 12,
+              letterSpacing: "-0.02em"
             }}
           >
             {ratingLabel}
           </div>
-          <div style={{ fontSize: 11, color: "#444", marginBottom: 4 }}>{confidence} CONFIDENCE</div>
+          <div style={{ fontSize: 16, color: "#7a7a7a", letterSpacing: "0.12em" }}>{confidence} CONFIDENCE</div>
           {scoreChange != null ? (
-            <div style={{ fontSize: 10, color: scoreChange > 0 ? "#10B981" : "#EF4444" }}>
-              {scoreChange > 0 ? "▲" : "▼"} {Math.abs(scoreChange).toFixed(1)} this quarter
+            <div style={{ marginTop: 8, fontSize: 13, color: scoreChange > 0 ? "#10B981" : "#EF4444" }}>
+              {scoreChange > 0 ? "▲" : "▼"} {Math.abs(scoreChange).toFixed(1)} THIS QUARTER
             </div>
           ) : null}
           {sectorRank != null ? (
-            <div style={{ fontSize: 10, color: "#444", marginTop: 4 }}>Top {sectorRank}% of sector</div>
+            <div style={{ marginTop: 8, fontSize: 13, color: "#8c8c8c" }}>TOP {sectorRank}% OF SECTOR</div>
           ) : null}
         </div>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          borderTop: "1px solid #1A1A1A",
-          paddingTop: 20
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 160, height: 3, background: "#1A1A1A", borderRadius: 2, position: "relative" }}>
-            <div
-              style={{
-                width: `${Math.max(0, Math.min(100, (score / 10) * 100))}%`,
-                height: "100%",
-                background: ratingColor,
-                borderRadius: 2
-              }}
-            />
-          </div>
-          <span style={{ fontSize: 9, color: "#333", letterSpacing: "0.10em" }}>{score.toFixed(1)} / 10</span>
+      <div style={{ width: "100%", maxWidth: 760, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div style={{ border: "1px solid #1E1E1E", background: "#0A0A0A", padding: 16 }}>
+          <div style={{ fontSize: 10, letterSpacing: "0.14em", color: "#FFBF00", marginBottom: 12 }}>KEY DRIVERS</div>
+          {drivers.slice(0, 4).map((item, index) => (
+            <div key={`${item}-${index}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+              <span style={{ color: "#10B981" }}>▲</span>
+              <span style={{ fontSize: 12, color: "#9a9a9a", lineHeight: 1.5 }}>{item}</span>
+            </div>
+          ))}
         </div>
-        <div style={{ fontSize: 9, color: "#2A2A2A", letterSpacing: "0.14em" }}>ELDAR · Think like an analyst.</div>
+        <div style={{ border: "1px solid #1E1E1E", background: "#0A0A0A", padding: 16 }}>
+          <div style={{ fontSize: 10, letterSpacing: "0.14em", color: "#666", marginBottom: 12 }}>KEY RISKS</div>
+          {risks.slice(0, 4).map((item, index) => (
+            <div key={`${item}-${index}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+              <span style={{ color: "#EF4444" }}>▼</span>
+              <span style={{ fontSize: 12, color: "#8a8a8a", lineHeight: 1.5 }}>{item}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontSize: 10, color: "#2A2A2A", letterSpacing: "0.14em" }}>ELDAR · Think like an analyst.</div>
+        <div style={{ fontSize: 10, color: "#2A2A2A", letterSpacing: "0.10em" }}>
+          {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }).toUpperCase()}
+        </div>
       </div>
     </div>
   );

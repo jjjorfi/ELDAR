@@ -56,7 +56,8 @@ export function ThemedClerkProvider({ children }: { children: React.ReactNode })
         colorText: isDark ? "#F5F5F5" : "#0F172A",
         colorTextSecondary: isDark ? "#999999" : "#475569",
         colorDanger: "#EF4444",
-        borderRadius: "0px"
+        borderRadius: "0px",
+        fontFamily: "Neue Haas Grotesk, Helvetica Neue, Arial, sans-serif"
       },
       elements: {
         card: {
@@ -81,4 +82,3 @@ export function ThemedClerkProvider({ children }: { children: React.ReactNode })
 
   return <ClerkProvider appearance={appearance}>{children}</ClerkProvider>;
 }
-

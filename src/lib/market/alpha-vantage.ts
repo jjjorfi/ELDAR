@@ -1,4 +1,4 @@
-import { getFetchSignal, parseOptionalNumber, readEnvToken } from "@/lib/market/adapter-utils";
+import { fetchJsonOrNull, parseOptionalNumber, readEnvToken, setUrlSearchParams } from "@/lib/market/adapter-utils";
 import { normalizeRatio } from "@/lib/utils";
 
 interface HistoryPoint {
@@ -83,37 +83,24 @@ async function fetchAlphaVantage(params: Record<string, string>): Promise<Record
   }
 
   const url = new URL(ALPHA_VANTAGE_BASE_URL);
+  setUrlSearchParams(url, {
+    ...params,
+    apikey: apiKey
+  });
 
-  for (const [key, value] of Object.entries(params)) {
-    url.searchParams.set(key, value);
-  }
-
-  url.searchParams.set("apikey", apiKey);
-
-  try {
-    const response = await fetch(url.toString(), {
-      next: { revalidate: 300 },
-      signal: getFetchSignal(ALPHA_VANTAGE_FETCH_TIMEOUT_MS)
-    });
-
-    if (!response.ok) {
-      return null;
+  return fetchJsonOrNull<Record<string, unknown>>(url, {
+    timeoutMs: ALPHA_VANTAGE_FETCH_TIMEOUT_MS,
+    revalidateSeconds: 300,
+    isInvalidPayload: (payload) => {
+      if (typeof payload !== "object" || payload === null) return true;
+      const record = payload as Record<string, unknown>;
+      return (
+        typeof record.Note === "string" ||
+        typeof record.Information === "string" ||
+        typeof record["Error Message"] === "string"
+      );
     }
-
-    const payload = (await response.json()) as Record<string, unknown>;
-
-    if (
-      typeof payload.Note === "string" ||
-      typeof payload.Information === "string" ||
-      typeof payload["Error Message"] === "string"
-    ) {
-      return null;
-    }
-
-    return payload;
-  } catch {
-    return null;
-  }
+  });
 }
 
 /**

@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { runRouteGuards } from "@/lib/api/route-security";
 import { getFetchSignal } from "@/lib/market/adapter-utils";
 import { isTop100Sp500Symbol } from "@/lib/market/top100";
-import guard, { isGuardBlockedError } from "@/lib/security/guard";
-import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { sanitizeSymbol } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -110,21 +109,12 @@ function computeChangePercent(points: PricePoint[], latestPrice: number | null):
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
-  try {
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) {
-      return error.response;
-    }
-    throw error;
-  }
-
-  const throttled = enforceRateLimit(request, {
+  const blocked = await runRouteGuards(request, {
     bucket: "api-price-history",
     max: 120,
     windowMs: 60_000
   });
-  if (throttled) return throttled;
+  if (blocked) return blocked;
 
   try {
     const url = new URL(request.url);

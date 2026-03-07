@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 
+import { runRouteGuards } from "@/lib/api/route-security";
 import { getFetchSignal } from "@/lib/market/adapter-utils";
 import { fetchSP500Directory } from "@/lib/market/sp500";
 import { getTop100Sp500SymbolSet } from "@/lib/market/top100";
 import { publishMarketMovers } from "@/lib/realtime/publisher";
-import guard, { isGuardBlockedError } from "@/lib/security/guard";
-import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -224,24 +223,14 @@ async function loadDirectory(): Promise<DirectoryMap> {
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
-  try {
-    // Shared security gate: protected-route policy + global rolling per-IP limit.
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) {
-      return error.response;
-    }
-    throw error;
-  }
+  const blocked = await runRouteGuards(request, {
+    bucket: "api-movers",
+    max: 120,
+    windowMs: 60_000
+  });
+  if (blocked) return blocked;
 
   try {
-    const throttled = enforceRateLimit(request, {
-      bucket: "api-movers",
-      max: 120,
-      windowMs: 60_000
-    });
-    if (throttled) return throttled;
-
     if (moversCache && Date.now() < moversCache.expiresAt) {
       return NextResponse.json(moversCache.payload, { headers: { "Cache-Control": CACHE_HEADER } });
     }

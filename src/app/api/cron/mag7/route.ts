@@ -1,21 +1,14 @@
 import { NextResponse } from "next/server";
 
+import { runRouteGuards } from "@/lib/api/route-security";
 import { refreshMag7ScoresIfDue } from "@/lib/mag7";
 import { isAuthorizedAdminRequest } from "@/lib/security/admin";
-import guard, { isGuardBlockedError } from "@/lib/security/guard";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request): Promise<NextResponse> {
-  try {
-    // Shared security gate: in production, /api/cron/* requires admin/cron secret access.
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) {
-      return error.response;
-    }
-    throw error;
-  }
+  const blocked = await runRouteGuards(request);
+  if (blocked) return blocked;
 
   // Reuse constant-time secret comparison for cron/admin auth checks.
   // In local development we also keep Vercel's local cron marker for ergonomics.

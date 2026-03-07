@@ -3,20 +3,22 @@ import { afterEach, test } from "node:test";
 
 import guard, { isGuardBlockedError } from "@/lib/security/guard";
 
+const ENV = process.env as Record<string, string | undefined>;
+
 const ORIGINAL_ENV = {
-  NODE_ENV: process.env.NODE_ENV,
-  CRON_SECRET: process.env.CRON_SECRET,
-  RATE_LIMIT_RPM: process.env.RATE_LIMIT_RPM,
-  BOT_WAF_HEADER: process.env.BOT_WAF_HEADER,
-  MAX_BODY_BYTES: process.env.MAX_BODY_BYTES
+  NODE_ENV: ENV.NODE_ENV,
+  CRON_SECRET: ENV.CRON_SECRET,
+  RATE_LIMIT_RPM: ENV.RATE_LIMIT_RPM,
+  BOT_WAF_HEADER: ENV.BOT_WAF_HEADER,
+  MAX_BODY_BYTES: ENV.MAX_BODY_BYTES
 };
 
 function restoreEnv(): void {
-  process.env.NODE_ENV = ORIGINAL_ENV.NODE_ENV;
-  process.env.CRON_SECRET = ORIGINAL_ENV.CRON_SECRET;
-  process.env.RATE_LIMIT_RPM = ORIGINAL_ENV.RATE_LIMIT_RPM;
-  process.env.BOT_WAF_HEADER = ORIGINAL_ENV.BOT_WAF_HEADER;
-  process.env.MAX_BODY_BYTES = ORIGINAL_ENV.MAX_BODY_BYTES;
+  ENV.NODE_ENV = ORIGINAL_ENV.NODE_ENV;
+  ENV.CRON_SECRET = ORIGINAL_ENV.CRON_SECRET;
+  ENV.RATE_LIMIT_RPM = ORIGINAL_ENV.RATE_LIMIT_RPM;
+  ENV.BOT_WAF_HEADER = ORIGINAL_ENV.BOT_WAF_HEADER;
+  ENV.MAX_BODY_BYTES = ORIGINAL_ENV.MAX_BODY_BYTES;
 }
 
 function request(pathname: string, headers: Record<string, string> = {}, method = "GET"): Request {
@@ -31,9 +33,9 @@ afterEach(() => {
 });
 
 test("guard blocks protected health route in production without admin token", async () => {
-  process.env.NODE_ENV = "production";
-  process.env.CRON_SECRET = "unit-test-cron-secret";
-  process.env.RATE_LIMIT_RPM = "1000";
+  ENV.NODE_ENV = "production";
+  ENV.CRON_SECRET = "unit-test-cron-secret";
+  ENV.RATE_LIMIT_RPM = "1000";
 
   await assert.rejects(
     () => guard(request("/api/health")),
@@ -45,9 +47,9 @@ test("guard blocks protected health route in production without admin token", as
 });
 
 test("guard allows protected route in production when admin token is valid", async () => {
-  process.env.NODE_ENV = "production";
-  process.env.CRON_SECRET = "unit-test-cron-secret";
-  process.env.RATE_LIMIT_RPM = "1000";
+  ENV.NODE_ENV = "production";
+  ENV.CRON_SECRET = "unit-test-cron-secret";
+  ENV.RATE_LIMIT_RPM = "1000";
 
   await assert.doesNotReject(() =>
     guard(
@@ -59,10 +61,10 @@ test("guard allows protected route in production when admin token is valid", asy
 });
 
 test("guard enforces rolling per-IP limit using BOT_WAF_HEADER over spoofable headers", async () => {
-  process.env.NODE_ENV = "development";
-  process.env.CRON_SECRET = "";
-  process.env.RATE_LIMIT_RPM = "2";
-  process.env.BOT_WAF_HEADER = "CF-Connecting-IP";
+  ENV.NODE_ENV = "development";
+  ENV.CRON_SECRET = "";
+  ENV.RATE_LIMIT_RPM = "2";
+  ENV.BOT_WAF_HEADER = "CF-Connecting-IP";
 
   const trustedIp = `203.0.113.${Math.floor(Math.random() * 200) + 20}`;
 
@@ -97,9 +99,9 @@ test("guard enforces rolling per-IP limit using BOT_WAF_HEADER over spoofable he
 });
 
 test("guard blocks oversized write requests when MAX_BODY_BYTES is exceeded", async () => {
-  process.env.NODE_ENV = "development";
-  process.env.RATE_LIMIT_RPM = "1000";
-  process.env.MAX_BODY_BYTES = "16";
+  ENV.NODE_ENV = "development";
+  ENV.RATE_LIMIT_RPM = "1000";
+  ENV.MAX_BODY_BYTES = "16";
 
   await assert.rejects(
     () =>

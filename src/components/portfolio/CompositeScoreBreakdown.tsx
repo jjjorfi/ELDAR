@@ -16,9 +16,9 @@ export function CompositeScoreBreakdown({ rating }: { rating: PortfolioRating })
   });
 
   return (
-    <section className="eldar-panel rounded-2xl p-4">
+    <section className="eldar-panel rounded-2xl p-3">
       <h3 className="text-[10px] uppercase tracking-[0.12em] text-white/55">Composite Score Breakdown</h3>
-      <div className="mt-3 space-y-2">
+      <div className="mt-2.5 space-y-1.5">
         {contributions.map((row) => (
           <div key={row.key}>
             <div className="mb-1 flex items-center justify-between text-xs">
@@ -32,10 +32,10 @@ export function CompositeScoreBreakdown({ rating }: { rating: PortfolioRating })
         ))}
       </div>
 
-      <div className="mt-4 border-t border-white/15 pt-3">
+      <div className="mt-3 border-t border-white/15 pt-2.5">
         <div className="flex items-center justify-between">
           <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Total</p>
-          <p className="font-mono text-lg font-bold text-white">{rating.compositeScore.toFixed(2)} / 10</p>
+          <p className="text-lg font-bold text-white">{"★".repeat(rating.stars)}{"☆".repeat(5 - rating.stars)}</p>
         </div>
         <p
           className={clsx("mt-1 text-sm font-semibold")}

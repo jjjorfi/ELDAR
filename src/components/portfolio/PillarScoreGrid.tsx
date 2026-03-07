@@ -20,7 +20,7 @@ function metricRows(metrics: Record<string, number | string | null>): Array<[str
 
 export function PillarScoreGrid({ pillars }: { pillars: PillarResult[] }): JSX.Element {
   return (
-    <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <section className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
       {pillars.map((pillar) => {
         const icon = statusIcon(pillar.score, pillar.flags);
         const delta = pillar.score - pillar.peerMedian;
@@ -28,11 +28,11 @@ export function PillarScoreGrid({ pillars }: { pillars: PillarResult[] }): JSX.E
           pillar.score >= 60 ? "text-emerald-300" : pillar.score >= 40 ? "text-amber-300" : "text-red-300";
 
         return (
-          <article key={pillar.key} className="eldar-panel rounded-2xl p-3">
+          <article key={pillar.key} className="card-grain p-2.5">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">{pillar.label}</p>
-                <p className={clsx("mt-1 font-mono text-2xl font-bold", toneClass)}>{pillar.score.toFixed(1)}</p>
+                <p className={clsx("mt-1 font-mono text-xl font-bold", toneClass)}>{pillar.score.toFixed(1)}</p>
               </div>
               <span className="text-sm text-white/75">{icon}</span>
             </div>
@@ -71,4 +71,3 @@ export function PillarScoreGrid({ pillars }: { pillars: PillarResult[] }): JSX.E
     </section>
   );
 }
-

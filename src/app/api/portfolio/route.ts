@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 
+import { getApiAuthContext } from "@/lib/api/auth-context";
+import {
+  badRequest,
+  internalServerError,
+  jsonNoStore,
+  unauthorized
+} from "@/lib/api/responses";
+import { runRouteGuards } from "@/lib/api/route-security";
 import { isTop100Sp500Symbol } from "@/lib/market/top100";
 import { scorePortfolio } from "@/lib/scoring/portfolio-engine";
 import type { PortfolioInputHolding } from "@/lib/scoring/portfolio-types";
-import guard, { isGuardBlockedError } from "@/lib/security/guard";
-import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { getLatestPortfolioSnapshot, savePortfolioSnapshot } from "@/lib/storage";
 
 export const runtime = "nodejs";
@@ -44,77 +49,62 @@ function normalizeHoldings(holdings: PortfolioInputHolding[]): PortfolioInputHol
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
-  try {
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) return error.response;
-    throw error;
-  }
+  const blocked = await runRouteGuards(request, {
+    bucket: "api-portfolio-get",
+    max: 90,
+    windowMs: 60_000
+  });
+  if (blocked) return blocked;
 
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
+      return unauthorized();
     }
-
-    const throttled = enforceRateLimit(request, {
-      bucket: "api-portfolio-get",
-      max: 90,
-      windowMs: 60_000
-    });
-    if (throttled) return throttled;
+    const { userId } = authContext;
 
     const { searchParams } = new URL(request.url);
     const portfolioId = (searchParams.get("portfolioId") ?? "default").trim() || "default";
     const snapshot = await getLatestPortfolioSnapshot(userId, portfolioId);
 
-    return NextResponse.json({ snapshot }, { headers: { "Cache-Control": "no-store" } });
+    return jsonNoStore({ snapshot });
   } catch (error) {
     console.error("/api/portfolio GET error", error);
-    return NextResponse.json({ error: "Failed to load portfolio snapshot." }, { status: 500 });
+    return internalServerError("Failed to load portfolio snapshot.");
   }
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
-  try {
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) return error.response;
-    throw error;
-  }
+  const blocked = await runRouteGuards(request, {
+    bucket: "api-portfolio-post",
+    max: 90,
+    windowMs: 60_000
+  });
+  if (blocked) return blocked;
 
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
+      return unauthorized();
     }
-
-    const throttled = enforceRateLimit(request, {
-      bucket: "api-portfolio-post",
-      max: 90,
-      windowMs: 60_000
-    });
-    if (throttled) return throttled;
+    const { userId } = authContext;
 
     const rawBody = await request.json();
     const parsed = payloadSchema.safeParse(rawBody);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid portfolio payload." }, { status: 400 });
+      return badRequest("Invalid portfolio payload.");
     }
 
     const portfolioId = (parsed.data.portfolioId ?? "default").trim() || "default";
     const asOfDate = parsed.data.asOfDate ?? new Date().toISOString().slice(0, 10);
     const holdings = normalizeHoldings(parsed.data.holdings);
     if (holdings.length === 0) {
-      return NextResponse.json({ error: "Portfolio holdings are empty." }, { status: 400 });
+      return badRequest("Portfolio holdings are empty.");
     }
 
     const hasUnsupported = holdings.some((holding) => !isTop100Sp500Symbol(holding.ticker));
     if (hasUnsupported) {
-      return NextResponse.json(
-        { error: "Portfolio supports Top 100 S&P 500 symbols only." },
-        { status: 400 }
-      );
+      return badRequest("Portfolio supports Top 100 S&P 500 symbols only.");
     }
 
     const rating = scorePortfolio({
@@ -136,9 +126,9 @@ export async function POST(request: Request): Promise<NextResponse> {
       rating
     });
 
-    return NextResponse.json({ snapshot }, { headers: { "Cache-Control": "no-store" } });
+    return jsonNoStore({ snapshot });
   } catch (error) {
     console.error("/api/portfolio POST error", error);
-    return NextResponse.json({ error: "Failed to score portfolio." }, { status: 500 });
+    return internalServerError("Failed to score portfolio.");
   }
 }

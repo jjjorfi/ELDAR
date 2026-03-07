@@ -3,8 +3,7 @@ import { NextResponse } from "next/server";
 import { getFetchSignal } from "@/lib/market/adapter-utils";
 import { isNySessionOpen } from "@/lib/market/ny-session";
 import { publishIndicesYtd } from "@/lib/realtime/publisher";
-import guard, { isGuardBlockedError } from "@/lib/security/guard";
-import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { runRouteGuards } from "@/lib/api/route-security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -296,24 +295,14 @@ async function fetchRobustIndexRow(config: IndexConfig): Promise<IndexYtdRow> {
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
-  try {
-    // Shared security gate: protected-route policy + global rolling per-IP limit.
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) {
-      return error.response;
-    }
-    throw error;
-  }
+  const blocked = await runRouteGuards(request, {
+    bucket: "api-indices-ytd",
+    max: 120,
+    windowMs: 60_000
+  });
+  if (blocked) return blocked;
 
   try {
-    const throttled = enforceRateLimit(request, {
-      bucket: "api-indices-ytd",
-      max: 120,
-      windowMs: 60_000
-    });
-    if (throttled) return throttled;
-
     const liveOpen = isNySessionOpen();
     const cacheHeader = liveOpen ? CACHE_HEADER_OPEN : CACHE_HEADER_CLOSED;
 

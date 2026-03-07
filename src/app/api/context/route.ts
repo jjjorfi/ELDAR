@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
 import { analyzeStock } from "@/lib/analyze";
+import { withTimeoutFallback } from "@/lib/async/timeout";
 import { fetchFinnhubCompanyNews } from "@/lib/market/finnhub";
 import { isNySessionOpen } from "@/lib/market/ny-session";
 import { fetchSP500Directory } from "@/lib/market/sp500";
 import { getTop100Sp500SymbolSet } from "@/lib/market/top100";
-import guard, { isGuardBlockedError } from "@/lib/security/guard";
-import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { runRouteGuards } from "@/lib/api/route-security";
 import { resolveSectorFromCandidates } from "@/lib/scoring/sector-config";
 import { getCachedAnalysis, getRecentAnalyses, getWatchlist, saveAnalysis } from "@/lib/storage";
 import type { PersistedAnalysis } from "@/lib/types";
@@ -97,31 +97,6 @@ function parseLive(rawLive: string | null): boolean {
   return rawLive === "1" || rawLive === "true";
 }
 
-async function withTimeoutFallback<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
-  return new Promise((resolve) => {
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      resolve(fallback);
-    }, timeoutMs);
-
-    promise
-      .then((value) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch(() => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        resolve(fallback);
-      });
-  });
-}
-
 async function refreshAnalysisScore(
   symbol: string,
   fallback: PersistedAnalysis | null,
@@ -146,24 +121,14 @@ async function refreshAnalysisScore(
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
-  try {
-    // Shared security gate: protected-route policy + global rolling per-IP limit.
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) {
-      return error.response;
-    }
-    throw error;
-  }
-
-  const { userId } = await auth();
-
-  const throttled = enforceRateLimit(request, {
+  const blocked = await runRouteGuards(request, {
     bucket: "api-context",
     max: 90,
     windowMs: 60_000
   });
-  if (throttled) return throttled;
+  if (blocked) return blocked;
+
+  const { userId } = await auth();
 
   const { searchParams } = new URL(request.url);
   const symbol = sanitizeSymbol(searchParams.get("symbol") ?? "");

@@ -36,6 +36,25 @@ export interface ApiKeyParseOptions {
   concatenated?: ConcatenatedTokenOptions;
 }
 
+/**
+ * Accepted query parameter primitive values.
+ */
+export type QueryParamValue = string | number | boolean | null | undefined;
+
+/**
+ * Options for shared JSON fetch helper.
+ */
+export interface FetchJsonOptions {
+  /** Timeout applied through AbortSignal.timeout when available. */
+  timeoutMs?: number;
+  /** Next.js ISR revalidation window in seconds. */
+  revalidateSeconds?: number;
+  /** Optional request headers. */
+  headers?: Record<string, string>;
+  /** Optional payload validator to reject provider-level error payloads. */
+  isInvalidPayload?: (payload: unknown) => boolean;
+}
+
 const DEFAULT_NULL_LITERALS = new Set(["", "-", "none", "n/a", "na", "null", "undefined"]);
 
 /**
@@ -214,6 +233,54 @@ export function parseApiKeyList(rawValue: string, options: ApiKeyParseOptions): 
         .filter((token) => options.tokenPattern.test(token))
     )
   );
+}
+
+/**
+ * Applies non-null query parameters to an existing URL.
+ *
+ * @param url URL instance to mutate.
+ * @param params Query key/value map.
+ */
+export function setUrlSearchParams(url: URL, params: Record<string, QueryParamValue>): void {
+  for (const [key, value] of Object.entries(params)) {
+    if (value === null || value === undefined) {
+      continue;
+    }
+    url.searchParams.set(key, String(value));
+  }
+}
+
+/**
+ * Performs a JSON fetch with optional timeout, revalidation, and payload validation.
+ *
+ * @param url Request URL.
+ * @param options Fetch behavior options.
+ * @returns Parsed payload or null on transport/status/payload errors.
+ */
+export async function fetchJsonOrNull<T>(
+  url: string | URL,
+  options: FetchJsonOptions = {}
+): Promise<T | null> {
+  try {
+    const response = await fetch(url.toString(), {
+      ...(typeof options.revalidateSeconds === "number" ? { next: { revalidate: options.revalidateSeconds } } : {}),
+      signal: typeof options.timeoutMs === "number" ? getFetchSignal(options.timeoutMs) : undefined,
+      headers: options.headers
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as unknown;
+    if (options.isInvalidPayload?.(payload)) {
+      return null;
+    }
+
+    return payload as T;
+  } catch {
+    return null;
+  }
 }
 
 /**

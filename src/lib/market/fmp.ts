@@ -1,9 +1,10 @@
 import {
-  getFetchSignal,
+  fetchJsonOrNull,
   parseOptionalNumber,
   parseOptionalString,
   parseTimestampMs,
-  readEnvToken
+  readEnvToken,
+  setUrlSearchParams
 } from "@/lib/market/adapter-utils";
 import { normalizeRatio } from "@/lib/utils";
 
@@ -87,29 +88,18 @@ async function fetchFmp<T>(baseUrl: string, path: string, params: Record<string,
 
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const url = new URL(`${baseUrl}${normalizedPath}`);
-  url.searchParams.set("apikey", apiKey);
+  setUrlSearchParams(url, {
+    apikey: apiKey,
+    ...params
+  });
 
-  for (const [key, value] of Object.entries(params)) {
-    url.searchParams.set(key, value);
-  }
-
-  try {
-    const response = await fetch(url.toString(), {
-      next: { revalidate: 300 },
-      signal: getFetchSignal(FMP_FETCH_TIMEOUT_MS),
-      headers: {
-        "User-Agent": "Mozilla/5.0"
-      }
-    });
-
-    if (!response.ok) {
-      return null;
+  return fetchJsonOrNull<T>(url, {
+    timeoutMs: FMP_FETCH_TIMEOUT_MS,
+    revalidateSeconds: 300,
+    headers: {
+      "User-Agent": "Mozilla/5.0"
     }
-
-    return (await response.json()) as T;
-  } catch {
-    return null;
-  }
+  });
 }
 
 interface FmpSearchRow {

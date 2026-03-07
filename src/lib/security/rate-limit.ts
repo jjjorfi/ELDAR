@@ -5,7 +5,7 @@ interface RateLimitEntry {
   resetAtMs: number;
 }
 
-interface RateLimitConfig {
+export interface RateLimitConfig {
   bucket: string;
   max: number;
   windowMs: number;

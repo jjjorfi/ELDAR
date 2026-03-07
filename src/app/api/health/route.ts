@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { runRouteGuards } from "@/lib/api/route-security";
 import { isAuthorizedAdminRequest } from "@/lib/security/admin";
-import guard, { isGuardBlockedError } from "@/lib/security/guard";
-import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -91,22 +90,12 @@ function toEodhdSymbol(symbol: string): string {
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
-  try {
-    // Shared security gate: in production this locks /api/health behind admin auth.
-    await guard(request);
-  } catch (error) {
-    if (isGuardBlockedError(error)) {
-      return error.response;
-    }
-    throw error;
-  }
-
-  const throttled = enforceRateLimit(request, {
+  const blocked = await runRouteGuards(request, {
     bucket: "api-health",
     max: 30,
     windowMs: 60_000
   });
-  if (throttled) return throttled;
+  if (blocked) return blocked;
 
   const includeDetail = isAuthorizedAdminRequest(request);
   const requestUrl = new URL(request.url);

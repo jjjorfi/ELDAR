@@ -48,21 +48,48 @@ export function FactorBarChart({ factors }: FactorBarChartProps): JSX.Element {
       return {
       responsive: true,
       maintainAspectRatio: false,
+      animation: {
+        duration: 180,
+        easing: "easeOutCubic"
+      },
+      interaction: {
+        mode: "nearest",
+        intersect: false
+      },
       plugins: {
         legend: {
           display: false
         },
         tooltip: {
+          displayColors: false,
+          titleColor: "#F5F5F5",
+          bodyColor: "#F5F5F5",
+          backgroundColor: "rgba(15,17,21,0.92)",
+          borderColor: "rgba(255,255,255,0.2)",
+          borderWidth: 1,
           callbacks: {
+            title(context) {
+              const label = context[0]?.label ?? "N/A";
+              return `X: ${label}`;
+            },
             label(context) {
               const value = typeof context.parsed.y === "number" ? context.parsed.y : 0;
-              return `Points: ${value > 0 ? `+${value}` : value}`;
+              return `Y: ${value > 0 ? `+${value}` : value}`;
             }
           }
         }
       },
       scales: {
         x: {
+          title: {
+            display: true,
+            text: "X Axis",
+            color: "#8B8F98",
+            font: {
+              size: 10,
+              weight: 500
+            }
+          },
           ticks: {
             color: "#999999",
             maxRotation: 35,
@@ -75,6 +102,15 @@ export function FactorBarChart({ factors }: FactorBarChartProps): JSX.Element {
         y: {
           min: Math.floor(minValue * 2) / 2,
           max: Math.ceil(maxValue * 2) / 2,
+          title: {
+            display: true,
+            text: "Y Axis",
+            color: "#8B8F98",
+            font: {
+              size: 10,
+              weight: 500
+            }
+          },
           ticks: {
             color: "#999999",
             stepSize: 0.5
