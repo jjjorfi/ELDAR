@@ -21,6 +21,7 @@ import { mergePriceObservations } from "@/lib/market/price-merge";
 import { rsi, sma } from "@/lib/market/indicators";
 import { fetchMacroSignals } from "@/lib/market/macro";
 import { fetchSP500Directory } from "@/lib/market/sp500";
+import { fetchTemporaryHistoryFallback, fetchTemporaryQuoteFallback } from "@/lib/market/temporary-fallbacks";
 import { getLastKnownPrice } from "@/lib/storage";
 import type { MarketSnapshot } from "@/lib/types";
 import { resolveSectorFromCandidates } from "@/lib/scoring/sector-config";
@@ -71,10 +72,30 @@ const COMMODITY_SYMBOL_BY_SECTOR: Record<string, string> = {
   Materials: "HG=F"
 };
 const YAHOO_FETCH_TIMEOUT_MS = 6_000;
+const PROVIDER_WARNING_TTL_MS = 60_000;
+const YAHOO_QUOTE_SUMMARY_DISABLE_TTL_MS = 10 * 60_000;
+const providerWarnings = new Map<string, number>();
+let yahooQuoteSummaryDisabledUntil = 0;
 
 export interface YahooQuoteSnapshot {
   price: number | null;
   asOfMs: number | null;
+}
+
+function warnProvider(symbol: string, scope: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  const key = `${symbol}:${scope}:${message}`;
+  const now = Date.now();
+  const previous = providerWarnings.get(key) ?? 0;
+  if (now - previous < PROVIDER_WARNING_TTL_MS) {
+    return;
+  }
+  providerWarnings.set(key, now);
+  console.warn(`[Yahoo Snapshot][${symbol}][${scope}]: ${message}`);
+}
+
+function toYahooSymbol(symbol: string): string {
+  return symbol.replace(/\./g, "-");
 }
 
 /**
@@ -271,6 +292,10 @@ async function fetchJson<T>(url: string): Promise<T> {
  * @returns First quoteSummary result record or empty object.
  */
 async function fetchQuoteSummary(symbol: string): Promise<Record<string, unknown>> {
+  if (Date.now() < yahooQuoteSummaryDisabledUntil) {
+    return {};
+  }
+
   const modules = [
     "price",
     "financialData",
@@ -280,7 +305,8 @@ async function fetchQuoteSummary(symbol: string): Promise<Record<string, unknown
     "upgradeDowngradeHistory"
   ].join(",");
 
-  const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`;
+  const yahooSymbol = toYahooSymbol(symbol);
+  const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(yahooSymbol)}?modules=${modules}`;
 
   try {
     const payload = await fetchJson<{
@@ -290,7 +316,11 @@ async function fetchQuoteSummary(symbol: string): Promise<Record<string, unknown
     }>(url);
 
     return payload.quoteSummary?.result?.[0] ?? {};
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && (error.message.includes("(401)") || error.message.includes("(403)"))) {
+      yahooQuoteSummaryDisabledUntil = Date.now() + YAHOO_QUOTE_SUMMARY_DISABLE_TTL_MS;
+    }
+    warnProvider(symbol, "quoteSummary", error);
     return {};
   }
 }
@@ -304,33 +334,51 @@ async function fetchQuoteSummary(symbol: string): Promise<Record<string, unknown
  * @returns Parsed chronological history points.
  */
 async function fetchChartHistory(symbol: string, range: string, interval: string): Promise<HistoryPoint[]> {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
-  const payload = await fetchJson<YahooChartResponse>(url);
-  const chartError = payload.chart?.error?.description;
+  const yahooSymbol = toYahooSymbol(symbol);
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=${range}&interval=${interval}`;
 
-  if (chartError) {
-    throw new Error(chartError);
+  try {
+    const payload = await fetchJson<YahooChartResponse>(url);
+    const chartError = payload.chart?.error?.description;
+
+    if (chartError) {
+      throw new Error(chartError);
+    }
+
+    const result = payload.chart?.result?.[0];
+    const timestamps = result?.timestamp ?? [];
+    const closes = result?.indicators?.quote?.[0]?.close ?? [];
+
+    const output: HistoryPoint[] = [];
+
+    for (let i = 0; i < Math.min(timestamps.length, closes.length); i += 1) {
+      const ts = timestamps[i];
+      const close = closes[i] ?? null;
+
+      if (!Number.isFinite(ts)) continue;
+
+      output.push({
+        date: new Date(ts * 1000),
+        close: typeof close === "number" && Number.isFinite(close) ? close : null
+      });
+    }
+
+    if (output.length > 0) {
+      return output;
+    }
+  } catch (error) {
+    warnProvider(symbol, `chart:${range}:${interval}`, error);
   }
 
-  const result = payload.chart?.result?.[0];
-  const timestamps = result?.timestamp ?? [];
-  const closes = result?.indicators?.quote?.[0]?.close ?? [];
-
-  const output: HistoryPoint[] = [];
-
-  for (let i = 0; i < Math.min(timestamps.length, closes.length); i += 1) {
-    const ts = timestamps[i];
-    const close = closes[i] ?? null;
-
-    if (!Number.isFinite(ts)) continue;
-
-    output.push({
-      date: new Date(ts * 1000),
-      close: typeof close === "number" && Number.isFinite(close) ? close : null
-    });
+  // Temporary patch: free-tier quote/history bridges keep v8 technical factors
+  // alive until premium data rates and entitlements are upgraded.
+  const fallback = await fetchTemporaryHistoryFallback(symbol, { range, interval });
+  if (fallback.points.length > 0) {
+    warnProvider(symbol, `chart-fallback:${range}:${interval}`, `using ${fallback.source ?? "temporary source"}`);
+    return fallback.points;
   }
 
-  return output;
+  return [];
 }
 
 /**
@@ -355,15 +403,18 @@ export async function fetchYahooQuoteSnapshot(symbol: string): Promise<YahooQuot
     const history = await fetchChartHistory(symbol, "5d", "1d");
     const lastPoint = [...history].reverse().find((row) => row.close !== null) ?? null;
     if (!lastPoint || lastPoint.close === null) {
-      return { price: null, asOfMs: null };
+      const fallback = await fetchTemporaryQuoteFallback(symbol);
+      return { price: fallback.price, asOfMs: fallback.asOfMs };
     }
 
     return {
       price: lastPoint.close,
       asOfMs: lastPoint.date.getTime()
     };
-  } catch {
-    return { price: null, asOfMs: null };
+  } catch (error) {
+    warnProvider(symbol, "quoteSnapshot", error);
+    const fallback = await fetchTemporaryQuoteFallback(symbol);
+    return { price: fallback.price, asOfMs: fallback.asOfMs };
   }
 }
 
@@ -438,6 +489,11 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
     sp500Directory[normalizedSymbol].companyName.trim().length > 0
       ? sp500Directory[normalizedSymbol].companyName.trim()
       : null;
+  const canonicalSector =
+    typeof sp500Directory[normalizedSymbol]?.sector === "string" &&
+    sp500Directory[normalizedSymbol].sector.trim().length > 0
+      ? sp500Directory[normalizedSymbol].sector.trim()
+      : null;
 
   const macro =
     macroResult.status === "fulfilled"
@@ -456,14 +512,23 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
         };
 
   if (dailyHistory.length < 220 || monthlyHistory.length < 110) {
+    // Temporary patch: these extra free-tier lookups are a build-stage bridge.
+    // Remove or demote them once premium history coverage is in place.
+    const temporaryHistory = await fetchTemporaryHistoryFallback(normalizedSymbol, {
+      range: "2y",
+      interval: "1d",
+      minimumPoints: 220
+    });
     const avHistory = await fetchAlphaVantageDailyHistory(normalizedSymbol);
+    const bestFallbackHistory =
+      temporaryHistory.points.length >= avHistory.length ? temporaryHistory.points : avHistory;
 
-    if (dailyHistory.length < 220 && avHistory.length > dailyHistory.length) {
-      dailyHistory = avHistory;
+    if (dailyHistory.length < 220 && bestFallbackHistory.length > dailyHistory.length) {
+      dailyHistory = bestFallbackHistory;
     }
 
-    if (monthlyHistory.length < 110 && avHistory.length > 0) {
-      monthlyHistory = toMonthlyHistory(avHistory);
+    if (monthlyHistory.length < 110 && bestFallbackHistory.length > 0) {
+      monthlyHistory = toMonthlyHistory(bestFallbackHistory);
     }
   }
 
@@ -481,6 +546,7 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
     (typeof profile.industry === "string" ? profile.industry : null);
 
   const preliminarySector = resolveSectorFromCandidates([
+    canonicalSector,
     yahooSector,
     yahooIndustry,
     finnhubProfile.sector,
@@ -567,6 +633,7 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
   ]);
 
   const resolvedSector = resolveSectorFromCandidates([
+    canonicalSector,
     eodhdFallback.sector,
     yahooSector,
     fmpFallback.sector,
@@ -725,8 +792,18 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
   const sectorEtfSymbol = SECTOR_ETF_MAP[resolvedSector] ?? null;
   const commoditySymbol = COMMODITY_SYMBOL_BY_SECTOR[resolvedSector] ?? null;
   const [sectorHistory, commodityHistory] = await Promise.all([
-    sectorEtfSymbol ? fetchChartHistory(sectorEtfSymbol, "2y", "1d").catch(() => []) : Promise.resolve([]),
-    commoditySymbol ? fetchChartHistory(commoditySymbol, "2y", "1d").catch(() => []) : Promise.resolve([])
+    sectorEtfSymbol
+      ? fetchChartHistory(sectorEtfSymbol, "2y", "1d").catch((error) => {
+          warnProvider(normalizedSymbol, `sector-history:${sectorEtfSymbol}`, error);
+          return [];
+        })
+      : Promise.resolve([]),
+    commoditySymbol
+      ? fetchChartHistory(commoditySymbol, "2y", "1d").catch((error) => {
+          warnProvider(normalizedSymbol, `commodity-history:${commoditySymbol}`, error);
+          return [];
+        })
+      : Promise.resolve([])
   ]);
   const sectorCloses = filterCloses(sectorHistory);
   const commodityCloses = filterCloses(commodityHistory);

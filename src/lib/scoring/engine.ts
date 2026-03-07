@@ -532,7 +532,7 @@ export function scoreSnapshot(snapshot: MarketSnapshot): AnalysisResult {
 
   rawScore = Math.round(rawScore * 100) / 100;
 
-  const dataCompleteness = Math.round((availableWeight / 10) * 10000) / 10000;
+  const dataCompleteness = Math.max(0, Math.min(1, Math.round((availableWeight / 10) * 10000) / 10000));
   rawScore = quantCalibrateScore(rawScore, factors, dataCompleteness, snapshot);
 
   // ── dataCompleteness gate (P0) ────────────────────────────────────────────

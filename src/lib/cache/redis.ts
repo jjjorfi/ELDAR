@@ -5,6 +5,20 @@ const REDIS_PREFIX = "eldar:next";
 type RedisClientInstance = ReturnType<typeof createClient>;
 let clientPromise: Promise<RedisClientInstance | null> | null = null;
 let hardDisabledReason: string | null = null;
+const recentOperationWarnings = new Map<string, number>();
+const OPERATION_WARNING_TTL_MS = 60_000;
+
+function warnOperation(operation: string, key: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : "Unknown Redis operation error";
+  const signature = `${operation}:${key}:${message}`;
+  const now = Date.now();
+  const previous = recentOperationWarnings.get(signature) ?? 0;
+  if (now - previous < OPERATION_WARNING_TTL_MS) {
+    return;
+  }
+  recentOperationWarnings.set(signature, now);
+  console.warn(`[Redis Cache]: ${operation} failed for ${keyName(key)} (${message})`);
+}
 
 function redisEnabledByConfig(): boolean {
   return String(process.env.USE_REDIS ?? "").trim().toLowerCase() === "true";
@@ -62,7 +76,8 @@ export async function cacheGetJson<T>(key: string): Promise<T | null> {
     const raw = await client.get(keyName(key));
     if (!raw) return null;
     return JSON.parse(raw) as T;
-  } catch {
+  } catch (error) {
+    warnOperation("get", key, error);
     return null;
   }
 }
@@ -75,8 +90,8 @@ export async function cacheSetJson(key: string, value: unknown, ttlSeconds: numb
     await client.set(keyName(key), JSON.stringify(value), {
       EX: Math.max(1, Math.floor(ttlSeconds))
     });
-  } catch {
-    // keep API path non-blocking when cache fails
+  } catch (error) {
+    warnOperation("set", key, error);
   }
 }
 
@@ -86,8 +101,8 @@ export async function cacheDelete(key: string): Promise<void> {
 
   try {
     await client.del(keyName(key));
-  } catch {
-    // no-op
+  } catch (error) {
+    warnOperation("del", key, error);
   }
 }
 

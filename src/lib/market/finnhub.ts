@@ -9,6 +9,9 @@ import {
 } from "@/lib/market/adapter-utils";
 
 const FINNHUB_FETCH_TIMEOUT_MS = 4_500;
+const FINNHUB_AUTH_DISABLE_TTL_MS = 10 * 60_000;
+let finnhubAuthDisabledUntil = 0;
+let finnhubAuthWarnedAt = 0;
 
 interface FinnhubRecommendationRow {
   buy?: number;
@@ -119,8 +122,13 @@ export function isFinnhubConfigured(): boolean {
  */
 async function fetchFinnhub<T>(endpoint: string, query: Record<string, string>): Promise<T | null> {
   const tokens = getFinnhubApiKeys();
+  const failureReasons: Array<{ kind: "http" | "invalid-payload" | "network"; message: string; status?: number }> = [];
 
   if (tokens.length === 0) {
+    return null;
+  }
+
+  if (Date.now() < finnhubAuthDisabledUntil) {
     return null;
   }
 
@@ -137,6 +145,9 @@ async function fetchFinnhub<T>(endpoint: string, query: Record<string, string>):
       isInvalidPayload: (value) => {
         if (typeof value !== "object" || value === null) return false;
         return typeof (value as Record<string, unknown>).error === "string";
+      },
+      onError: (error) => {
+        failureReasons.push(error);
       }
     });
 
@@ -145,6 +156,20 @@ async function fetchFinnhub<T>(endpoint: string, query: Record<string, string>):
     }
 
     return payload as T;
+  }
+
+  if (failureReasons.some((failure) => failure.status === 401 || failure.status === 403)) {
+    finnhubAuthDisabledUntil = Date.now() + FINNHUB_AUTH_DISABLE_TTL_MS;
+    if (Date.now() - finnhubAuthWarnedAt > FINNHUB_AUTH_DISABLE_TTL_MS) {
+      finnhubAuthWarnedAt = Date.now();
+      console.warn("[Finnhub Adapter]: auth unavailable (401/403). Suppressing Finnhub requests for 10m.");
+    }
+  }
+
+  if (failureReasons.length > 0) {
+    console.warn(
+      `[Finnhub Adapter]: ${endpoint} exhausted ${tokens.length} key(s). Last failure: ${failureReasons[failureReasons.length - 1].kind}:${failureReasons[failureReasons.length - 1].message}`
+    );
   }
 
   return null;

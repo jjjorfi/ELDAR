@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { runRouteGuards } from "@/lib/api/route-security";
 import { getFetchSignal } from "@/lib/market/adapter-utils";
+import { fetchTemporaryHistoryFallback } from "@/lib/market/temporary-fallbacks";
 import { isTop100Sp500Symbol } from "@/lib/market/top100";
 import { sanitizeSymbol } from "@/lib/utils";
 
@@ -25,6 +26,11 @@ interface PriceHistoryPayload {
 interface ParsedChartRows {
   points: PricePoint[];
   latestPrice: number | null;
+}
+
+interface HistoryFallbackPoint {
+  date: Date;
+  close: number | null;
 }
 
 const RANGE_MAP: Record<PriceRange, { range: string; interval: string }> = {
@@ -108,6 +114,16 @@ function computeChangePercent(points: PricePoint[], latestPrice: number | null):
   return ((last - first) / first) * 100;
 }
 
+function mapFallbackHistory(points: HistoryFallbackPoint[]): PricePoint[] {
+  return points
+    .filter((point): point is { date: Date; close: number } => point.close !== null && point.close > 0)
+    .map((point) => ({
+      time: point.date.toISOString(),
+      price: point.close
+    }))
+    .sort((a, b) => Date.parse(a.time) - Date.parse(b.time));
+}
+
 export async function GET(request: Request): Promise<NextResponse> {
   const blocked = await runRouteGuards(request, {
     bucket: "api-price-history",
@@ -140,20 +156,42 @@ export async function GET(request: Request): Promise<NextResponse> {
     yahooUrl.searchParams.set("range", config.range);
     yahooUrl.searchParams.set("interval", config.interval);
 
-    const response = await fetch(yahooUrl.toString(), {
-      cache: "no-store",
-      signal: getFetchSignal(FETCH_TIMEOUT_MS),
-      headers: {
-        "User-Agent": "Mozilla/5.0"
-      }
-    });
+    let points: PricePoint[] = [];
+    let latestPrice: number | null = null;
 
-    if (!response.ok) {
-      throw new Error(`Yahoo chart request failed (${response.status})`);
+    try {
+      const response = await fetch(yahooUrl.toString(), {
+        cache: "no-store",
+        signal: getFetchSignal(FETCH_TIMEOUT_MS),
+        headers: {
+          "User-Agent": "Mozilla/5.0"
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Yahoo chart request failed (${response.status})`);
+      }
+
+      const payload = (await response.json()) as unknown;
+      const parsed = parseRows(payload);
+      points = parsed.points;
+      latestPrice = parsed.latestPrice;
+    } catch (error) {
+      console.warn(`[Price History API]: Yahoo failed for ${symbol} ${range}. Falling back to temporary providers.`, error);
     }
 
-    const payload = (await response.json()) as unknown;
-    const { points, latestPrice } = parseRows(payload);
+    if (points.length < 2) {
+      // Temporary patch: use free-tier history bridges while premium market-data
+      // rates are not yet in place.
+      const fallback = await fetchTemporaryHistoryFallback(symbol, {
+        range: config.range,
+        interval: config.interval,
+        minimumPoints: range === "1W" ? 2 : range === "1M" ? 15 : range === "3M" ? 45 : 220
+      });
+      points = mapFallbackHistory(fallback.points);
+      latestPrice = points[points.length - 1]?.price ?? latestPrice;
+    }
+
     const result: PriceHistoryPayload = {
       symbol,
       range,

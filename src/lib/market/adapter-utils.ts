@@ -53,6 +53,12 @@ export interface FetchJsonOptions {
   headers?: Record<string, string>;
   /** Optional payload validator to reject provider-level error payloads. */
   isInvalidPayload?: (payload: unknown) => boolean;
+  /** Optional callback for callers that need diagnostics when the fetch degrades to null. */
+  onError?: (error: {
+    kind: "http" | "invalid-payload" | "network";
+    message: string;
+    status?: number;
+  }) => void;
 }
 
 const DEFAULT_NULL_LITERALS = new Set(["", "-", "none", "n/a", "na", "null", "undefined"]);
@@ -269,16 +275,30 @@ export async function fetchJsonOrNull<T>(
     });
 
     if (!response.ok) {
+      options.onError?.({
+        kind: "http",
+        status: response.status,
+        message: `HTTP ${response.status}`
+      });
       return null;
     }
 
     const payload = (await response.json()) as unknown;
     if (options.isInvalidPayload?.(payload)) {
+      options.onError?.({
+        kind: "invalid-payload",
+        message: "Provider payload rejected by validator"
+      });
       return null;
     }
 
     return payload as T;
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown fetch error";
+    options.onError?.({
+      kind: "network",
+      message
+    });
     return null;
   }
 }

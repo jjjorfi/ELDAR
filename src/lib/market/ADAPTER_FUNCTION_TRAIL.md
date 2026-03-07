@@ -3,6 +3,10 @@
 Purpose: quick refactor trail for future sessions. This maps each market adapter function to one responsibility.
 Scope: shared adapter utilities + Alpha Vantage, EODHD, FMP, Finnhub, Massive adapters.
 
+Temporary patch note: `twelvedata.ts`, `google-finance.ts`, `marketstack.ts`, and `temporary-fallbacks.ts`
+exist only to keep quote/history UX stable while premium data rates are still
+pending. They should stay easy to remove later.
+
 ## `adapter-utils.ts`
 - `readEnvToken(name)`: returns trimmed env token or null.
 - `parseOptionalNumber(value, options)`: parses mixed string/number payload values into finite numbers.
@@ -105,3 +109,20 @@ Scope: shared adapter utilities + Alpha Vantage, EODHD, FMP, Finnhub, Massive ad
 - `fetchMassiveShortInterest(symbol)`: latest short-interest snapshot.
 - `fetchMassiveQuoteSnapshot(symbol)`: quote snapshot with fallback between endpoints.
 - `fetchMassiveQuotePrice(symbol)`: quote-price convenience wrapper.
+
+## `twelvedata.ts`
+- `isTwelveDataConfigured()`: provider-config check.
+- `fetchTwelveDataQuoteSnapshot(symbol)`: temporary quote fallback with price, dp%, timestamp.
+- `fetchTwelveDataDailyHistory(symbol, outputSize)`: temporary daily history fallback.
+
+## `marketstack.ts`
+- `isMarketstackConfigured()`: provider-config check.
+- `fetchMarketstackQuoteSnapshot(symbol)`: temporary EOD quote fallback.
+- `fetchMarketstackDailyHistory(symbol, lookbackDays)`: temporary EOD history fallback.
+
+## `google-finance.ts`
+- `fetchGoogleFinanceQuoteSnapshot(symbol)`: temporary scraped quote fallback from Google Finance pages.
+
+## `temporary-fallbacks.ts`
+- `fetchTemporaryQuoteFallback(symbol)`: centralized temporary quote bridge.
+- `fetchTemporaryHistoryFallback(symbol, options)`: centralized temporary history bridge.

@@ -41,6 +41,10 @@ export interface FmpEarningsItem {
 const FMP_STABLE_BASE_URL = "https://financialmodelingprep.com/stable";
 const FMP_V3_BASE_URL = "https://financialmodelingprep.com/api/v3";
 const FMP_FETCH_TIMEOUT_MS = 4_500;
+const FMP_AUTH_DISABLE_TTL_MS = 10 * 60_000;
+const FMP_RATE_LIMIT_DISABLE_TTL_MS = 60_000;
+let fmpDisabledUntil = 0;
+let fmpWarnedAt = 0;
 
 /**
  * Reads the configured FMP API key.
@@ -81,8 +85,13 @@ function asString(value: unknown): string | null {
  */
 async function fetchFmp<T>(baseUrl: string, path: string, params: Record<string, string> = {}): Promise<T | null> {
   const apiKey = fmpApiKey();
+  let terminalStatus: number | null = null;
 
   if (!apiKey) {
+    return null;
+  }
+
+  if (Date.now() < fmpDisabledUntil) {
     return null;
   }
 
@@ -93,13 +102,31 @@ async function fetchFmp<T>(baseUrl: string, path: string, params: Record<string,
     ...params
   });
 
-  return fetchJsonOrNull<T>(url, {
+  const payload = await fetchJsonOrNull<T>(url, {
     timeoutMs: FMP_FETCH_TIMEOUT_MS,
     revalidateSeconds: 300,
     headers: {
       "User-Agent": "Mozilla/5.0"
+    },
+    onError: (error) => {
+      if (error.status === 401 || error.status === 402 || error.status === 403 || error.status === 429) {
+        terminalStatus = error.status;
+      }
     }
   });
+
+  if (terminalStatus !== null) {
+    const ttlMs = terminalStatus === 429 ? FMP_RATE_LIMIT_DISABLE_TTL_MS : FMP_AUTH_DISABLE_TTL_MS;
+    fmpDisabledUntil = Date.now() + ttlMs;
+    if (Date.now() - fmpWarnedAt > ttlMs) {
+      fmpWarnedAt = Date.now();
+      console.warn(
+        `[FMP Adapter]: provider unavailable (${terminalStatus}). Suppressing FMP requests for ${Math.round(ttlMs / 1000)}s.`
+      );
+    }
+  }
+
+  return payload;
 }
 
 interface FmpSearchRow {

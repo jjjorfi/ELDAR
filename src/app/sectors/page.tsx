@@ -1,31 +1,18 @@
 "use client";
 
 import clsx from "clsx";
-import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookText, BriefcaseBusiness, Grid2x2, Home, LineChart, Moon, Search, Sun } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isTop100Sp500Symbol } from "@/lib/market/top100";
-import { AppLeftSidebar } from "@/components/AppLeftSidebar";
-import { isPaletteOpenShortcut } from "@/lib/ui/command-palette";
 
-const ELDAR_BRAND_LOGO = "/brand/eldar-logo.png";
-const DASHBOARD_RETURN_STATE_KEY = "eldar:dashboard:return-state";
+import { AppPageHeader } from "@/components/AppPageHeader";
+import { AppPageShell } from "@/components/AppPageShell";
+import { useDashboardPaletteShortcut } from "@/hooks/useDashboardPaletteShortcut";
+import { useThemeMode } from "@/hooks/useThemeMode";
+import { GICS_SECTORS, GICS_SECTOR_ORDER } from "@/lib/market/gics-sectors";
+import { stashDashboardIntent } from "@/lib/ui/dashboard-intent";
+
 const LOCAL_SECTOR_SENTIMENT_STORAGE_KEY = "eldar:sectors:sentiment";
 const HOME_DASHBOARD_YTD_STORAGE_KEY = "eldar:home:dashboard:YTD";
-
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName.toLowerCase();
-  return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
-}
-
-interface SectorRow {
-  sector: string;
-  etf: string;
-  topTickers: string;
-  focusArea: string;
-}
 
 interface SectorSentimentItem {
   etf: string;
@@ -37,28 +24,9 @@ interface SectorSentimentItem {
 type SectorSortMode = "default" | "bias-desc" | "bias-asc" | "move-desc" | "move-asc";
 type SectorViewMode = "heatmap" | "table";
 
-const SECTOR_ROWS: SectorRow[] = [
-  { sector: "Information Tech", etf: "XLK", topTickers: "$AAPL, $MSFT, $NVDA, $AVGO", focusArea: "Software, Semi-conductors, Hardware" },
-  { sector: "Financials", etf: "XLF", topTickers: "$JPM, $BRK.B, $V, $MA, $BAC", focusArea: "Banks, Insurance, Payment Processors" },
-  { sector: "Health Care", etf: "XLV", topTickers: "$LLY, $UNH, $JNJ, $ABBV, $PFE", focusArea: "Pharma, Biotech, Managed Care" },
-  { sector: "Cons. Discretionary", etf: "XLY", topTickers: "$AMZN, $TSLA, $HD, $MCD, $NKE", focusArea: "E-commerce, Autos, Retail, Travel" },
-  { sector: "Comm. Services", etf: "XLC", topTickers: "$META, $GOOGL, $NFLX, $DIS, $VZ", focusArea: "Social Media, Search, Entertainment" },
-  { sector: "Industrials", etf: "XLI", topTickers: "$CAT, $GE, $UPS, $HON, $BA", focusArea: "Aerospace, Defense, Logistics, Machining" },
-  { sector: "Consumer Staples", etf: "XLP", topTickers: "$PG, $WMT, $KO, $PEP, $COST", focusArea: "Essential Goods, Beverages, Tobacco" },
-  { sector: "Energy", etf: "XLE", topTickers: "$XOM, $CVX, $COP, $SLB", focusArea: "Oil & Gas Exploration, Equipment" },
-  { sector: "Utilities", etf: "XLU", topTickers: "$NEE, $SO, $DUK, $SRE", focusArea: "Electric, Gas, & Water Providers" },
-  { sector: "Real Estate", etf: "XLRE", topTickers: "$PLD, $AMT, $EQIX, $PSA", focusArea: "REITs, Data Centers, Cell Towers" },
-  { sector: "Materials", etf: "XLB", topTickers: "$LIN, $SHW, $APD, $FCX", focusArea: "Chemicals, Mining, Construction Mat." }
-];
-
-const DEFAULT_ROW_ORDER: Record<string, number> = SECTOR_ROWS.reduce<Record<string, number>>((acc, row, index) => {
-  acc[row.etf] = index;
-  return acc;
-}, {});
-
 function createDefaultSentimentMap(): Record<string, SectorSentimentItem> {
   const map: Record<string, SectorSentimentItem> = {};
-  for (const row of SECTOR_ROWS) {
+  for (const row of GICS_SECTORS) {
     map[row.etf] = {
       etf: row.etf,
       changePercent: 0,
@@ -127,8 +95,8 @@ function readDashboardSectorSentimentMap(): Record<string, SectorSentimentItem> 
         };
       })
       .filter((item): item is SectorSentimentItem => item !== null);
-    if (items.length === 0) return null;
-    return toSectorSentimentMap(items);
+
+    return items.length > 0 ? toSectorSentimentMap(items) : null;
   } catch {
     return null;
   }
@@ -170,7 +138,6 @@ function nextSortMode(current: SectorSortMode, target: "bias" | "move"): SectorS
     if (current === "bias-asc") return "default";
     return "bias-desc";
   }
-
   if (current === "move-desc") return "move-asc";
   if (current === "move-asc") return "default";
   return "move-desc";
@@ -182,17 +149,9 @@ function sortLabel(mode: SectorSortMode, target: "bias" | "move"): "—" | "↓"
     if (mode === "bias-asc") return "↑";
     return "—";
   }
-
   if (mode === "move-desc") return "↓";
   if (mode === "move-asc") return "↑";
   return "—";
-}
-
-function extractTopTickers(raw: string): string[] {
-  return raw
-    .split(",")
-    .map((entry) => entry.trim().replace("$", "").toUpperCase())
-    .filter((symbol) => symbol.length > 0 && isTop100Sp500Symbol(symbol));
 }
 
 function heatTileTone(sentiment: "bullish" | "neutral" | "bearish"): string {
@@ -201,29 +160,10 @@ function heatTileTone(sentiment: "bullish" | "neutral" | "bearish"): string {
   return "border-white/15 bg-zinc-950/45";
 }
 
-function XBrandIcon(): JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
-      <path d="M18.901 1.153h3.68l-8.039 9.19L24 22.847h-7.406l-5.8-7.584-6.64 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932 6.064-6.932zM17.61 20.644h2.039L6.486 3.24H4.298z" />
-    </svg>
-  );
-}
-
-function TelegramBrandIcon(): JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
-      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.62 8.17-1.95 9.19c-.15.65-.54.81-1.09.5l-3.02-2.23-1.46 1.41c-.16.16-.3.3-.62.3l.22-3.11 5.66-5.11c.25-.22-.05-.34-.38-.12l-7 4.41-3.02-.94c-.66-.2-.67-.66.14-.97l11.79-4.55c.55-.2 1.03.13.85.93z" />
-    </svg>
-  );
-}
-
 export default function SectorsPage(): JSX.Element {
   const router = useRouter();
-  const menuRef = useRef<HTMLDivElement | null>(null);
   const fallbackSentimentMap = useMemo(() => createDefaultSentimentMap(), []);
-  const [themeMode, setThemeMode] = useState<"dark" | "light">("dark");
-  const [isMarketOpen, setIsMarketOpen] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [themeMode, setThemeMode] = useThemeMode();
   const [sentimentMap, setSentimentMap] = useState<Record<string, SectorSentimentItem>>(() => createDefaultSentimentMap());
   const [sentimentLoading, setSentimentLoading] = useState(true);
   const [sortMode, setSortMode] = useState<SectorSortMode>("default");
@@ -239,98 +179,26 @@ export default function SectorsPage(): JSX.Element {
       autoAnalyze?: boolean;
     }
   ): void => {
-    try {
-      const payload = {
-        savedAt: Date.now(),
-        isAppOpen: true,
-        view,
-        ticker: ticker?.trim().toUpperCase() ?? "",
-        openPalette: Boolean(options?.openPalette),
-        paletteAction: options?.paletteAction ?? "analyze",
-        autoAnalyze: Boolean(options?.autoAnalyze)
-      };
-      window.sessionStorage.setItem(DASHBOARD_RETURN_STATE_KEY, JSON.stringify(payload));
-    } catch {
-      // no-op
-    }
-
+    stashDashboardIntent(view, ticker ?? "", options);
     router.push("/");
   }, [router]);
 
-  function openMacroPage(): void {
+  const openMacroPage = useCallback((): void => {
     router.push("/macro");
-  }
+  }, [router]);
 
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem("eldar-theme-mode");
-      const mode = saved === "light" ? "light" : "dark";
-      setThemeMode(mode);
-      document.documentElement.dataset.theme = mode;
-    } catch {
-      document.documentElement.dataset.theme = "dark";
-    }
-  }, [openDashboardView]);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = themeMode;
-    try {
-      window.localStorage.setItem("eldar-theme-mode", themeMode);
-    } catch {
-      // no-op
-    }
-  }, [themeMode]);
-
-  useEffect(() => {
-    const handleOutside = (event: MouseEvent): void => {
-      if (!menuRef.current) return;
-      if (!menuRef.current.contains(event.target as Node)) {
-        setIsMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, [openDashboardView]);
+  useDashboardPaletteShortcut(() => openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" }));
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === "Escape" && activeSectorEtf) {
         event.preventDefault();
         setActiveSectorEtf(null);
-        return;
       }
-
-      if (isPaletteOpenShortcut(event)) {
-        if (isTypingTarget(event.target)) return;
-        event.preventDefault();
-        openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" });
-        return;
-      }
-      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
-      if (isTypingTarget(event.target)) return;
-      event.preventDefault();
-      openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" });
     };
-
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeSectorEtf, openDashboardView]);
-
-  useEffect(() => {
-    const refreshMarketStatus = (): void => {
-      const now = new Date();
-      const day = now.getDay();
-      const hour = now.getHours();
-      const minutes = now.getMinutes();
-      const open = day >= 1 && day <= 5 && (hour > 9 || (hour === 9 && minutes >= 30)) && hour < 16;
-      setIsMarketOpen(open);
-    };
-
-    refreshMarketStatus();
-    const interval = window.setInterval(refreshMarketStatus, 30_000);
-    return () => window.clearInterval(interval);
-  }, []);
+  }, [activeSectorEtf]);
 
   useEffect(() => {
     let cancelled = false;
@@ -353,7 +221,6 @@ export default function SectorsPage(): JSX.Element {
         });
         const payload = (await response.json()) as { sectors?: SectorSentimentItem[] };
         if (cancelled) return;
-
         const nextMap = toSectorSentimentMap(payload.sectors ?? []);
         setSentimentMap(nextMap);
         writeCachedSectorSentiment(payload.sectors ?? []);
@@ -382,7 +249,7 @@ export default function SectorsPage(): JSX.Element {
   }, []);
 
   const biasRankMap = useMemo(() => {
-    const ranked = [...SECTOR_ROWS].sort((left, right) => {
+    const ranked = [...GICS_SECTORS].sort((left, right) => {
       const leftSentiment = sentimentMap[left.etf]?.sentiment ?? "neutral";
       const rightSentiment = sentimentMap[right.etf]?.sentiment ?? "neutral";
       const scoreDelta = sentimentRank(rightSentiment) - sentimentRank(leftSentiment);
@@ -392,7 +259,7 @@ export default function SectorsPage(): JSX.Element {
       const rightMove = sentimentMap[right.etf]?.changePercent ?? 0;
       if (leftMove !== rightMove) return rightMove - leftMove;
 
-      return (DEFAULT_ROW_ORDER[left.etf] ?? 999) - (DEFAULT_ROW_ORDER[right.etf] ?? 999);
+      return (GICS_SECTOR_ORDER[left.etf] ?? 999) - (GICS_SECTOR_ORDER[right.etf] ?? 999);
     });
 
     const rankMap: Record<string, number> = {};
@@ -403,11 +270,11 @@ export default function SectorsPage(): JSX.Element {
   }, [sentimentMap]);
 
   const moveRankMap = useMemo(() => {
-    const ranked = [...SECTOR_ROWS].sort((left, right) => {
+    const ranked = [...GICS_SECTORS].sort((left, right) => {
       const leftMove = sentimentMap[left.etf]?.changePercent ?? 0;
       const rightMove = sentimentMap[right.etf]?.changePercent ?? 0;
       if (leftMove !== rightMove) return rightMove - leftMove;
-      return (DEFAULT_ROW_ORDER[left.etf] ?? 999) - (DEFAULT_ROW_ORDER[right.etf] ?? 999);
+      return (GICS_SECTOR_ORDER[left.etf] ?? 999) - (GICS_SECTOR_ORDER[right.etf] ?? 999);
     });
 
     const rankMap: Record<string, number> = {};
@@ -418,17 +285,13 @@ export default function SectorsPage(): JSX.Element {
   }, [sentimentMap]);
 
   const sortedRows = useMemo(() => {
-    const rows = [...SECTOR_ROWS];
-    if (sortMode === "default") {
-      return rows;
-    }
+    const rows = [...GICS_SECTORS];
+    if (sortMode === "default") return rows;
 
     return rows.sort((left, right) => {
       if (sortMode === "bias-desc" || sortMode === "bias-asc") {
-        const leftSentiment = sentimentMap[left.etf]?.sentiment ?? "neutral";
-        const rightSentiment = sentimentMap[right.etf]?.sentiment ?? "neutral";
-        const leftRank = sentimentRank(leftSentiment);
-        const rightRank = sentimentRank(rightSentiment);
+        const leftRank = sentimentRank(sentimentMap[left.etf]?.sentiment ?? "neutral");
+        const rightRank = sentimentRank(sentimentMap[right.etf]?.sentiment ?? "neutral");
         if (leftRank !== rightRank) {
           return sortMode === "bias-desc" ? rightRank - leftRank : leftRank - rightRank;
         }
@@ -442,306 +305,203 @@ export default function SectorsPage(): JSX.Element {
         }
       }
 
-      return (DEFAULT_ROW_ORDER[left.etf] ?? 999) - (DEFAULT_ROW_ORDER[right.etf] ?? 999);
+      return (GICS_SECTOR_ORDER[left.etf] ?? 999) - (GICS_SECTOR_ORDER[right.etf] ?? 999);
     });
   }, [sentimentMap, sortMode]);
 
   const activeSector = useMemo(() => {
     if (!activeSectorEtf) return null;
-    const row = SECTOR_ROWS.find((entry) => entry.etf === activeSectorEtf);
+    const row = GICS_SECTORS.find((entry) => entry.etf === activeSectorEtf);
     if (!row) return null;
-    const live = sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf];
-    return { row, live };
+    return {
+      row,
+      live: sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf]
+    };
   }, [activeSectorEtf, fallbackSentimentMap, sentimentMap]);
 
-  const appBackground = themeMode === "dark" ? "#000000" : "#e9e5dc";
-
   return (
-    <main className="min-h-screen overflow-x-hidden text-white" style={{ background: appBackground }}>
-      <AppLeftSidebar
-        activeView="sectors"
-        themeMode={themeMode}
-        loading={sentimentLoading}
-        defaultSearchValue=""
-        onQuickSearch={() => openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" })}
-        onOpenDashboard={() => openDashboardView("home")}
-        onOpenSectors={() => undefined}
-        onOpenMacro={openMacroPage}
-        onOpenJournal={() => router.push("/journal")}
-        onOpenPortfolio={() => openDashboardView("portfolio")}
-        onToggleTheme={() => setThemeMode((prev) => (prev === "dark" ? "light" : "dark"))}
-      />
-      <nav className="hidden fixed left-0 right-0 top-0 z-50 border-b border-white/15 bg-zinc-950/80 shadow-2xl shadow-black/50 backdrop-blur-2xl">
-        <div className="w-full px-6">
-          <div className="flex h-16 items-center justify-start gap-3">
-            <button type="button" onClick={() => router.push("/")} className="eldar-logo-button flex cursor-pointer items-center gap-3">
-              <div className="relative h-10 w-10 overflow-hidden">
-                <Image src={ELDAR_BRAND_LOGO} alt="ELDAR logo" fill sizes="40px" className="object-contain" priority />
-              </div>
+    <AppPageShell
+      activeView="sectors"
+      themeMode={themeMode}
+      loading={sentimentLoading}
+      defaultSearchValue=""
+      onQuickSearch={() => openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" })}
+      onOpenDashboard={() => openDashboardView("home")}
+      onOpenSectors={() => undefined}
+      onOpenMacro={openMacroPage}
+      onOpenJournal={() => router.push("/journal")}
+      onOpenPortfolio={() => openDashboardView("portfolio")}
+      onToggleTheme={() => setThemeMode((prev) => (prev === "dark" ? "light" : "dark"))}
+    >
+      <AppPageHeader
+        eyebrow="Market Structure"
+        title="Sectors"
+        subtitle={sentimentLoading ? "Loading live sector ranking." : "All 11 GICS sectors with uniform ranking, heatmap, and drill-down context."}
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => setViewMode("heatmap")}
+              className={clsx(
+                "h-9 rounded-xl border px-3 text-[10px] uppercase tracking-[0.12em] transition",
+                viewMode === "heatmap"
+                  ? "border-white/35 bg-white/10 text-white"
+                  : "border-white/20 bg-black/20 text-white/70 hover:text-white"
+              )}
+            >
+              Heatmap
             </button>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" })}
-                title="Search"
-                aria-label="Search"
-                className="eldar-chrome-glow eldar-btn-silver flex h-11 w-11 items-center justify-center rounded-2xl border text-slate-900 transition-all backdrop-blur-xl"
-              >
-                <Search className="h-4 w-4" />
-              </button>
-              <div className="relative" ref={menuRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsMenuOpen((prev) => !prev)}
-                  className={clsx(
-                    "eldar-chrome-glow flex h-11 w-11 items-center justify-center rounded-2xl border text-sm font-semibold transition-all backdrop-blur-xl",
-                    isMenuOpen ? "eldar-btn-ghost border-white/60 bg-white/10 text-white" : "eldar-btn-silver text-slate-900"
-                  )}
-                  title="Menu"
-                  aria-label="Menu"
-                >
-                  <Home className="h-4 w-4" />
-                </button>
-                {isMenuOpen ? (
-                  <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-44 overflow-hidden rounded-2xl border border-white/20 bg-zinc-950/90 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-2xl">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        openDashboardView("home");
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <Home className="h-4 w-4" />
-                      Home
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white transition hover:bg-white/10"
-                    >
-                      <Grid2x2 className="h-4 w-4" />
-                      Sectors
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        openMacroPage();
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <LineChart className="h-4 w-4" />
-                      Macro
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        router.push("/journal");
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <BookText className="h-4 w-4" />
-                      Journal
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        openDashboardView("portfolio");
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <BriefcaseBusiness className="h-4 w-4" />
-                      Portfolio
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={clsx(
+                "h-9 rounded-xl border px-3 text-[10px] uppercase tracking-[0.12em] transition",
+                viewMode === "table"
+                  ? "border-white/35 bg-white/10 text-white"
+                  : "border-white/20 bg-black/20 text-white/70 hover:text-white"
+              )}
+            >
+              Table
+            </button>
+            <button
+              type="button"
+              onClick={() => openDashboardView("home", "SPY", { autoAnalyze: true })}
+              className="primary-cta h-9 rounded-xl border px-3 text-[10px] uppercase tracking-[0.12em] text-white transition"
+            >
+              Compare to SPY
+            </button>
+          </>
+        }
+      />
 
-      <div className="container mx-auto px-6 pb-20 pl-[104px] pr-10 pt-6">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <h1 className="eldar-display text-2xl font-bold tracking-[0.14em] text-white md:text-3xl">SECTORS</h1>
-            <div className="flex items-center gap-2">
-              <p className="text-xs uppercase tracking-[0.14em] text-white/60">
-                {sentimentLoading ? "Loading live sectors..." : "Live sector ranking"}
-              </p>
-              <button
-                type="button"
-                onClick={() => setViewMode("heatmap")}
-                className={clsx(
-                  "h-8 border px-3 text-[10px] uppercase tracking-[0.12em] transition",
-                  viewMode === "heatmap"
-                    ? "border-amber-300/35 bg-amber-200/10 text-amber-100"
-                    : "border-white/20 bg-black/20 text-white/70 hover:text-white"
-                )}
-              >
-                Heatmap
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("table")}
-                className={clsx(
-                  "h-8 border px-3 text-[10px] uppercase tracking-[0.12em] transition",
-                  viewMode === "table"
-                    ? "border-amber-300/35 bg-amber-200/10 text-amber-100"
-                    : "border-white/20 bg-black/20 text-white/70 hover:text-white"
-                )}
-              >
-                Table
-              </button>
-              <button
-                type="button"
-                onClick={() => openDashboardView("home", "SPY", { autoAnalyze: true })}
-                className="primary-cta h-8 border px-3 text-[10px] uppercase tracking-[0.12em] text-[#FFBF00] transition"
-              >
-                Compare to SPY
-              </button>
-            </div>
-          </div>
+      {viewMode === "heatmap" ? (
+        <div className="grid gap-3 p-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {sortedRows.map((row, index) => {
+            const live = sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf];
+            const moveValue = typeof live.changePercent === "number" ? live.changePercent : 0;
+            const biasRank = biasRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
+            const moveRank = moveRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
 
-          {viewMode === "heatmap" ? (
-            <div className="grid gap-3 p-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {sortedRows.map((row, index) => {
-                const live = sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf];
-                const sentiment = live.sentiment;
-                const moveValue = typeof live.changePercent === "number" ? live.changePercent : 0;
-                const biasRank = biasRankMap[row.etf] ?? (DEFAULT_ROW_ORDER[row.etf] ?? 0) + 1;
-                const moveRank = moveRankMap[row.etf] ?? (DEFAULT_ROW_ORDER[row.etf] ?? 0) + 1;
-                return (
-                  <div
-                    key={`tile-${row.etf}`}
+            return (
+              <button
+                key={`tile-${row.etf}`}
+                type="button"
+                className={clsx(
+                  "eldar-panel min-h-[148px] px-5 py-4 text-left transition hover:border-white/30",
+                  heatTileTone(live.sentiment)
+                )}
+                onClick={() => setActiveSectorEtf(row.etf)}
+                style={{ animation: `fadeUp 0.4s ease-out ${Math.min(index, 10) * 0.05}s both` }}
+              >
+                <div className="mb-2">
+                  <p className="text-[9px] uppercase tracking-[0.14em] text-white/45">
+                    #{biasRank} · {row.etf}
+                  </p>
+                  <p className="mt-2 text-base font-bold text-white">{row.displayName}</p>
+                </div>
+                <div className="mt-5">
+                  <p
                     className={clsx(
-                      "eldar-panel min-h-[148px] cursor-pointer px-5 py-4 text-left transition hover:border-white/30",
-                      heatTileTone(sentiment)
+                      "text-2xl font-black",
+                      moveValue > 0 ? "text-emerald-300" : moveValue < 0 ? "text-red-300" : "text-white/75"
                     )}
-                    onClick={() => setActiveSectorEtf(row.etf)}
-                    style={{ animation: `fadeUp 0.4s ease-out ${Math.min(index, 10) * 0.05}s both` }}
                   >
-                    <div className="mb-2">
-                      <p className="text-[9px] uppercase tracking-[0.14em] text-white/45">
-                        #{biasRank} · {row.etf}
-                      </p>
-                      <p className="mt-2 text-base font-bold text-white">{row.sector}</p>
-                    </div>
-                    <div className="mt-5">
-                      <p
-                        className={clsx(
-                          "text-2xl font-black",
-                          moveValue > 0 ? "text-emerald-300" : moveValue < 0 ? "text-red-300" : "text-white/75"
-                        )}
-                      >
-                        {moveValue > 0 ? "+" : ""}
-                        {moveValue.toFixed(2)}%
-                      </p>
-                      <p className={clsx("mt-1 text-[10px] font-semibold uppercase tracking-[0.12em]", sentimentClass(sentiment))}>
-                        {sentimentLabel(sentiment)}
-                        <span className="ml-2 text-white/50">#{moveRank}</span>
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="eldar-panel overflow-hidden rounded-3xl">
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead className="border-b border-white/15 bg-white/[0.04]">
-                    <tr className="text-left text-xs uppercase tracking-[0.14em] text-white/70">
-                      <th className="px-4 py-3">Sector</th>
-                      <th className="px-4 py-3">ETF</th>
-                      <th className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => setSortMode((prev) => nextSortMode(prev, "bias"))}
-                          className="inline-flex items-center gap-2 text-left transition hover:text-white"
-                        >
-                          Bias
-                          <span className="text-[11px] text-white/55">{sortLabel(sortMode, "bias")}</span>
-                        </button>
-                      </th>
-                      <th className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => setSortMode((prev) => nextSortMode(prev, "move"))}
-                          className="inline-flex items-center gap-2 text-left transition hover:text-white"
-                        >
-                          Move
-                          <span className="text-[11px] text-white/55">{sortLabel(sortMode, "move")}</span>
-                        </button>
-                      </th>
-                      <th className="px-4 py-3">Top $Tickers</th>
-                      <th className="px-4 py-3">Focus Area</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedRows.map((row) => {
-                      const live = sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf];
-                      const sentiment = live.sentiment;
-                      const moveValue = typeof live.changePercent === "number" ? live.changePercent : 0;
-                      const move = `${moveValue > 0 ? "+" : ""}${moveValue.toFixed(2)}%`;
-                      const biasRank = biasRankMap[row.etf] ?? (DEFAULT_ROW_ORDER[row.etf] ?? 0) + 1;
-                      const moveRank = moveRankMap[row.etf] ?? (DEFAULT_ROW_ORDER[row.etf] ?? 0) + 1;
-
-                      return (
-                        <tr
-                          key={row.sector}
-                          className="cursor-pointer border-b border-white/10 text-sm text-white/90 transition hover:bg-white/[0.03]"
-                          onClick={() => setActiveSectorEtf(row.etf)}
-                        >
-                          <td className="px-4 py-3 font-semibold">{row.sector}</td>
-                          <td className="px-4 py-3 font-mono text-white/80">{row.etf}</td>
-                          <td className="px-4 py-3 font-semibold">
-                            <span className={sentimentClass(sentiment)}>{sentimentLabel(sentiment)}</span>
-                            <span className="ml-2 font-mono text-[10px] text-white/50">#{biasRank}</span>
-                          </td>
-                          <td className="px-4 py-3 font-mono">
-                            <span
-                              className={clsx(
-                                moveValue > 0 ? "text-emerald-300" : moveValue < 0 ? "text-red-300" : "text-white/75"
-                              )}
-                            >
-                              {move}
-                            </span>
-                            <span className="ml-2 text-[10px] text-white/50">#{moveRank}</span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-1.5">
-                              {extractTopTickers(row.topTickers).map((symbol) => (
-                                <button
-                                  key={`${row.etf}-${symbol}`}
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    openDashboardView("home", symbol, { autoAnalyze: true });
-                                  }}
-                                  className="rounded-md border border-white/15 bg-white/[0.04] px-2 py-1 font-mono text-[10px] text-white/75 transition hover:border-white/35 hover:text-white"
-                                >
-                                  {symbol}
-                                </button>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-white/75">{row.focusArea}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+                    {moveValue > 0 ? "+" : ""}
+                    {moveValue.toFixed(2)}%
+                  </p>
+                  <p className={clsx("mt-1 text-[10px] font-semibold uppercase tracking-[0.12em]", sentimentClass(live.sentiment))}>
+                    {sentimentLabel(live.sentiment)}
+                    <span className="ml-2 text-white/50">#{moveRank}</span>
+                  </p>
+                </div>
+              </button>
+            );
+          })}
         </div>
-      </div>
+      ) : (
+        <div className="eldar-panel overflow-hidden rounded-3xl">
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead className="border-b border-white/15 bg-white/[0.04]">
+                <tr className="text-left text-xs uppercase tracking-[0.14em] text-white/70">
+                  <th className="px-4 py-3">Sector</th>
+                  <th className="px-4 py-3">ETF</th>
+                  <th className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => setSortMode((prev) => nextSortMode(prev, "bias"))}
+                      className="inline-flex items-center gap-2 text-left transition hover:text-white"
+                    >
+                      Bias
+                      <span className="text-[11px] text-white/55">{sortLabel(sortMode, "bias")}</span>
+                    </button>
+                  </th>
+                  <th className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => setSortMode((prev) => nextSortMode(prev, "move"))}
+                      className="inline-flex items-center gap-2 text-left transition hover:text-white"
+                    >
+                      Move
+                      <span className="text-[11px] text-white/55">{sortLabel(sortMode, "move")}</span>
+                    </button>
+                  </th>
+                  <th className="px-4 py-3">Top Tickers</th>
+                  <th className="px-4 py-3">Focus Area</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedRows.map((row) => {
+                  const live = sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf];
+                  const moveValue = typeof live.changePercent === "number" ? live.changePercent : 0;
+                  const biasRank = biasRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
+                  const moveRank = moveRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
+
+                  return (
+                    <tr
+                      key={row.etf}
+                      className="cursor-pointer border-b border-white/10 text-sm text-white/90 transition hover:bg-white/[0.03]"
+                      onClick={() => setActiveSectorEtf(row.etf)}
+                    >
+                      <td className="px-4 py-3 font-semibold">{row.sector}</td>
+                      <td className="px-4 py-3 font-mono text-white/80">{row.etf}</td>
+                      <td className="px-4 py-3 font-semibold">
+                        <span className={sentimentClass(live.sentiment)}>{sentimentLabel(live.sentiment)}</span>
+                        <span className="ml-2 font-mono text-[10px] text-white/50">#{biasRank}</span>
+                      </td>
+                      <td className="px-4 py-3 font-mono">
+                        <span className={clsx(moveValue > 0 ? "text-emerald-300" : moveValue < 0 ? "text-red-300" : "text-white/75")}>
+                          {moveValue > 0 ? "+" : ""}
+                          {moveValue.toFixed(2)}%
+                        </span>
+                        <span className="ml-2 text-[10px] text-white/50">#{moveRank}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1.5">
+                          {row.topTickers.map((symbol) => (
+                            <button
+                              key={`${row.etf}-${symbol}`}
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openDashboardView("home", symbol, { autoAnalyze: true });
+                              }}
+                              className="rounded-md border border-white/15 bg-white/[0.04] px-2 py-1 font-mono text-[10px] text-white/75 transition hover:border-white/35 hover:text-white"
+                            >
+                              {symbol}
+                            </button>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-white/75">{row.focusArea}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {activeSector ? (
         <div className="fixed inset-0 z-[95]">
@@ -796,7 +556,7 @@ export default function SectorsPage(): JSX.Element {
               <div className="rounded-xl border border-white/12 bg-black/25 p-3">
                 <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Top Tickers</p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {extractTopTickers(activeSector.row.topTickers).map((symbol) => (
+                  {activeSector.row.topTickers.map((symbol) => (
                     <button
                       key={`drawer-${activeSector.row.etf}-${symbol}`}
                       type="button"
@@ -812,50 +572,6 @@ export default function SectorsPage(): JSX.Element {
           </aside>
         </div>
       ) : null}
-
-      <footer className="hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/15 bg-zinc-950/80 shadow-2xl shadow-black/50 backdrop-blur-2xl">
-        <div className="container mx-auto px-6">
-          <div className="flex h-10 items-center justify-between">
-            <div className="flex items-center gap-2" />
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setThemeMode((prev) => (prev === "dark" ? "light" : "dark"))}
-                className={clsx(
-                  "eldar-theme-toggle rounded-lg border p-1.5 transition",
-                  themeMode === "dark"
-                    ? "border-amber-300/45 bg-amber-200/10 text-[#F5C451] hover:border-amber-200/75 hover:bg-amber-200/18"
-                    : "border-sky-200/45 bg-sky-100/12 text-[#BCD4FF] hover:border-sky-100/75 hover:bg-sky-100/22"
-                )}
-                aria-label="Toggle theme"
-                title="Toggle theme"
-              >
-                {themeMode === "dark" ? <Sun className="eldar-theme-glyph h-3.5 w-3.5" /> : <Moon className="eldar-theme-glyph h-3.5 w-3.5" />}
-              </button>
-              <a
-                href="https://x.com/ELDAR_AI?s=20"
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-lg border border-white/20 bg-white/5 p-1.5 text-white/80 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
-                aria-label="X"
-                title="X"
-              >
-                <XBrandIcon />
-              </a>
-              <a
-                href="https://t.me"
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-lg border border-white/20 bg-white/5 p-1.5 text-white/80 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
-                aria-label="Telegram"
-                title="Telegram"
-              >
-                <TelegramBrandIcon />
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
-    </main>
+    </AppPageShell>
   );
 }

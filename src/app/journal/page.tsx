@@ -2,23 +2,16 @@
 
 import clsx from "clsx";
 import { useAuth } from "@clerk/nextjs";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookText, BriefcaseBusiness, Grid2x2, Home, LineChart, Lock, Plus, Search, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Lock, Plus, Search, Trash2, X } from "lucide-react";
 
 import type { JournalEntry, JournalReviewStats, SetupQuality, TradeStatus } from "@/lib/journal/types";
-import { AppLeftSidebar } from "@/components/AppLeftSidebar";
-import { isPaletteOpenShortcut } from "@/lib/ui/command-palette";
-
-const ELDAR_BRAND_LOGO = "/brand/eldar-logo.png";
-const DASHBOARD_RETURN_STATE_KEY = "eldar:dashboard:return-state";
-
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName.toLowerCase();
-  return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
-}
+import { AppPageHeader } from "@/components/AppPageHeader";
+import { AppPageShell } from "@/components/AppPageShell";
+import { useDashboardPaletteShortcut } from "@/hooks/useDashboardPaletteShortcut";
+import { useThemeMode } from "@/hooks/useThemeMode";
+import { stashDashboardIntent } from "@/lib/ui/dashboard-intent";
 
 type JournalTab = "active" | "closed" | "review";
 type ClosedSortKey = "createdAt" | "returnPct" | "setupQuality";
@@ -118,11 +111,9 @@ function StatCard({ label, value }: { label: string; value: string }): JSX.Eleme
 
 export default function JournalPage(): JSX.Element {
   const router = useRouter();
-  const menuRef = useRef<HTMLDivElement | null>(null);
   const { isSignedIn } = useAuth();
 
-  const [themeMode, setThemeMode] = useState<"dark" | "light">("dark");
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [themeMode, setThemeMode] = useThemeMode();
   const [tab, setTab] = useState<JournalTab>("active");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<ClosedSortKey>("createdAt");
@@ -153,71 +144,11 @@ export default function JournalPage(): JSX.Element {
       autoAnalyze?: boolean;
     }
   ): void => {
-    try {
-      const payload = {
-        savedAt: Date.now(),
-        isAppOpen: true,
-        view,
-        ticker: ticker?.trim().toUpperCase() ?? "",
-        openPalette: Boolean(options?.openPalette),
-        paletteAction: options?.paletteAction ?? "analyze",
-        autoAnalyze: Boolean(options?.autoAnalyze)
-      };
-      window.sessionStorage.setItem(DASHBOARD_RETURN_STATE_KEY, JSON.stringify(payload));
-    } catch {
-      // no-op
-    }
+    stashDashboardIntent(view, ticker ?? "", options);
     router.push("/");
   }, [router]);
 
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem("eldar-theme-mode");
-      const mode = saved === "light" ? "light" : "dark";
-      setThemeMode(mode);
-      document.documentElement.dataset.theme = mode;
-    } catch {
-      document.documentElement.dataset.theme = "dark";
-    }
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = themeMode;
-    try {
-      window.localStorage.setItem("eldar-theme-mode", themeMode);
-    } catch {
-      // no-op
-    }
-  }, [themeMode]);
-
-  useEffect(() => {
-    const handleOutside = (event: MouseEvent): void => {
-      if (!menuRef.current) return;
-      if (!menuRef.current.contains(event.target as Node)) {
-        setIsMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, []);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (isPaletteOpenShortcut(event)) {
-        if (isTypingTarget(event.target)) return;
-        event.preventDefault();
-        openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" });
-        return;
-      }
-      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
-      if (isTypingTarget(event.target)) return;
-      event.preventDefault();
-      openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" });
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [openDashboardView]);
+  useDashboardPaletteShortcut(() => openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" }));
 
   const loadEntries = async (): Promise<void> => {
     if (!isSignedIn) {
@@ -995,162 +926,67 @@ export default function JournalPage(): JSX.Element {
   };
 
   return (
-    <main className="min-h-screen overflow-x-hidden text-white" style={{ background: themeMode === "dark" ? "#000000" : "#e9e5dc" }}>
-      <AppLeftSidebar
-        activeView="journal"
-        themeMode={themeMode}
-        loading={loading}
-        defaultSearchValue=""
-        onQuickSearch={() => openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" })}
-        onOpenDashboard={() => openDashboardView("home")}
-        onOpenSectors={() => router.push("/sectors")}
-        onOpenMacro={() => router.push("/macro")}
-        onOpenJournal={() => undefined}
-        onOpenPortfolio={() => openDashboardView("portfolio")}
-        onToggleTheme={() => setThemeMode((prev) => (prev === "dark" ? "light" : "dark"))}
+    <AppPageShell
+      activeView="journal"
+      themeMode={themeMode}
+      loading={loading}
+      defaultSearchValue=""
+      onQuickSearch={() => openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" })}
+      onOpenDashboard={() => openDashboardView("home")}
+      onOpenSectors={() => router.push("/sectors")}
+      onOpenMacro={() => router.push("/macro")}
+      onOpenJournal={() => undefined}
+      onOpenPortfolio={() => openDashboardView("portfolio")}
+      onToggleTheme={() => setThemeMode((prev) => (prev === "dark" ? "light" : "dark"))}
+      contentClassName="pb-12"
+    >
+      <AppPageHeader
+        eyebrow="Decision Log"
+        title="Investment Journal"
+        subtitle="Capture one trade decision through six structured steps."
+        actions={
+          <button
+            type="button"
+            onClick={() => setNewTradeOpen(true)}
+            className="eldar-btn-silver primary-cta inline-flex h-11 items-center gap-2 rounded-xl border px-4 text-sm font-semibold"
+          >
+            <Plus className="h-4 w-4" />
+            New trade
+          </button>
+        }
       />
-      <nav className="hidden fixed left-0 right-0 top-0 z-50 border-b border-white/15 bg-zinc-950/80 shadow-2xl shadow-black/50 backdrop-blur-2xl">
-        <div className="w-full px-6">
-          <div className="flex h-16 items-center justify-start gap-3">
-            <button type="button" onClick={() => openDashboardView("home")} className="eldar-logo-button flex cursor-pointer items-center gap-3">
-              <div className="relative h-10 w-10 overflow-hidden">
-                <Image src={ELDAR_BRAND_LOGO} alt="ELDAR logo" fill sizes="40px" className="object-contain" priority />
-              </div>
-            </button>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => openDashboardView("home", "", { openPalette: true, paletteAction: "analyze" })}
-                title="Search"
-                aria-label="Search"
-                className="eldar-chrome-glow eldar-btn-silver flex h-11 w-11 items-center justify-center rounded-2xl border text-slate-900 transition-all backdrop-blur-xl"
-              >
-                <Search className="h-4 w-4" />
-              </button>
 
-              <div className="relative" ref={menuRef}>
-                <button
-                  onClick={() => setIsMenuOpen((prev) => !prev)}
-                  title="Menu"
-                  aria-label="Menu"
-                  className={clsx(
-                    "eldar-chrome-glow flex h-11 w-11 items-center justify-center rounded-2xl border text-sm font-semibold transition-all backdrop-blur-xl",
-                    isMenuOpen ? "eldar-btn-ghost border-white/60 bg-white/10 text-white" : "eldar-btn-silver text-slate-900"
-                  )}
-                >
-                  <Home className="h-4 w-4" />
-                </button>
-                {isMenuOpen ? (
-                  <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-44 overflow-hidden rounded-2xl border border-white/20 bg-zinc-950/90 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-2xl">
-                    <button
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        openDashboardView("home");
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <Home className="h-4 w-4" />
-                      Home
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        router.push("/sectors");
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <Grid2x2 className="h-4 w-4" />
-                      Sectors
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        router.push("/macro");
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <LineChart className="h-4 w-4" />
-                      Macro
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        router.push("/journal");
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <BookText className="h-4 w-4" />
-                      Journal
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        openDashboardView("portfolio");
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <BriefcaseBusiness className="h-4 w-4" />
-                      Portfolio
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-
-            </div>
-          </div>
+      {!isSignedIn ? (
+        <div className="rounded-2xl border border-white/15 bg-zinc-950/50 p-6">
+          <p className="text-base text-white/85">Sign in to access your private investment journal.</p>
         </div>
-      </nav>
-
-      <div className="container mx-auto px-6 pb-12 pl-[104px] pr-10 pt-6">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight md:text-4xl">INVESTMENT JOURNAL</h1>
-              <p className="mt-1 text-sm text-white/65">Capture one trade decision through 6 steps.</p>
+      ) : (
+        <>
+          <div className="mb-4">
+            <div className="relative max-w-md">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search trades"
+                className="h-11 w-full rounded-xl border border-white/15 bg-zinc-950/50 pl-10 pr-3 text-sm text-white outline-none"
+              />
             </div>
-            <button
-              type="button"
-              onClick={() => setNewTradeOpen(true)}
-              className="eldar-btn-silver primary-cta inline-flex h-11 items-center gap-2 rounded-xl border px-4 text-sm font-semibold"
-            >
-              <Plus className="h-4 w-4" />
-              New trade
-            </button>
           </div>
 
-          {!isSignedIn ? (
-            <div className="rounded-2xl border border-white/15 bg-zinc-950/50 p-6">
-              <p className="text-base text-white/85">Sign in to access your private investment journal.</p>
-            </div>
+          {renderTabs()}
+          {error ? <p className="mb-4 text-sm text-red-300">{error}</p> : null}
+          {loading ? (
+            <div className="rounded-2xl border border-white/15 bg-zinc-950/45 px-6 py-12 text-sm text-white/70">Loading journal...</div>
+          ) : tab === "active" ? (
+            renderActiveTrades()
+          ) : tab === "closed" ? (
+            renderClosedTrades()
           ) : (
-            <>
-              <div className="mb-4">
-                <div className="relative max-w-md">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
-                  <input
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search trades"
-                    className="h-11 w-full rounded-xl border border-white/15 bg-zinc-950/50 pl-10 pr-3 text-sm text-white outline-none"
-                  />
-                </div>
-              </div>
-
-              {renderTabs()}
-              {error ? <p className="mb-4 text-sm text-red-300">{error}</p> : null}
-              {loading ? (
-                <div className="rounded-2xl border border-white/15 bg-zinc-950/45 px-6 py-12 text-sm text-white/70">Loading journal...</div>
-              ) : tab === "active" ? (
-                renderActiveTrades()
-              ) : tab === "closed" ? (
-                renderClosedTrades()
-              ) : (
-                renderReview()
-              )}
-            </>
+            renderReview()
           )}
-        </div>
-      </div>
+        </>
+      )}
 
       {newTradeOpen ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
@@ -1222,6 +1058,6 @@ export default function JournalPage(): JSX.Element {
       ) : null}
 
       {renderDrawer()}
-    </main>
+    </AppPageShell>
   );
 }

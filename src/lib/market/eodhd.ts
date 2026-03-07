@@ -32,6 +32,10 @@ export interface EodhdQuoteSnapshot {
 
 const EODHD_BASE_URL = "https://eodhd.com/api";
 const EODHD_FETCH_TIMEOUT_MS = 4_500;
+const EODHD_AUTH_DISABLE_TTL_MS = 10 * 60_000;
+const EODHD_RATE_LIMIT_DISABLE_TTL_MS = 60_000;
+let eodhdDisabledUntil = 0;
+let eodhdWarnedAt = 0;
 
 /**
  * Reads the configured EODHD API key from env.
@@ -101,8 +105,13 @@ function fromRecord(record: unknown): Record<string, unknown> {
  */
 async function fetchEodhd<T>(path: string, params: Record<string, string> = {}): Promise<T | null> {
   const apiKey = eodhdApiKey();
+  let terminalStatus: number | null = null;
 
   if (!apiKey) {
+    return null;
+  }
+
+  if (Date.now() < eodhdDisabledUntil) {
     return null;
   }
 
@@ -114,7 +123,7 @@ async function fetchEodhd<T>(path: string, params: Record<string, string> = {}):
     ...params
   });
 
-  return fetchJsonOrNull<T>(url, {
+  const payload = await fetchJsonOrNull<T>(url, {
     timeoutMs: EODHD_FETCH_TIMEOUT_MS,
     revalidateSeconds: 300,
     headers: {
@@ -125,8 +134,26 @@ async function fetchEodhd<T>(path: string, params: Record<string, string> = {}):
       if (typeof payload !== "object" || payload === null) return false;
       const record = payload as Record<string, unknown>;
       return typeof record.message === "string" || typeof record.error === "string";
+    },
+    onError: (error) => {
+      if (error.status === 401 || error.status === 402 || error.status === 403 || error.status === 429) {
+        terminalStatus = error.status;
+      }
     }
   });
+
+  if (terminalStatus !== null) {
+    const ttlMs = terminalStatus === 429 ? EODHD_RATE_LIMIT_DISABLE_TTL_MS : EODHD_AUTH_DISABLE_TTL_MS;
+    eodhdDisabledUntil = Date.now() + ttlMs;
+    if (Date.now() - eodhdWarnedAt > ttlMs) {
+      eodhdWarnedAt = Date.now();
+      console.warn(
+        `[EODHD Adapter]: provider unavailable (${terminalStatus}). Suppressing EODHD requests for ${Math.round(ttlMs / 1000)}s.`
+      );
+    }
+  }
+
+  return payload;
 }
 
 /**

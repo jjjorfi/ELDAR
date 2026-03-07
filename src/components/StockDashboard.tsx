@@ -38,7 +38,14 @@ import {
   LinesSkeleton,
   RatingCardSkeleton
 } from "@/components/ui/FintechPrimitives";
-import { DriversList } from "@/components/ui/AnalysisPrimitives";
+import { DriversList, SignalHero } from "@/components/ui/AnalysisPrimitives";
+import {
+  DashboardMetricTile,
+  MarketMoverStack,
+  SectorRotationBoard,
+  SnapshotTile
+} from "@/components/dashboard/HomeDashboardModules";
+import { HeroLanding } from "@/components/landing/HeroLanding";
 import { RATING_BANDS, toRating } from "@/lib/rating";
 import { scorePortfolio } from "@/lib/scoring/portfolio-engine";
 import type { PersistedPortfolioSnapshot, PortfolioEngineInput, PortfolioInputHolding } from "@/lib/scoring/portfolio-types";
@@ -52,8 +59,13 @@ import {
 } from "@/lib/realtime/events";
 import type { FactorResult, Mag7ScoreCard, PersistedAnalysis, RatingLabel, WatchlistItem } from "@/lib/types";
 import { formatMarketCap, formatPrice } from "@/lib/utils";
+import type {
+  HomeDashboardPayload,
+  SectorRotationWindow
+} from "@/lib/home/dashboard-types";
 import { getTop100Sp500Symbols, isTop100Sp500Symbol } from "@/lib/market/top100";
 import { exportCard } from "@/lib/share/export-card";
+import { DASHBOARD_RETURN_STATE_KEY } from "@/lib/ui/dashboard-intent";
 import { isPaletteOpenShortcut } from "@/lib/ui/command-palette";
 import { pushRecentTicker } from "@/lib/ui/recent-tickers";
 import { useSocket } from "@/hooks/useSocket";
@@ -64,7 +76,6 @@ type AuthMode = "login" | "signup";
 type AnalysisPhase = "idle" | "fetching" | "rendering";
 type PaletteAction = "analyze" | "portfolio-add" | "compare-add" | "watchlist-add";
 type PriceRange = "1W" | "1M" | "3M" | "1Y";
-type SectorRotationWindow = "YTD" | "1M" | "3M" | "6M";
 
 interface StockDashboardProps {
   initialHistory: PersistedAnalysis[];
@@ -135,41 +146,6 @@ interface UpcomingEarningsItem {
   epsEstimate: number | null;
 }
 
-interface HomeRegimeMetric {
-  key: "tenYearYield" | "vix" | "dxy" | "oil";
-  label: string;
-  value: number | null;
-  changePercent: number | null;
-}
-
-interface HomeSnapshotItem {
-  symbol: string;
-  label: string;
-  price: number | null;
-  changePercent: number | null;
-}
-
-interface HomeSectorRotationItem {
-  etf: string;
-  name: string;
-  performancePercent: number | null;
-  signalScore: number | null;
-  signalStrength: "STRONG" | "CONSTRUCTIVE" | "NEUTRAL" | "WEAK" | "UNAVAILABLE";
-}
-
-interface HomeDashboardPayload {
-  generatedAt: string;
-  sectorWindow: SectorRotationWindow;
-  regime: {
-    label: "RISK_ON" | "BALANCED" | "RISK_OFF";
-    summary: string;
-    metrics: HomeRegimeMetric[];
-  };
-  snapshot: HomeSnapshotItem[];
-  marketMovers: MarketMoverItem[];
-  sectorRotation: HomeSectorRotationItem[];
-}
-
 interface HomeTickerDrawerState {
   source: "earnings" | "movers";
   symbol: string;
@@ -216,7 +192,6 @@ const TOP_100_SYMBOLS = getTop100Sp500Symbols();
 const COMMAND_PALETTE_LIMIT = 12;
 const JOURNAL_VISIBLE_COUNT = 5;
 const PRICE_RANGE_OPTIONS: PriceRange[] = ["1W", "1M", "3M", "1Y"];
-const SECTOR_ROTATION_WINDOW_OPTIONS: SectorRotationWindow[] = ["YTD", "1M", "3M", "6M"];
 const SHORTCUTS = [
   { key: "/", description: "Open search" },
   { key: "S", description: "Search stocks" },
@@ -226,7 +201,6 @@ const SHORTCUTS = [
 ];
 
 const ELDAR_BRAND_LOGO = "/brand/eldar-logo.png";
-const DASHBOARD_RETURN_STATE_KEY = "eldar:dashboard:return-state";
 const ANALYSIS_CACHE_TTL_MS = 90_000;
 const LOCAL_WATCHLIST_STORAGE_KEY = "eldar:watchlist:local";
 const LOCAL_INDICES_STORAGE_KEY = "eldar:indices:ytd";
@@ -839,17 +813,6 @@ function formatSignedPercent(value: number | null, digits = 1): string {
   return `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(digits)}%`;
 }
 
-function snapSectorAxisMagnitude(value: number): number {
-  if (!Number.isFinite(value) || value <= 0) return 5;
-  return Math.max(5, Math.ceil(value / 5) * 5);
-}
-
-function formatSectorAxisLabel(value: number): string {
-  if (!Number.isFinite(value) || value === 0) return "0%";
-  const snapped = Math.round(value / 5) * 5;
-  return `${snapped > 0 ? "+" : "−"}${Math.abs(snapped)}%`;
-}
-
 function factorActionHint(factorName: string): string {
   if (factorName.includes("EPS Estimate Revision")) return "EPS revision needs to turn positive";
   if (factorName.includes("Price vs 200SMA")) return "Momentum needs to recover above 200SMA";
@@ -928,251 +891,6 @@ function areMag7CardsEqual(a: Mag7ScoreCard[], b: Mag7ScoreCard[]): boolean {
   }
 
   return true;
-}
-
-function dashboardValueToneClass(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "text-white/45";
-  if (value > 0) return "text-emerald-300";
-  if (value < 0) return "text-red-300";
-  return "text-white/70";
-}
-
-function formatHomeMetricValue(metric: HomeRegimeMetric): string {
-  if (metric.value === null || !Number.isFinite(metric.value)) return "—";
-  if (metric.key === "tenYearYield") return `${metric.value.toFixed(2)}%`;
-  if (metric.key === "oil") return `$${metric.value.toFixed(2)}`;
-  return metric.value.toFixed(2);
-}
-
-function formatSnapshotDisplayValue(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "—";
-  const absValue = Math.abs(value);
-  if (absValue >= 1000) {
-    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
-  }
-  if (absValue >= 100) {
-    return new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
-  }
-  return value.toFixed(2);
-}
-
-function signalStrengthClass(strength: HomeSectorRotationItem["signalStrength"]): string {
-  if (strength === "STRONG") return "text-[#FFBF00]";
-  if (strength === "CONSTRUCTIVE") return "text-emerald-300";
-  if (strength === "WEAK") return "text-red-300";
-  return "text-white/55";
-}
-
-function DashboardMetricTile({ metric }: { metric: HomeRegimeMetric }): JSX.Element {
-  return (
-    <div className="eldar-dashboard-surface px-4 py-3">
-      <p className="text-[10px] uppercase tracking-[0.16em] text-white/42">{metric.label}</p>
-      <p className="mt-3 text-[24px] font-semibold tracking-[-0.03em] text-white">{formatHomeMetricValue(metric)}</p>
-      <p className={clsx("mt-2 text-[11px] font-medium", dashboardValueToneClass(metric.changePercent))}>
-        {metric.changePercent === null ? "No session delta" : formatSignedPercent(metric.changePercent, 2)}
-      </p>
-    </div>
-  );
-}
-
-function SnapshotTile({ item }: { item: HomeSnapshotItem }): JSX.Element {
-  return (
-    <div className="eldar-dashboard-surface min-h-[124px] px-4 py-4">
-      <p className="text-[10px] uppercase tracking-[0.16em] text-white/42">{item.label}</p>
-      <p className="mt-5 font-mono text-[22px] font-semibold tracking-[-0.03em] text-white">
-        {formatSnapshotDisplayValue(item.price)}
-      </p>
-      <div className="mt-5 flex items-center justify-between">
-        <span className={clsx("text-[11px] font-medium", dashboardValueToneClass(item.changePercent))}>
-          {item.changePercent === null ? "Flat feed" : formatSignedPercent(item.changePercent, 2)}
-        </span>
-        <span
-          className={clsx(
-            "h-2.5 w-2.5 rounded-full",
-            item.changePercent === null && "bg-white/25",
-            typeof item.changePercent === "number" && item.changePercent > 0 && "bg-emerald-300",
-            typeof item.changePercent === "number" && item.changePercent < 0 && "bg-red-300"
-          )}
-        />
-      </div>
-    </div>
-  );
-}
-
-interface SectorRotationBoardProps {
-  rows: HomeSectorRotationItem[];
-  currentWindow: SectorRotationWindow;
-  onWindowChange: (window: SectorRotationWindow) => void;
-}
-
-function SectorRotationBoard({ rows, currentWindow, onWindowChange }: SectorRotationBoardProps): JSX.Element {
-  const [hoveredEtf, setHoveredEtf] = useState<string | null>(rows[0]?.etf ?? null);
-
-  useEffect(() => {
-    setHoveredEtf((current) => {
-      if (current && rows.some((row) => row.etf === current)) return current;
-      return rows[0]?.etf ?? null;
-    });
-  }, [rows]);
-
-  const activeRow = rows.find((row) => row.etf === hoveredEtf) ?? rows[0] ?? null;
-  const axisAbsMax = snapSectorAxisMagnitude(Math.max(
-    5,
-    ...rows
-      .map((row) => row.performancePercent)
-      .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
-      .map((value) => Math.abs(value))
-  ));
-
-  return (
-    <section className="eldar-panel texture-none xl:col-span-8 p-6">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Sector Rotation</p>
-          <p className="mt-2 text-sm text-white/64">Leadership map by sector.</p>
-        </div>
-        <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1">
-          {SECTOR_ROTATION_WINDOW_OPTIONS.map((windowOption) => (
-            <button
-              key={`sector-window-${windowOption}`}
-              type="button"
-              onClick={() => onWindowChange(windowOption)}
-              aria-pressed={currentWindow === windowOption}
-              className={clsx(
-                "eldar-dashboard-pill rounded-full px-3 py-1.5 text-[10px] uppercase tracking-[0.14em]",
-                currentWindow === windowOption && "bg-white text-black hover:bg-white"
-              )}
-            >
-              {windowOption}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {rows.length === 0 ? (
-        <div className="flex min-h-[280px] items-center justify-center rounded-[24px] border border-dashed border-white/10 text-sm text-white/48">
-          Sector rotation data is unavailable.
-        </div>
-      ) : (
-        <div className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
-          <div className="eldar-dashboard-surface flex min-h-[252px] flex-col justify-between px-5 py-5">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">Selected Sector</p>
-              <p className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-white">{activeRow?.name ?? "—"}</p>
-              <p className="mt-2 font-mono text-[13px] text-white/46">{activeRow?.etf ?? "—"}</p>
-            </div>
-            <div>
-              <p className={clsx("text-[32px] font-semibold tracking-[-0.04em]", dashboardValueToneClass(activeRow?.performancePercent ?? null))}>
-                {formatSignedPercent(activeRow?.performancePercent ?? null, 1)}
-              </p>
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <span className={clsx("text-[10px] uppercase tracking-[0.14em]", signalStrengthClass(activeRow?.signalStrength ?? "UNAVAILABLE"))}>
-                  {activeRow?.signalStrength === "CONSTRUCTIVE" ? "Constructive" : activeRow?.signalStrength ?? "UNAVAILABLE"}
-                </span>
-                <span className="text-[10px] uppercase tracking-[0.14em] text-white/42">
-                  {activeRow?.signalScore !== null && activeRow?.signalScore !== undefined
-                    ? `${activeRow.signalScore.toFixed(1)} composite`
-                    : "Signal score pending"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-black/25 px-4 pb-4 pt-5">
-            <div className="pointer-events-none absolute inset-x-4 top-[18%] border-t border-dashed border-white/10" />
-            <div className="pointer-events-none absolute inset-x-4 top-1/2 border-t border-white/12" />
-            <div className="pointer-events-none absolute inset-x-4 bottom-[18%] border-t border-dashed border-white/10" />
-
-            <div className="pointer-events-none absolute bottom-4 right-0 top-5 flex w-12 flex-col items-start justify-between text-[10px] text-white/34">
-              <span>{formatSectorAxisLabel(axisAbsMax)}</span>
-              <span>0%</span>
-              <span>{formatSectorAxisLabel(-axisAbsMax)}</span>
-            </div>
-
-            <div className="mr-12 grid h-[252px] grid-cols-4 gap-3 sm:grid-cols-8">
-              {rows.map((sector) => {
-                const raw = typeof sector.performancePercent === "number" && Number.isFinite(sector.performancePercent)
-                  ? sector.performancePercent
-                  : 0;
-                const heightPercent = Math.max(10, (Math.abs(raw) / axisAbsMax) * 46);
-                const isPositive = raw >= 0;
-                const isActive = sector.etf === activeRow?.etf;
-
-                return (
-                  <button
-                    key={`sector-map-${sector.etf}`}
-                    type="button"
-                    onMouseEnter={() => setHoveredEtf(sector.etf)}
-                    onFocus={() => setHoveredEtf(sector.etf)}
-                    className="group relative h-full rounded-[18px] px-1 pb-3 pt-2 text-center"
-                  >
-                    <div className={clsx("absolute inset-0 rounded-[18px] transition", isActive ? "bg-white/[0.06]" : "bg-transparent group-hover:bg-white/[0.035]")} />
-                    <div
-                      className={clsx(
-                        "eldar-sector-bar absolute left-1/2 w-[68%] -translate-x-1/2 rounded-[10px]",
-                        isPositive
-                          ? "bg-gradient-to-t from-[#00D212] to-[#5CFF76] shadow-[0_0_18px_rgba(0,210,18,0.26)]"
-                          : "bg-gradient-to-b from-[#FF7B2B] to-[#FF4D00] shadow-[0_0_18px_rgba(255,90,0,0.24)]",
-                        isActive ? "opacity-100" : "opacity-72 group-hover:opacity-100"
-                      )}
-                      style={
-                        isPositive
-                          ? { bottom: "50%", height: `${heightPercent}%` }
-                          : { top: "50%", height: `${heightPercent}%` }
-                      }
-                    />
-                    <div className="absolute bottom-0 left-1/2 w-full -translate-x-1/2">
-                      <p className={clsx("font-mono text-[11px] transition", isActive ? "text-white" : "text-white/68 group-hover:text-white")}>
-                        {sector.etf}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function MarketMoverStack({
-  items,
-  onAnalyze
-}: {
-  items: MarketMoverItem[];
-  onAnalyze: (symbol: string) => void;
-}): JSX.Element {
-  return (
-    <div className="space-y-2.5">
-      {items.slice(0, 3).map((item, index) => (
-        <button
-          key={`market-mover-${item.symbol}`}
-          type="button"
-          onClick={() => onAnalyze(item.symbol)}
-          className="eldar-dashboard-surface w-full px-4 py-3 text-left"
-        >
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/34">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <p className="mt-2 font-mono text-[14px] font-semibold text-white">{item.symbol}</p>
-            </div>
-            <div className="text-right">
-              <p className={clsx("text-[13px] font-semibold", dashboardValueToneClass(item.changePercent ?? null))}>
-                {formatSignedPercent(item.changePercent, 2)}
-              </p>
-              <p className="mt-1 text-[11px] text-white/38">
-                {typeof item.currentPrice === "number" ? formatPrice(item.currentPrice, "USD") : "Price unavailable"}
-              </p>
-            </div>
-          </div>
-        </button>
-      ))}
-    </div>
-  );
 }
 
 export function StockDashboard({
@@ -4403,40 +4121,7 @@ export function StockDashboard({
   ) : null;
 
   if (!isAppOpen) {
-    return (
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 text-white" style={{ background: appBackground }}>
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -right-24 -top-20 h-80 w-80 rounded-full bg-[#133cf0]/20 blur-3xl" />
-          <div className="absolute -left-16 top-1/3 h-72 w-72 rounded-full bg-[#190897]/16 blur-3xl" />
-        </div>
-        <div className="eldar-panel card-grain relative mx-auto w-full max-w-4xl rounded-[28px] p-12 text-center">
-          <div className="mx-auto mb-5 flex w-full justify-center">
-            <button type="button" className="eldar-logo-button flex items-center justify-center" onClick={openApp} aria-label="Open App">
-              <div className="relative h-[82px] w-[82px] overflow-hidden">
-                <Image src={ELDAR_BRAND_LOGO} alt="ELDAR logo" fill sizes="82px" className="object-contain" priority />
-              </div>
-            </button>
-          </div>
-          <p className="mx-auto mb-5 inline-flex rounded-full border border-white/20 bg-white/5 px-4 py-1.5 text-[11px] font-medium tracking-[0.08em] text-white/70">
-            ELDAR TERMINAL
-          </p>
-          <h1 className="mx-auto mb-3 max-w-2xl text-4xl font-semibold tracking-[-0.02em] text-white md:text-5xl">
-            Institutional analysis.
-            <span className="block text-[#e2e7ee]">Built for execution speed.</span>
-          </h1>
-          <p className="mx-auto mb-10 max-w-2xl text-base text-white/65">
-            Signal-first market intelligence, sector rotation context, and portfolio health in one operating surface.
-          </p>
-          <button
-            type="button"
-            onClick={openApp}
-            className="eldar-btn-silver primary-cta inline-flex min-h-[50px] items-center justify-center rounded-full px-9 text-sm font-semibold tracking-[0.03em]"
-          >
-            Open App
-          </button>
-        </div>
-      </div>
-    );
+    return <HeroLanding logoSrc={ELDAR_BRAND_LOGO} scores={initialMag7Scores} onOpenApp={openApp} />;
   }
 
   if (view === "home") {
@@ -4663,6 +4348,16 @@ export function StockDashboard({
       ? journalRelatedEntries
       : journalRelatedEntries.slice(0, JOURNAL_VISIBLE_COUNT);
     const hiddenJournalLinksCount = Math.max(0, journalRelatedEntries.length - visibleJournalEntries.length);
+    const signalHeroTone =
+      currentRating.rating === "STRONG_BUY"
+        ? "strongBuy"
+        : currentRating.rating === "BUY"
+          ? "buy"
+          : currentRating.rating === "SELL"
+            ? "sell"
+            : currentRating.rating === "STRONG_SELL"
+              ? "strongSell"
+              : "hold";
 
     return (
       <div
@@ -4712,27 +4407,19 @@ export function StockDashboard({
 
             <div className="reveal-block grid gap-6 xl:grid-cols-[2fr_1fr]">
               <div className="space-y-6">
-                <div
-                  key={`hero-${currentRating.symbol}-${currentRating.generatedAt ?? currentRating.createdAt}`}
-                  className="eldar-panel reveal-block relative overflow-hidden rounded-3xl px-6 py-10"
-                  style={{ animation: "fadeUp 0.28s ease-out both" }}
-                >
-                  <div
-                    aria-hidden="true"
-                    className={clsx(
-                      "pointer-events-none absolute left-1/2 top-1/2 h-[320px] w-[320px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl",
-                      isStrongBullish && "bg-[#FFBF00]/15",
-                      isBullish && "bg-emerald-300/12",
-                      isBearishOrLower && "bg-red-400/12",
-                      !isStrongBullish && !isBullish && !isBearishOrLower && "bg-white/5"
-                    )}
-                  />
-                  <div className="relative z-10 flex flex-col items-center text-center">
-                    <p className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-                      {currentRating.symbol} · {currentRating.companyName}
-                    </p>
-
-                    <div className="mt-4 flex items-center gap-3">
+                <SignalHero
+                  symbol={currentRating.symbol}
+                  companyName={currentRating.companyName}
+                  eyebrow="ELDAR Analysis"
+                  rating={ratingBand.label}
+                  scoreLabel="Composite signal strength"
+                  subcopy={`ELDAR rates this ${ratingBand.label}. Review the main drivers, downside risks, and market context before you add it to the watchlist or compare it.`}
+                  contextLine={`${currentRating.sector} · ${formatPrice(currentRating.currentPrice, currentRating.currency)} · Market Cap ${formatMarketCap(currentRating.marketCap)}`}
+                  trustSignals={["Private workspace", "Encrypted session", "Live market data"]}
+                  tone={signalHeroTone}
+                  meterPercent={currentRating.score * 10}
+                  actions={
+                    <>
                       <button
                         type="button"
                         onClick={() => {
@@ -4742,32 +4429,36 @@ export function StockDashboard({
                           }
                           void saveToWatchlist();
                         }}
+                        aria-pressed={isInWatchlist}
                         title={isInWatchlist ? "Remove from watchlist" : "Add to watchlist"}
                         aria-label={isInWatchlist ? "Remove from watchlist" : "Add to watchlist"}
                         className={clsx(
-                          "eldar-bookmark-ribbon inline-flex h-7 w-7 items-center justify-center text-white/70 transition",
-                          isInWatchlist && "eldar-bookmark-ribbon-active"
+                          "eldar-btn-ghost inline-flex min-h-[44px] items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition",
+                          isInWatchlist && "border-white/30 bg-white/[0.08] text-white"
                         )}
                       >
                         <Bookmark className={clsx("h-4 w-4", isInWatchlist && "fill-current")} />
+                        {isInWatchlist ? "Saved" : "Add to Watchlist"}
                       </button>
                       <button
                         type="button"
                         onClick={() => openShareModal("signal")}
                         title="Share card"
                         aria-label="Share card"
-                        className="eldar-share-icon inline-flex h-7 w-7 items-center justify-center transition"
+                        className="eldar-btn-silver inline-flex min-h-[44px] items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition"
                       >
                         <Share2 className="h-4 w-4" />
+                        Share
                       </button>
                       {watchlistAddedSymbol === currentRating.symbol ? (
-                        <span className="text-xs font-semibold text-emerald-300">+ added to the list</span>
+                        <span className="text-xs font-semibold text-emerald-300">Saved to watchlist</span>
                       ) : null}
-                    </div>
-
+                    </>
+                  }
+                  scoreVisual={
                     <div
                       className={clsx(
-                        "mt-5 flex h-44 w-44 flex-col items-center justify-center rounded-full border",
+                        "flex h-40 w-40 flex-col items-center justify-center rounded-full border",
                         isStrongBullish && "border-[#FFBF00]/40 bg-[#FFBF00]/10",
                         isBullish && "border-emerald-300/35 bg-emerald-300/10",
                         isBearishOrLower && "border-red-300/40 bg-red-300/10",
@@ -4782,23 +4473,8 @@ export function StockDashboard({
                       </p>
                       <p className="mt-1 text-xs uppercase tracking-[0.12em] text-white/65">out of 10</p>
                     </div>
-
-                    <p
-                      className={clsx(
-                        "mt-4 text-2xl font-black",
-                        isStrongBullish && "text-[#FFBF00]",
-                        isBullish && "text-emerald-300",
-                        isBearishOrLower && "text-red-300",
-                        !isStrongBullish && !isBullish && !isBearishOrLower && "text-white"
-                      )}
-                    >
-                      {ratingBand.label}
-                    </p>
-                    <p className="mt-2 text-sm text-white/60">
-                      {currentRating.sector} • {formatPrice(currentRating.currentPrice, currentRating.currency)} • Market Cap {formatMarketCap(currentRating.marketCap)}
-                    </p>
-                  </div>
-                </div>
+                  }
+                />
 
                 <div className="eldar-panel reveal-block rounded-3xl p-6" style={{ transitionDelay: "60ms" }}>
                   <h2 className="mb-4 text-lg font-semibold text-white">PRICE CHART</h2>
@@ -4963,11 +4639,9 @@ export function StockDashboard({
                   </div>
                 </div>
 
-                <div className="eldar-panel reveal-block rounded-3xl p-6" style={{ transitionDelay: "80ms" }}>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <DriversList title="Top Drivers" items={driverBullets} maxCollapsed={3} />
-                    <DriversList title="Risks" items={riskBullets} maxCollapsed={3} tone="risks" />
-                  </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <DriversList title="Top Drivers" items={driverBullets} maxCollapsed={3} />
+                  <DriversList title="Risks" items={riskBullets} maxCollapsed={3} tone="risks" />
                 </div>
               </div>
 

@@ -6,6 +6,7 @@
 // start still pays the first Yahoo fetch cost until the cache is warm again.
 
 import { getFetchSignal } from "@/lib/market/adapter-utils";
+import { fetchTemporaryHistoryFallback } from "@/lib/market/temporary-fallbacks";
 import { cacheGetJson, cacheSetJson } from "@/lib/cache/redis";
 
 export type SectorPerformanceWindow = "YTD" | "1M" | "3M" | "6M";
@@ -26,6 +27,19 @@ interface PricePoint {
 
 let sectorHistoryCache = new Map<string, { expiresAt: number; points: PricePoint[] }>();
 let sectorHistoryInFlight = new Map<string, Promise<PricePoint[]>>();
+const recentWarnings = new Map<string, number>();
+const WARNING_TTL_MS = 60_000;
+
+function warnOnce(symbol: string, message: string): void {
+  const key = `${symbol}:${message}`;
+  const now = Date.now();
+  const previous = recentWarnings.get(key) ?? 0;
+  if (now - previous < WARNING_TTL_MS) {
+    return;
+  }
+  recentWarnings.set(key, now);
+  console.warn(`[Sector Performance][${symbol}]: ${message}`);
+}
 
 function sectorHistoryRedisKey(symbol: string): string {
   return `market:sector-history:${symbol.toUpperCase()}:1y`;
@@ -131,10 +145,31 @@ async function fetchYahooSectorHistory(symbol: string): Promise<PricePoint[]> {
             "User-Agent": "Mozilla/5.0"
           }
         });
-        if (!response.ok) return [];
+        let points: PricePoint[] = [];
 
-        const payload = await response.json();
-        const points = parseYahooPricePoints(payload);
+        if (!response.ok) {
+          warnOnce(cacheKey, `Yahoo history failed (${response.status})`);
+        } else {
+          const payload = await response.json();
+          points = parseYahooPricePoints(payload);
+        }
+
+        if (points.length === 0) {
+          // Temporary patch: keep sector UX live while premium market-data
+          // history is still pending. This should be easy to remove later.
+          const fallback = await fetchTemporaryHistoryFallback(symbol, {
+            range: "1y",
+            interval: "1d",
+            minimumPoints: 220
+          });
+          points = fallback.points.map((point) => ({
+            isoDate: point.date.toISOString().slice(0, 10),
+            timestampMs: point.date.getTime(),
+            close: point.close ?? 0
+          }))
+            .filter((point) => Number.isFinite(point.close) && point.close > 0);
+        }
+
         sectorHistoryCache.set(cacheKey, {
           expiresAt: Date.now() + SECTOR_HISTORY_TTL_MS,
           points
@@ -143,8 +178,21 @@ async function fetchYahooSectorHistory(symbol: string): Promise<PricePoint[]> {
           await cacheSetJson(sectorHistoryRedisKey(cacheKey), points, SECTOR_HISTORY_REDIS_TTL_SECONDS);
         }
         return points;
-      } catch {
-        return [];
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown sector history error.";
+        warnOnce(cacheKey, message);
+        const fallback = await fetchTemporaryHistoryFallback(symbol, {
+          range: "1y",
+          interval: "1d",
+          minimumPoints: 220
+        });
+        return fallback.points
+          .map((point) => ({
+            isoDate: point.date.toISOString().slice(0, 10),
+            timestampMs: point.date.getTime(),
+            close: point.close ?? 0
+          }))
+          .filter((point) => Number.isFinite(point.close) && point.close > 0);
       } finally {
         sectorHistoryInFlight.delete(cacheKey);
       }
