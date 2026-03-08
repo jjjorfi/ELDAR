@@ -14,7 +14,7 @@ export interface TemporaryQuoteFallback {
   price: number | null;
   changePercent: number | null;
   asOfMs: number | null;
-  source: "TWELVEDATA" | "GOOGLE_FINANCE" | "ALPHA_VANTAGE" | "MARKETSTACK" | null;
+  source: "TWELVEDATA" | "GOOGLE_FINANCE" | "MARKETSTACK" | "ALPHA_VANTAGE" | null;
 }
 
 export interface TemporaryHistoryFallback {
@@ -80,8 +80,8 @@ export async function fetchTemporaryQuoteFallback(symbol: string): Promise<Tempo
   // Ranked temporary quote fallback order:
   // 1. Twelve Data: official API, good quote ergonomics.
   // 2. Google Finance: fresh page data, but unofficial scraping -> lower trust.
-  // 3. Alpha Vantage: official, but often stale/daily-only for quote context.
-  // 4. marketstack: EOD-oriented lowest-rank rescue path.
+  // 3. marketstack: slower and EOD-oriented, but still more usable than Alpha here.
+  // 4. Alpha Vantage: currently the weakest quote bridge in live testing.
   const twelveData = await fetchTwelveDataQuoteSnapshot(symbol);
   if (twelveData.price !== null) {
     return {
@@ -102,16 +102,6 @@ export async function fetchTemporaryQuoteFallback(symbol: string): Promise<Tempo
     };
   }
 
-  const alpha = await fetchAlphaVantageQuoteSnapshot(symbol);
-  if (alpha.price !== null) {
-    return {
-      price: alpha.price,
-      changePercent: null,
-      asOfMs: alpha.asOfMs,
-      source: "ALPHA_VANTAGE"
-    };
-  }
-
   const marketstack = await fetchMarketstackQuoteSnapshot(symbol);
   if (marketstack.price !== null) {
     return {
@@ -119,6 +109,16 @@ export async function fetchTemporaryQuoteFallback(symbol: string): Promise<Tempo
       changePercent: marketstack.changePercent,
       asOfMs: marketstack.asOfMs,
       source: "MARKETSTACK"
+    };
+  }
+
+  const alpha = await fetchAlphaVantageQuoteSnapshot(symbol);
+  if (alpha.price !== null) {
+    return {
+      price: alpha.price,
+      changePercent: null,
+      asOfMs: alpha.asOfMs,
+      source: "ALPHA_VANTAGE"
     };
   }
 

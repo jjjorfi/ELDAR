@@ -22,8 +22,8 @@ These files are stopgap quote/history fallbacks only. They are **not** intended 
 Quote fallback:
 1. Twelve Data
 2. Google Finance
-3. Alpha Vantage
-4. marketstack
+3. marketstack
+4. Alpha Vantage
 
 History fallback:
 1. Twelve Data

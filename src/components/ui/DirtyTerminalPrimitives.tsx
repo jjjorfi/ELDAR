@@ -66,7 +66,6 @@ export function TinyTooltip({ label, className }: { label: string; className?: s
   return (
     <span
       className={clsx("cursor-help text-[9px] uppercase tracking-[0.12em] text-white/45", className)}
-      title={label}
       aria-label={label}
     >
       ⓘ

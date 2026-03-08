@@ -22,7 +22,6 @@ import {
   Waypoints
 } from "lucide-react";
 
-import { ratingColor, ratingDisplayLabel } from "@/lib/rating";
 import type { Mag7ScoreCard, RatingLabel } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
 
@@ -38,9 +37,9 @@ interface Descriptor {
 }
 
 const NAV_ITEMS = [
-  { label: "Signal", href: "#signal" },
+  { label: "Quiet", href: "#signal" },
   { label: "Surface", href: "#surface" },
-  { label: "Memory", href: "#memory" }
+  { label: "Entry", href: "#memory" }
 ] as const;
 
 const TRUST_MARKERS = [
@@ -52,34 +51,34 @@ const TRUST_MARKERS = [
 const PILLARS = [
   {
     id: "signal",
-    title: "Signal before story.",
-    body: "The tape rarely explains itself in time. The surface should."
+    title: "Stay early without getting loud.",
+    body: "The useful read arrives before the explanation does."
   },
   {
     id: "surface",
-    title: "Context before conviction.",
-    body: "A move means less without regime, rotation, and pressure behind it."
+    title: "The room does not need to know why.",
+    body: "A good surface lets you keep the edge private while you decide."
   },
   {
     id: "memory",
-    title: "Memory before hindsight.",
-    body: "Good decisions deserve a frozen record before the trade rewrites itself."
+    title: "Calm beats spectacle.",
+    body: "Less theater. Less noise. Better timing."
   }
 ] as const;
 
 function descriptorForRating(rating: RatingLabel): Descriptor {
   switch (rating) {
     case "STRONG_BUY":
-      return { label: "Pressure building", note: "buyers still leaning in" };
+      return { label: "Firm", note: "tape is holding" };
     case "BUY":
-      return { label: "Constructive", note: "flow remains supportive" };
+      return { label: "Leaning", note: "buyers keep it orderly" };
     case "HOLD":
-      return { label: "Waiting", note: "no clean edge yet" };
+      return { label: "Quiet", note: "not much to say yet" };
     case "SELL":
-      return { label: "Fracturing", note: "pressure starting to show" };
+      return { label: "Slipping", note: "offers are showing up" };
     case "STRONG_SELL":
     default:
-      return { label: "Breaking", note: "risk is leading the tape" };
+      return { label: "Heavy", note: "pressure is obvious" };
   }
 }
 
@@ -89,26 +88,9 @@ function percentText(value: number | null): string {
   return `${prefix}${value.toFixed(1)}%`;
 }
 
-function toneClasses(rating: RatingLabel): string {
-  switch (rating) {
-    case "STRONG_BUY":
-      return "border-[#FFBF00]/35 bg-[#FFBF00]/12 text-[#FFBF00]";
-    case "BUY":
-      return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
-    case "HOLD":
-      return "border-white/14 bg-white/[0.04] text-white/72";
-    case "SELL":
-      return "border-red-400/30 bg-red-400/10 text-red-300";
-    case "STRONG_SELL":
-    default:
-      return "border-red-500/40 bg-red-500/12 text-red-200";
-  }
-}
-
 function LiveSignalRow({ item }: { item: Mag7ScoreCard }): JSX.Element {
-  const descriptor = descriptorForRating(item.rating);
   const moveUp = (item.changePercent ?? 0) >= 0;
-  const barWidth = `${Math.max(18, Math.min(100, item.score * 10))}%`;
+  const barWidth = `${Math.max(12, Math.min(100, Math.abs(item.changePercent ?? 0) * 14))}%`;
 
   return (
     <div className="grid grid-cols-[88px_minmax(0,1fr)_80px] items-center gap-4 rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
@@ -118,16 +100,11 @@ function LiveSignalRow({ item }: { item: Mag7ScoreCard }): JSX.Element {
       </div>
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <span
-            className={clsx(
-              "inline-flex min-h-[24px] items-center rounded-full border px-2.5 text-[10px] font-medium uppercase tracking-[0.12em]",
-              toneClasses(item.rating)
-            )}
-          >
-            {descriptor.label}
+          <span className="inline-flex min-h-[24px] items-center rounded-full border border-white/12 bg-white/[0.04] px-2.5 text-[10px] font-medium uppercase tracking-[0.12em] text-white/62">
+            {moveUp ? "Firming" : "Drifting"}
           </span>
           <span className="truncate text-[11px] uppercase tracking-[0.1em] text-white/36">
-            {ratingDisplayLabel(item.rating)}
+            {descriptorForRating(item.rating).note}
           </span>
         </div>
         <div className="mt-2 h-[3px] w-full overflow-hidden rounded-full bg-white/8">
@@ -135,8 +112,8 @@ function LiveSignalRow({ item }: { item: Mag7ScoreCard }): JSX.Element {
             className="h-full rounded-full"
             style={{
               width: barWidth,
-              backgroundColor: ratingColor(item.rating),
-              boxShadow: `0 0 16px ${ratingColor(item.rating)}55`
+              backgroundColor: moveUp ? "rgba(16, 185, 129, 0.92)" : "rgba(239, 68, 68, 0.9)",
+              boxShadow: moveUp ? "0 0 16px rgba(16,185,129,0.32)" : "0 0 16px rgba(239,68,68,0.28)"
             }}
           />
         </div>
@@ -175,28 +152,17 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
   const previewRef = useRef<HTMLDivElement | null>(null);
 
   const rankedSignals = useMemo(
-    () => scores.slice().sort((left, right) => right.score - left.score),
+    () =>
+      scores
+        .slice()
+        .sort((left, right) => Math.abs(right.changePercent ?? 0) - Math.abs(left.changePercent ?? 0)),
     [scores]
   );
 
   const primarySignals = rankedSignals.slice(0, 5);
-  const strongestSignal = rankedSignals[0] ?? null;
-  const weakestSignal = rankedSignals[rankedSignals.length - 1] ?? null;
-  const averageScore =
-    rankedSignals.length > 0
-      ? rankedSignals.reduce((sum, item) => sum + item.score, 0) / rankedSignals.length
-      : 5;
-  const surfaceState = descriptorForRating(
-    averageScore >= 7.9
-      ? "STRONG_BUY"
-      : averageScore >= 6.3
-        ? "BUY"
-        : averageScore >= 4.1
-          ? "HOLD"
-          : averageScore >= 2.7
-            ? "SELL"
-            : "STRONG_SELL"
-  );
+  const mostActive = rankedSignals[0] ?? null;
+  const calmestTape = rankedSignals[rankedSignals.length - 1] ?? null;
+  const observedNames = rankedSignals.length;
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[var(--eldar-bg-primary)] text-white">
@@ -281,8 +247,7 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
               </h1>
 
               <p className="mt-6 max-w-[36rem] text-lg leading-8 text-white/64">
-                Read the shift before it becomes consensus. ELDAR is a darker, calmer surface for signal,
-                regime, rotation, and the pressure that price only reveals after the fact.
+                A private surface for watching the tape before the room decides what it means.
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -318,28 +283,28 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
 
               <div className="mt-12 grid gap-4 md:grid-cols-3">
                 <div className="eldar-dashboard-muted-surface rounded-[22px] p-4">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Surface state</div>
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Observed names</div>
                   <div className="mt-3 text-[20px] font-semibold tracking-[-0.03em] text-white">
-                    {surfaceState.label}
+                    {observedNames}
                   </div>
-                  <div className="mt-2 text-[12px] text-white/50">{surfaceState.note}</div>
+                  <div className="mt-2 text-[12px] text-white/50">Enough to feel the room without hearing it shout.</div>
                 </div>
                 <div className="eldar-dashboard-muted-surface rounded-[22px] p-4">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Strongest pressure</div>
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Most active print</div>
                   <div className="mt-3 text-[20px] font-semibold tracking-[-0.03em] text-white">
-                    {strongestSignal?.symbol ?? "--"}
+                    {mostActive?.symbol ?? "--"}
                   </div>
                   <div className="mt-2 text-[12px] text-white/50">
-                    {strongestSignal ? descriptorForRating(strongestSignal.rating).label : "Waiting for the tape"}
+                    {mostActive ? percentText(mostActive.changePercent) : "Waiting for the tape"}
                   </div>
                 </div>
                 <div className="eldar-dashboard-muted-surface rounded-[22px] p-4">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Softest tape</div>
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Calmest tape</div>
                   <div className="mt-3 text-[20px] font-semibold tracking-[-0.03em] text-white">
-                    {weakestSignal?.symbol ?? "--"}
+                    {calmestTape?.symbol ?? "--"}
                   </div>
                   <div className="mt-2 text-[12px] text-white/50">
-                    {weakestSignal ? descriptorForRating(weakestSignal.rating).label : "No read yet"}
+                    {calmestTape ? percentText(calmestTape.changePercent) : "No read yet"}
                   </div>
                 </div>
               </div>
@@ -370,7 +335,7 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
 
                   <div className="mt-6 grid gap-4 md:grid-cols-2">
                     <div className="rounded-[24px] border border-white/10 bg-black/20 p-5">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Pressure map</div>
+                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Session drift</div>
                       <div className="mt-4 flex h-28 items-end gap-3">
                         {rankedSignals.slice(0, 6).map((item) => (
                           <div key={item.symbol} className="flex min-w-0 flex-1 flex-col items-center gap-2">
@@ -378,9 +343,9 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
                               <div
                                 className="w-full rounded-t-[14px]"
                                 style={{
-                                  height: `${Math.max(22, item.score * 10)}%`,
-                                  background: `${ratingColor(item.rating)}cc`,
-                                  boxShadow: `0 0 24px ${ratingColor(item.rating)}33`
+                                  height: `${Math.max(16, Math.abs(item.changePercent ?? 0) * 16)}%`,
+                                  background: (item.changePercent ?? 0) >= 0 ? "rgba(16,185,129,0.8)" : "rgba(239,68,68,0.82)",
+                                  boxShadow: (item.changePercent ?? 0) >= 0 ? "0 0 24px rgba(16,185,129,0.2)" : "0 0 24px rgba(239,68,68,0.2)"
                                 }}
                               />
                             </div>
@@ -396,27 +361,27 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
                         <div className="flex items-start gap-3">
                           <Waypoints className="mt-0.5 h-4 w-4 text-white/44" aria-hidden="true" />
                           <div>
-                            <div className="text-[13px] font-medium text-white/86">Rotation changes the meaning.</div>
+                            <div className="text-[13px] font-medium text-white/86">Not everything useful should explain itself.</div>
                             <div className="mt-1 text-[12px] leading-6 text-white/50">
-                              Strength without context is usually just noise wearing confidence.
+                              The right surface says enough to act, and nothing extra.
                             </div>
                           </div>
                         </div>
                         <div className="flex items-start gap-3">
                           <Radar className="mt-0.5 h-4 w-4 text-white/44" aria-hidden="true" />
                           <div>
-                            <div className="text-[13px] font-medium text-white/86">Quiet surfaces make faster decisions.</div>
+                            <div className="text-[13px] font-medium text-white/86">Calm surfaces make faster decisions.</div>
                             <div className="mt-1 text-[12px] leading-6 text-white/50">
-                              No feed, no theater, no drag between the read and the action.
+                              No feed. No theater. No drag between the read and the click.
                             </div>
                           </div>
                         </div>
                         <div className="flex items-start gap-3">
                           <BookMarked className="mt-0.5 h-4 w-4 text-white/44" aria-hidden="true" />
                           <div>
-                            <div className="text-[13px] font-medium text-white/86">The original read matters.</div>
+                            <div className="text-[13px] font-medium text-white/86">A good tool stays still under pressure.</div>
                             <div className="mt-1 text-[12px] leading-6 text-white/50">
-                              Decisions are cleaner when the entry signal stays frozen after the trade begins.
+                              You should feel the room, not the software.
                             </div>
                           </div>
                         </div>
@@ -442,11 +407,10 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
             <div className="eldar-panel rounded-[32px] p-7 md:p-9">
               <div className="text-[10px] uppercase tracking-[0.18em] text-white/38">ELDAR</div>
               <div className="mt-4 max-w-[12ch] text-[clamp(2.4rem,4vw,4.4rem)] font-semibold leading-[0.96] tracking-[-0.05em] text-white">
-                Less noise. More asymmetry.
+                Quiet by design.
               </div>
               <p className="mt-5 max-w-[34rem] text-sm leading-7 text-white/60">
-                Most platforms make finance louder. This one is built to make the important part stand still long
-                enough for you to act on it.
+                Most platforms get louder as the room gets less certain. This one does the opposite.
               </p>
             </div>
 
@@ -456,28 +420,28 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
                 <div className="mt-4 flex items-center justify-between">
                   <div>
                     <div className="text-[22px] font-semibold tracking-[-0.04em] text-white">
-                      {strongestSignal?.symbol ?? "--"}
+                      {mostActive?.symbol ?? "--"}
                     </div>
                     <div className="mt-1 text-[12px] uppercase tracking-[0.12em] text-white/42">
-                      {strongestSignal ? descriptorForRating(strongestSignal.rating).label : "waiting"}
+                      {mostActive ? "most active print" : "waiting"}
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-[12px] text-white/70">
-                      {strongestSignal ? formatPrice(strongestSignal.currentPrice, "USD") : "--"}
+                      {mostActive ? formatPrice(mostActive.currentPrice, "USD") : "--"}
                     </div>
                     <div
                       className={clsx(
                         "mt-1 inline-flex items-center gap-1 text-[11px] font-medium",
-                        (strongestSignal?.changePercent ?? 0) >= 0 ? "text-emerald-300" : "text-red-300"
+                        (mostActive?.changePercent ?? 0) >= 0 ? "text-emerald-300" : "text-red-300"
                       )}
                     >
-                      {(strongestSignal?.changePercent ?? 0) >= 0 ? (
+                      {(mostActive?.changePercent ?? 0) >= 0 ? (
                         <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
                       ) : (
                         <ArrowDownRight className="h-3.5 w-3.5" aria-hidden="true" />
                       )}
-                      {percentText(strongestSignal?.changePercent ?? null)}
+                      {percentText(mostActive?.changePercent ?? null)}
                     </div>
                   </div>
                 </div>

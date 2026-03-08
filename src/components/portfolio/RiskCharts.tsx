@@ -55,7 +55,7 @@ export function RiskCharts({ rating }: { rating: PortfolioRating }): JSX.Element
                   key={`sharpe-${index}`}
                   className={clsx("min-w-[5px] flex-1", toneClass)}
                   style={{ height: `${Math.max(4, scaled)}%` }}
-                  title={`Sharpe ${value.toFixed(2)}`}
+                  aria-label={`Sharpe ${value.toFixed(2)}`}
                 />
               );
             })

@@ -64,7 +64,6 @@ function SidebarIconButton({
     <button
       type="button"
       onClick={onClick}
-      title={label}
       aria-label={label}
       className={clsx(
         "eldar-nav-icon flex h-11 w-11 items-center justify-center transition-colors",
@@ -138,7 +137,6 @@ export function AppLeftSidebar({
             onClick={onToggleTheme}
             className="eldar-menu-icon p-1.5 text-white/75 transition hover:text-white"
             aria-label="Toggle theme"
-            title="Toggle theme"
           >
             {themeMode === "dark" ? <Sun className="eldar-theme-glyph h-3.5 w-3.5" /> : <Moon className="eldar-theme-glyph h-3.5 w-3.5" />}
           </button>
@@ -148,7 +146,6 @@ export function AppLeftSidebar({
             rel="noreferrer"
             className="eldar-menu-icon p-1.5 text-white/75 transition hover:text-white"
             aria-label="X"
-            title="X"
           >
             <XBrandIcon />
           </a>
@@ -158,7 +155,6 @@ export function AppLeftSidebar({
             rel="noreferrer"
             className="eldar-menu-icon p-1.5 text-white/75 transition hover:text-white"
             aria-label="Telegram"
-            title="Telegram"
           >
             <TelegramBrandIcon />
           </a>

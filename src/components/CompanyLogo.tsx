@@ -89,7 +89,6 @@ export function CompanyLogo({
       )}
       style={{ width: size, height: size }}
       aria-label={`${companyName ?? ticker} logo`}
-      title={`${companyName ?? ticker}`}
     >
       {logoUrl ? (
         <Image
