@@ -17,6 +17,12 @@ Purpose: make the app degrade more gracefully while ELDAR is still building on f
 
 These files are stopgap quote/history fallbacks only. They are **not** intended to become the permanent premium data architecture.
 
+The same rule now applies to `sec-companyfacts.ts`: it is a temporary
+free-tier fundamentals bridge for U.S. issuers so the product can show real
+revenue / EPS / cash-flow numbers while premium fundamentals coverage is still
+constrained. Once premium fundamentals are stable, this fallback should be
+reviewed and likely demoted to a tertiary rescue path.
+
 ## Current temporary ranking
 
 Quote fallback:

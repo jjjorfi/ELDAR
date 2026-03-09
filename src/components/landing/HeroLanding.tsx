@@ -8,32 +8,23 @@
 // another fetch path or slowing down the manual "Enter Terminal" transition.
 
 import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
-import clsx from "clsx";
 import Image from "next/image";
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import {
-  ArrowDownRight,
   ArrowUpRight,
   BookMarked,
   LockKeyhole,
-  Radar,
   ShieldCheck,
   Sparkles,
   Waypoints
 } from "lucide-react";
 
-import type { Mag7ScoreCard, RatingLabel } from "@/lib/types";
-import { formatPrice } from "@/lib/utils";
+import type { Mag7ScoreCard } from "@/lib/types";
 
 interface HeroLandingProps {
   logoSrc: string;
   scores: Mag7ScoreCard[];
   onOpenApp: () => void;
-}
-
-interface Descriptor {
-  label: string;
-  note: string;
 }
 
 const NAV_ITEMS = [
@@ -44,7 +35,7 @@ const NAV_ITEMS = [
 
 const TRUST_MARKERS = [
   { label: "Private workspace", icon: LockKeyhole },
-  { label: "Live market data", icon: Radar },
+  { label: "Live market data", icon: ShieldCheck },
   { label: "11 sectors watched", icon: ShieldCheck }
 ] as const;
 
@@ -65,68 +56,6 @@ const PILLARS = [
     body: "Less theater. Less noise. Better timing."
   }
 ] as const;
-
-function descriptorForRating(rating: RatingLabel): Descriptor {
-  switch (rating) {
-    case "STRONG_BUY":
-      return { label: "Firm", note: "tape is holding" };
-    case "BUY":
-      return { label: "Leaning", note: "buyers keep it orderly" };
-    case "HOLD":
-      return { label: "Quiet", note: "not much to say yet" };
-    case "SELL":
-      return { label: "Slipping", note: "offers are showing up" };
-    case "STRONG_SELL":
-    default:
-      return { label: "Heavy", note: "pressure is obvious" };
-  }
-}
-
-function percentText(value: number | null): string {
-  if (typeof value !== "number" || Number.isNaN(value)) return "--";
-  const prefix = value > 0 ? "+" : "";
-  return `${prefix}${value.toFixed(1)}%`;
-}
-
-function LiveSignalRow({ item }: { item: Mag7ScoreCard }): JSX.Element {
-  const moveUp = (item.changePercent ?? 0) >= 0;
-  const barWidth = `${Math.max(12, Math.min(100, Math.abs(item.changePercent ?? 0) * 14))}%`;
-
-  return (
-    <div className="grid grid-cols-[88px_minmax(0,1fr)_80px] items-center gap-4 rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
-      <div className="min-w-0">
-        <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white">{item.symbol}</div>
-        <div className="truncate text-[11px] text-white/42">{item.companyName}</div>
-      </div>
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex min-h-[24px] items-center rounded-full border border-white/12 bg-white/[0.04] px-2.5 text-[10px] font-medium uppercase tracking-[0.12em] text-white/62">
-            {moveUp ? "Firming" : "Drifting"}
-          </span>
-          <span className="truncate text-[11px] uppercase tracking-[0.1em] text-white/36">
-            {descriptorForRating(item.rating).note}
-          </span>
-        </div>
-        <div className="mt-2 h-[3px] w-full overflow-hidden rounded-full bg-white/8">
-          <div
-            className="h-full rounded-full"
-            style={{
-              width: barWidth,
-              backgroundColor: moveUp ? "rgba(16, 185, 129, 0.92)" : "rgba(239, 68, 68, 0.9)",
-              boxShadow: moveUp ? "0 0 16px rgba(16,185,129,0.32)" : "0 0 16px rgba(239,68,68,0.28)"
-            }}
-          />
-        </div>
-      </div>
-      <div className="text-right">
-        <div className="text-[12px] font-medium text-white">{formatPrice(item.currentPrice, "USD")}</div>
-        <div className={clsx("mt-1 text-[11px] font-medium", moveUp ? "text-emerald-300" : "text-red-300")}>
-          {percentText(item.changePercent)}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function InsightCard({
   title,
@@ -149,8 +78,6 @@ function InsightCard({
 }
 
 export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): JSX.Element {
-  const previewRef = useRef<HTMLDivElement | null>(null);
-
   const rankedSignals = useMemo(
     () =>
       scores
@@ -159,10 +86,7 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
     [scores]
   );
 
-  const primarySignals = rankedSignals.slice(0, 5);
-  const mostActive = rankedSignals[0] ?? null;
-  const calmestTape = rankedSignals[rankedSignals.length - 1] ?? null;
-  const observedNames = rankedSignals.length;
+  const previewBars = rankedSignals.slice(0, 6);
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[var(--eldar-bg-primary)] text-white">
@@ -223,7 +147,7 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
               onClick={onOpenApp}
               className="eldar-btn-silver inline-flex min-h-[44px] items-center gap-2 rounded-full px-5 text-[11px] font-semibold uppercase tracking-[0.14em]"
             >
-              Enter terminal
+              Enter App
               <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
             </button>
             <SignedIn>
@@ -256,16 +180,8 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
                   onClick={onOpenApp}
                   className="eldar-btn-silver inline-flex min-h-[50px] items-center gap-2 rounded-full px-6 text-[12px] font-semibold uppercase tracking-[0.14em]"
                 >
-                  Enter terminal
+                  Enter App
                   <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                  className="eldar-btn-ghost inline-flex min-h-[50px] items-center gap-2 rounded-full px-6 text-[12px] font-semibold uppercase tracking-[0.14em]"
-                >
-                  See the surface
-                  <ArrowDownRight className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
 
@@ -281,111 +197,42 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
                 ))}
               </div>
 
-              <div className="mt-12 grid gap-4 md:grid-cols-3">
-                <div className="eldar-dashboard-muted-surface rounded-[22px] p-4">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Observed names</div>
-                  <div className="mt-3 text-[20px] font-semibold tracking-[-0.03em] text-white">
-                    {observedNames}
-                  </div>
-                  <div className="mt-2 text-[12px] text-white/50">Enough to feel the room without hearing it shout.</div>
-                </div>
-                <div className="eldar-dashboard-muted-surface rounded-[22px] p-4">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Most active print</div>
-                  <div className="mt-3 text-[20px] font-semibold tracking-[-0.03em] text-white">
-                    {mostActive?.symbol ?? "--"}
-                  </div>
-                  <div className="mt-2 text-[12px] text-white/50">
-                    {mostActive ? percentText(mostActive.changePercent) : "Waiting for the tape"}
-                  </div>
-                </div>
-                <div className="eldar-dashboard-muted-surface rounded-[22px] p-4">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Calmest tape</div>
-                  <div className="mt-3 text-[20px] font-semibold tracking-[-0.03em] text-white">
-                    {calmestTape?.symbol ?? "--"}
-                  </div>
-                  <div className="mt-2 text-[12px] text-white/50">
-                    {calmestTape ? percentText(calmestTape.changePercent) : "No read yet"}
-                  </div>
-                </div>
-              </div>
             </div>
 
-            <div ref={previewRef} className="relative" id="surface">
+            <div className="relative" id="surface">
               <div className="absolute -left-14 top-14 hidden h-56 w-56 rounded-full bg-white/[0.08] blur-[100px] lg:block" aria-hidden="true" />
               <div className="absolute -right-6 bottom-2 hidden h-48 w-48 rounded-full bg-white/[0.08] blur-[100px] lg:block" aria-hidden="true" />
 
               <div className="eldar-panel relative overflow-hidden rounded-[34px] p-5 md:p-6">
                 <div className="absolute inset-0 bg-[linear-gradient(160deg,rgba(255,255,255,0.05),transparent_34%,rgba(255,255,255,0.02))]" aria-hidden="true" />
                 <div className="relative">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/38">Live surface</div>
-                      <div className="mt-2 text-[26px] font-semibold tracking-[-0.04em] text-white">The tape, arranged.</div>
-                    </div>
-                    <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-white/44">
-                      Mag 7 snapshot
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-white/55" />
+                    <span className="h-2 w-2 rounded-full bg-white/28" />
+                    <span className="h-2 w-2 rounded-full bg-white/16" />
                   </div>
 
-                  <div className="mt-6 space-y-3">
-                    {primarySignals.map((item) => (
-                      <LiveSignalRow key={item.symbol} item={item} />
-                    ))}
-                  </div>
-
-                  <div className="mt-6 grid gap-4 md:grid-cols-2">
-                    <div className="rounded-[24px] border border-white/10 bg-black/20 p-5">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Session drift</div>
-                      <div className="mt-4 flex h-28 items-end gap-3">
-                        {rankedSignals.slice(0, 6).map((item) => (
-                          <div key={item.symbol} className="flex min-w-0 flex-1 flex-col items-center gap-2">
-                            <div className="flex h-full w-full items-end">
+                  <div className="mt-6 rounded-[24px] border border-white/10 bg-black/20 p-5">
+                    <div className="grid gap-3">
+                      {previewBars.map((item) => {
+                        const move = item.changePercent ?? 0;
+                        const width = `${Math.max(18, Math.min(100, Math.abs(move) * 18))}%`;
+                        return (
+                          <div key={item.symbol} className="grid grid-cols-[16px_minmax(0,1fr)] items-center gap-4">
+                            <div className="h-1.5 w-1.5 rounded-full bg-white/24" />
+                            <div className="h-[4px] overflow-hidden rounded-full bg-white/8">
                               <div
-                                className="w-full rounded-t-[14px]"
+                                className="h-full rounded-full"
                                 style={{
-                                  height: `${Math.max(16, Math.abs(item.changePercent ?? 0) * 16)}%`,
-                                  background: (item.changePercent ?? 0) >= 0 ? "rgba(16,185,129,0.8)" : "rgba(239,68,68,0.82)",
-                                  boxShadow: (item.changePercent ?? 0) >= 0 ? "0 0 24px rgba(16,185,129,0.2)" : "0 0 24px rgba(239,68,68,0.2)"
+                                  width,
+                                  background: move >= 0 ? "rgba(16,185,129,0.8)" : "rgba(239,68,68,0.82)",
+                                  boxShadow: move >= 0 ? "0 0 16px rgba(16,185,129,0.24)" : "0 0 16px rgba(239,68,68,0.22)"
                                 }}
                               />
                             </div>
-                            <div className="text-[10px] uppercase tracking-[0.14em] text-white/42">{item.symbol}</div>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="rounded-[24px] border border-white/10 bg-black/20 p-5">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">What stays hidden</div>
-                      <div className="mt-4 space-y-4">
-                        <div className="flex items-start gap-3">
-                          <Waypoints className="mt-0.5 h-4 w-4 text-white/44" aria-hidden="true" />
-                          <div>
-                            <div className="text-[13px] font-medium text-white/86">Not everything useful should explain itself.</div>
-                            <div className="mt-1 text-[12px] leading-6 text-white/50">
-                              The right surface says enough to act, and nothing extra.
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Radar className="mt-0.5 h-4 w-4 text-white/44" aria-hidden="true" />
-                          <div>
-                            <div className="text-[13px] font-medium text-white/86">Calm surfaces make faster decisions.</div>
-                            <div className="mt-1 text-[12px] leading-6 text-white/50">
-                              No feed. No theater. No drag between the read and the click.
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <BookMarked className="mt-0.5 h-4 w-4 text-white/44" aria-hidden="true" />
-                          <div>
-                            <div className="text-[13px] font-medium text-white/86">A good tool stays still under pressure.</div>
-                            <div className="mt-1 text-[12px] leading-6 text-white/50">
-                              You should feel the room, not the software.
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -416,42 +263,9 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
 
             <div className="grid gap-5">
               <div className="eldar-dashboard-surface rounded-[28px] p-6">
-                <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Live tape</div>
-                <div className="mt-4 flex items-center justify-between">
-                  <div>
-                    <div className="text-[22px] font-semibold tracking-[-0.04em] text-white">
-                      {mostActive?.symbol ?? "--"}
-                    </div>
-                    <div className="mt-1 text-[12px] uppercase tracking-[0.12em] text-white/42">
-                      {mostActive ? "most active print" : "waiting"}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[12px] text-white/70">
-                      {mostActive ? formatPrice(mostActive.currentPrice, "USD") : "--"}
-                    </div>
-                    <div
-                      className={clsx(
-                        "mt-1 inline-flex items-center gap-1 text-[11px] font-medium",
-                        (mostActive?.changePercent ?? 0) >= 0 ? "text-emerald-300" : "text-red-300"
-                      )}
-                    >
-                      {(mostActive?.changePercent ?? 0) >= 0 ? (
-                        <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-                      ) : (
-                        <ArrowDownRight className="h-3.5 w-3.5" aria-hidden="true" />
-                      )}
-                      {percentText(mostActive?.changePercent ?? null)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="eldar-dashboard-surface rounded-[28px] p-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">Enter when ready</div>
-                    <div className="mt-2 text-[22px] font-semibold tracking-[-0.04em] text-white">
+                    <div className="text-[22px] font-semibold tracking-[-0.04em] text-white">
                       The surface is already awake.
                     </div>
                   </div>
@@ -460,7 +274,7 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
                     onClick={onOpenApp}
                     className="eldar-btn-silver inline-flex min-h-[48px] items-center gap-2 rounded-full px-5 text-[11px] font-semibold uppercase tracking-[0.14em]"
                   >
-                    Enter terminal
+                    Enter App
                     <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </div>

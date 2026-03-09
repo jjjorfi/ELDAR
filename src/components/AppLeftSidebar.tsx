@@ -6,9 +6,11 @@ import type { ReactNode } from "react";
 import {
   BookText,
   BriefcaseBusiness,
+  FileText,
   Grid2x2,
   LayoutDashboard,
   LineChart,
+  Mail,
   Moon,
   Search,
   Sun
@@ -157,6 +159,24 @@ export function AppLeftSidebar({
             aria-label="Telegram"
           >
             <TelegramBrandIcon />
+          </a>
+          <a
+            href="https://eldarfrequency.substack.com"
+            target="_blank"
+            rel="noreferrer"
+            className="eldar-menu-icon p-1.5 text-white/75 transition hover:text-white"
+            aria-label="Substack"
+          >
+            <FileText className="h-3.5 w-3.5" />
+          </a>
+          <a
+            href="https://eldar.beehiiv.com"
+            target="_blank"
+            rel="noreferrer"
+            className="eldar-menu-icon p-1.5 text-white/75 transition hover:text-white"
+            aria-label="Newsletter"
+          >
+            <Mail className="h-3.5 w-3.5" />
           </a>
         </div>
       </div>

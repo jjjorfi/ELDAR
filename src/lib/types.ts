@@ -70,6 +70,19 @@ export interface AnalysisResult {
    * squeezeRisk=true means DTC > 10; STRONG_SELL was capped to SELL.
    */
   squeezeRisk: boolean;
+  /**
+   * Raw snapshot fundamentals carried through to the UI so Key Fundamentals
+   * does not depend on scored factor strings for display values.
+   */
+  fundamentals: {
+    forwardPE: number | null;
+    trailingPE: number | null;
+    revenueGrowth: number | null;
+    earningsQuarterlyGrowth: number | null;
+    fcfYield: number | null;
+    evEbitda: number | null;
+    ffoYield: number | null;
+  };
   generatedAt: string;
 }
 

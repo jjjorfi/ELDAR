@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { runRouteGuards } from "@/lib/api/route-security";
+import { getDashboardMacroRegime } from "@/lib/home/dashboard-macro";
+import type { HomeDashboardPayload } from "@/lib/home/dashboard-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -130,6 +132,7 @@ let macroCache:
       payload: {
         indicators: MacroIndicatorSnapshot[];
         fetchedAt: string;
+        macroRegime: HomeDashboardPayload["regime"] | null;
       };
     }
   | null = null;
@@ -257,11 +260,15 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.json(macroCache.payload, { headers: { "Cache-Control": CACHE_HEADER } });
   }
 
-  const indicators = await Promise.all(INDICATORS.map((definition) => fetchIndicator(definition, key)));
+  const [indicators, macroRegime] = await Promise.all([
+    Promise.all(INDICATORS.map((definition) => fetchIndicator(definition, key))),
+    getDashboardMacroRegime(null).catch(() => null)
+  ]);
 
   const payload = {
     indicators,
-    fetchedAt: new Date().toISOString()
+    fetchedAt: new Date().toISOString(),
+    macroRegime
   };
 
   macroCache = {

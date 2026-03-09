@@ -1,4 +1,4 @@
-import { ratingNote, toRating } from "@/lib/rating";
+import { ratingNoteForLabel, toRating } from "@/lib/rating";
 import {
   getSectorConfig,
   getSectorWeights,
@@ -567,11 +567,26 @@ export function scoreSnapshot(snapshot: MarketSnapshot): AnalysisResult {
     marketCap: snapshot.marketCap,
     score: rawScore,
     rating,
-    ratingNote: ratingNote(rawScore),
+    ratingNote: ratingNoteForLabel(rating),
     factors,
     dataCompleteness,
     entryAlert,
     squeezeRisk,
+    fundamentals: {
+      forwardPE: snapshot.forwardPE,
+      trailingPE:
+        typeof snapshot.trailingEps === "number" &&
+        Number.isFinite(snapshot.trailingEps) &&
+        snapshot.trailingEps > 0 &&
+        snapshot.currentPrice > 0
+          ? snapshot.currentPrice / snapshot.trailingEps
+          : null,
+      revenueGrowth: snapshot.revenueGrowth,
+      earningsQuarterlyGrowth: snapshot.earningsQuarterlyGrowth,
+      fcfYield: snapshot.fcfYield,
+      evEbitda: snapshot.evEbitda,
+      ffoYield: snapshot.ffoYield
+    },
     generatedAt: new Date().toISOString()
   };
 }

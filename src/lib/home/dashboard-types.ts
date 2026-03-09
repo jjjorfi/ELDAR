@@ -4,14 +4,22 @@
 // and lets us refactor dashboard rendering without changing the payload shape.
 
 import type { SectorPerformanceWindow } from "@/lib/market/sector-performance";
+import type {
+  GateFired,
+  MacroInputV2,
+  MacroRegimeV2,
+  MacroScoreV2
+} from "@/lib/scoring/eldar-macro-v2";
 
 export type SectorRotationWindow = SectorPerformanceWindow;
 
 export interface HomeRegimeMetric {
-  key: "tenYearYield" | "vix" | "dxy" | "oil";
+  key: "vix" | "dxy" | "oilWTI" | "nominal10Y";
   label: string;
   value: number | null;
-  changePercent: number | null;
+  displayValue: string;
+  detail: string;
+  tone: "positive" | "neutral" | "negative";
 }
 
 export interface HomeSnapshotItem {
@@ -36,15 +44,33 @@ export interface HomeSectorRotationItem {
   signalStrength: "STRONG" | "CONSTRUCTIVE" | "NEUTRAL" | "WEAK" | "UNAVAILABLE";
 }
 
+export interface HomeNewsItem {
+  symbol: string | null;
+  headline: string;
+  source: string | null;
+  url: string | null;
+  publishedAt: string | null;
+  sentiment: "POSITIVE" | "NEGATIVE" | "NEUTRAL";
+}
+
 export interface HomeDashboardPayload {
   generatedAt: string;
   sectorWindow: SectorRotationWindow;
   regime: {
-    label: "RISK_ON" | "BALANCED" | "RISK_OFF";
+    label: MacroRegimeV2;
     summary: string;
+    compositeScore: number;
+    formulaScore: number;
+    modelVersion: string;
+    confidence: MacroScoreV2["confidence"];
+    warnings: string[];
+    gatesFired: GateFired[];
+    pillars: MacroScoreV2["pillars"];
+    inputSnapshot: MacroInputV2;
     metrics: HomeRegimeMetric[];
   };
   snapshot: HomeSnapshotItem[];
   marketMovers: HomeMarketMoverItem[];
   sectorRotation: HomeSectorRotationItem[];
+  marketNews: HomeNewsItem[];
 }

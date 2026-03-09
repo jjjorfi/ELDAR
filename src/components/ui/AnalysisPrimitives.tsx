@@ -36,11 +36,18 @@ export function SignalHero({
   const clamped = typeof meterPercent === "number" ? Math.max(0, Math.min(100, meterPercent)) : null;
   const headingId = useId();
   const toneClasses = {
-    strongBuy: "border-[#FFBF00]/35 bg-[#FFBF00]/10 text-[#FFBF00]",
+    strongBuy: "border-[#FFBF00]/55 bg-[#FFBF00]/14 text-[#FFD76A] shadow-[0_0_26px_rgba(255,191,0,0.16)]",
     buy: "border-emerald-300/30 bg-emerald-300/10 text-emerald-300",
     hold: "border-white/16 bg-white/[0.04] text-white/82",
     sell: "border-red-300/30 bg-red-300/10 text-red-300",
     strongSell: "border-red-400/35 bg-red-400/12 text-red-200"
+  }[tone];
+  const meterFillClass = {
+    strongBuy: "bg-[#FFBF00] shadow-[0_0_12px_rgba(255,191,0,0.45)]",
+    buy: "bg-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.28)]",
+    hold: "bg-white",
+    sell: "bg-red-300 shadow-[0_0_12px_rgba(252,165,165,0.25)]",
+    strongSell: "bg-red-400 shadow-[0_0_12px_rgba(248,113,113,0.28)]"
   }[tone];
 
   return (
@@ -101,7 +108,7 @@ export function SignalHero({
               aria-valuenow={Math.round(clamped)}
               aria-label={scoreLabel}
             >
-              <div className="h-full bg-white transition-all duration-300 ease-out" style={{ width: `${clamped}%` }} />
+              <div className={clsx("h-full transition-all duration-300 ease-out", meterFillClass)} style={{ width: `${clamped}%` }} />
             </div>
           ) : null}
         </div>

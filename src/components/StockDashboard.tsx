@@ -13,7 +13,9 @@ import {
   LayoutDashboard,
   LineChart,
   BookText,
+  FileText,
   Loader2,
+  Mail,
   Moon,
   Plus,
   Search,
@@ -40,7 +42,8 @@ import {
 } from "@/components/ui/FintechPrimitives";
 import { DriversList, SignalHero } from "@/components/ui/AnalysisPrimitives";
 import {
-  DashboardMetricTile,
+  MacroEnvironmentCard,
+  MarketNewsPanel,
   MarketMoverStack,
   SectorRotationBoard,
   SnapshotTile
@@ -407,6 +410,24 @@ function NavigationBar({
           >
             <TelegramBrandIcon />
           </a>
+          <a
+            href="https://eldarfrequency.substack.com"
+            target="_blank"
+            rel="noreferrer"
+            className="eldar-menu-icon p-1.5 text-white/75 transition hover:text-white"
+            aria-label="Substack"
+          >
+            <FileText className="h-3.5 w-3.5" />
+          </a>
+          <a
+            href="https://eldar.beehiiv.com"
+            target="_blank"
+            rel="noreferrer"
+            className="eldar-menu-icon p-1.5 text-white/75 transition hover:text-white"
+            aria-label="Newsletter"
+          >
+            <Mail className="h-3.5 w-3.5" />
+          </a>
         </div>
       </div>
     </aside>
@@ -459,10 +480,10 @@ function scoreLabel(score: number): string {
   return score > 0 ? `+${formatted}` : formatted;
 }
 
-function ratingToneByScore(score: number): "bullish" | "neutral" | "bearish" {
-  if (score > 6) return "bullish";
-  if (score > 4) return "neutral";
-  return "bearish";
+function ratingToneByLabel(rating: RatingLabel): "bullish" | "neutral" | "bearish" {
+  if (rating === "STRONG_BUY" || rating === "BUY") return "bullish";
+  if (rating === "STRONG_SELL" || rating === "SELL") return "bearish";
+  return "neutral";
 }
 
 function ratingLabelFromKey(rating: RatingLabel): string {
@@ -802,6 +823,11 @@ function factorSignalToneClass(signal: FactorResult["signal"] | null): string {
 function formatSignedPercent(value: number | null, digits = 1): string {
   if (value === null || !Number.isFinite(value)) return "N/A";
   return `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(digits)}%`;
+}
+
+function ratioToPercentPoints(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value)) return null;
+  return value * 100;
 }
 
 function factorActionHint(factorName: string): string {
@@ -3009,28 +3035,46 @@ export function StockDashboard({
   const fundamentalsSnapshot = useMemo(() => {
     if (!currentRating) {
       return {
-        pe: { value: null as number | null, signal: null as FactorResult["signal"] | null },
+        primaryValuation: {
+          label: "P/E",
+          value: null as number | null,
+          signal: null as FactorResult["signal"] | null,
+          format: "multiple" as "multiple" | "percent"
+        },
         revenueGrowth: { value: null as number | null, signal: null as FactorResult["signal"] | null },
         epsGrowth: { value: null as number | null, signal: null as FactorResult["signal"] | null },
         fcfYield: { value: null as number | null, signal: null as FactorResult["signal"] | null }
       };
     }
 
+    const fundamentals = currentRating.fundamentals;
+    const isReitValuation =
+      currentRating.sector === "Real Estate" &&
+      ((typeof fundamentals?.ffoYield === "number" && Number.isFinite(fundamentals.ffoYield)) ||
+        findFactorMetric(currentRating.factors, "FFO Yield (REIT)") !== null);
+
     return {
-      pe: {
-        value: findFactorMetric(currentRating.factors, "P/E vs Sector", ["FFO Yield (REIT)"]),
-        signal: findFactorSignal(currentRating.factors, "P/E vs Sector", ["FFO Yield (REIT)"])
+      primaryValuation: {
+        label: isReitValuation ? "FFO Yield" : "P/E",
+        value: isReitValuation
+          ? ratioToPercentPoints(fundamentals?.ffoYield ?? null) ?? findFactorMetric(currentRating.factors, "FFO Yield (REIT)")
+          : fundamentals?.forwardPE ?? fundamentals?.trailingPE ?? findFactorMetric(currentRating.factors, "P/E vs Sector"),
+        signal: isReitValuation
+          ? findFactorSignal(currentRating.factors, "FFO Yield (REIT)")
+          : findFactorSignal(currentRating.factors, "P/E vs Sector"),
+        format: isReitValuation ? ("percent" as const) : ("multiple" as const)
       },
       revenueGrowth: {
-        value: findFactorMetric(currentRating.factors, "Revenue Growth"),
+        value: ratioToPercentPoints(fundamentals?.revenueGrowth ?? null) ?? findFactorMetric(currentRating.factors, "Revenue Growth"),
         signal: findFactorSignal(currentRating.factors, "Revenue Growth")
       },
       epsGrowth: {
-        value: findFactorMetric(currentRating.factors, "EPS Growth"),
+        value:
+          ratioToPercentPoints(fundamentals?.earningsQuarterlyGrowth ?? null) ?? findFactorMetric(currentRating.factors, "EPS Growth"),
         signal: findFactorSignal(currentRating.factors, "EPS Growth")
       },
       fcfYield: {
-        value: findFactorMetric(currentRating.factors, "FCF Yield"),
+        value: ratioToPercentPoints(fundamentals?.fcfYield ?? null) ?? findFactorMetric(currentRating.factors, "FCF Yield"),
         signal: findFactorSignal(currentRating.factors, "FCF Yield")
       }
     };
@@ -4114,10 +4158,10 @@ export function StockDashboard({
   }
 
   if (view === "home") {
-    const regimeMetrics = homeDashboard?.regime.metrics ?? [];
     const snapshotItems = homeDashboard?.snapshot ?? [];
     const rankedMarketMovers = homeDashboard?.marketMovers ?? [];
     const sectorRotationRows = homeDashboard?.sectorRotation ?? [];
+    const marketNews = homeDashboard?.marketNews ?? [];
     const analyzeHomeSymbol = (symbol: string): void => {
       setTicker(symbol);
       void analyzeSymbol(symbol);
@@ -4149,20 +4193,20 @@ export function StockDashboard({
         />
         {topRightAccountDock}
         <div className="container mx-auto px-6 pb-20 pl-[104px] pr-10 pt-6">
-          <div ref={heroSectionRef} className="mx-auto max-w-[1240px]">
-            <div className="reveal-block mb-6 flex flex-col items-start gap-3">
-              <button
-                type="button"
-                onClick={() => openCommandPalette(ticker)}
-                disabled={loading}
-                className="eldar-btn-silver primary-cta flex h-14 w-full max-w-[560px] items-center justify-between rounded-3xl px-5 text-left text-base font-semibold backdrop-blur-xl transition-all duration-300"
-              >
-                <span className="flex items-center gap-3 text-slate-900">
-                  {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
-                  {loading ? `Analyzing ${ticker || "symbol"}...` : "search stock"}
-                </span>
-                <span className="rounded-md border border-black/20 bg-black/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/90">/</span>
-              </button>
+            <div ref={heroSectionRef} className="mx-auto max-w-[1240px]">
+              <div className="reveal-block mb-6 flex flex-col items-start gap-3">
+                <button
+                  type="button"
+                  onClick={() => openCommandPalette(ticker)}
+                  disabled={loading}
+                  className="eldar-search-shell primary-cta flex h-14 w-full max-w-[520px] items-center justify-between rounded-3xl px-5 text-left text-base font-semibold transition-all duration-300"
+                >
+                  <span className="flex items-center gap-3 text-white/88">
+                    {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
+                    {loading ? `Analyzing ${ticker || "symbol"}...` : "search stock"}
+                  </span>
+                  <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/60">/</span>
+                </button>
 
               {apiError ? (
                 <div className="w-full max-w-[560px] rounded-2xl border border-zinc-400/35 bg-zinc-300/10 p-4 backdrop-blur-xl">
@@ -4172,47 +4216,22 @@ export function StockDashboard({
             </div>
 
             <div className="reveal-block grid gap-5 xl:grid-cols-12" style={{ transitionDelay: "80ms" }}>
-              <section className="eldar-panel texture-none xl:col-span-5 p-6">
-                <div className="mb-5 flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Macro Environment</p>
-                    <h2 className="mt-3 text-[28px] font-semibold tracking-[-0.03em] text-white">
-                      {homeDashboard?.regime.label?.replace("_", " ") ?? "Loading"}
-                    </h2>
+              <MacroEnvironmentCard regime={homeDashboard?.regime ?? null} loading={homeDashboardLoading && !homeDashboard} />
+
+              {homeDashboardLoading && !homeDashboard ? (
+                <section className="eldar-panel texture-none p-6 xl:col-span-4">
+                  <div className="mb-5">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Market News</p>
                   </div>
-                  <span
-                    className={clsx(
-                      "rounded-full border px-3 py-1.5 text-[10px] uppercase tracking-[0.14em]",
-                      homeDashboard?.regime.label === "RISK_ON" && "border-emerald-400/35 text-emerald-300",
-                      homeDashboard?.regime.label === "RISK_OFF" && "border-red-400/35 text-red-300",
-                      homeDashboard?.regime.label === "BALANCED" && "border-white/15 text-white/68"
-                    )}
-                  >
-                    Live regime
-                  </span>
-                </div>
-                {homeDashboardLoading && !homeDashboard ? (
                   <LinesSkeleton rows={4} />
-                ) : (
-                  <>
-                    <p className="mb-5 max-w-xl text-[15px] leading-7 text-white/72">
-                      {homeDashboard?.regime.summary ?? "Loading macro regime..."}
-                    </p>
-                    <div className="grid grid-cols-2 gap-3">
-                      {regimeMetrics.map((metric) => (
-                        <DashboardMetricTile key={metric.key} metric={metric} />
-                      ))}
-                    </div>
-                  </>
-                )}
-              </section>
+                </section>
+              ) : (
+                <MarketNewsPanel items={marketNews} />
+              )}
 
               <section className="eldar-panel texture-none xl:col-span-7 p-6">
                 <div className="mb-5 flex items-end justify-between gap-4">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Market Snapshot</p>
-                    <p className="mt-2 text-sm text-white/62">Core tape for the current New York session.</p>
-                  </div>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Market Snapshot</p>
                 </div>
                 {homeDashboardLoading && !homeDashboard ? (
                   <LinesSkeleton rows={3} />
@@ -4244,7 +4263,6 @@ export function StockDashboard({
               <section className="eldar-panel texture-none xl:col-span-4 p-6">
                 <div className="mb-5">
                   <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Market Movers</p>
-                  <p className="mt-2 text-sm text-white/62">Top 3 absolute movers.</p>
                 </div>
                 {homeDashboardLoading && !homeDashboard ? (
                   <LinesSkeleton rows={5} />
@@ -4403,7 +4421,6 @@ export function StockDashboard({
                   scoreLabel="Composite signal strength"
                   subcopy={`ELDAR rates this ${ratingBand.label}. Review the main drivers, downside risks, and market context before you add it to the watchlist or compare it.`}
                   contextLine={`${currentRating.sector} · ${formatPrice(currentRating.currentPrice, currentRating.currency)} · Market Cap ${formatMarketCap(currentRating.marketCap)}`}
-                  trustSignals={["Private workspace", "Encrypted session", "Live market data"]}
                   tone={signalHeroTone}
                   meterPercent={currentRating.score * 10}
                   actions={
@@ -4444,14 +4461,19 @@ export function StockDashboard({
                   scoreVisual={
                     <div
                       className={clsx(
-                        "flex h-40 w-40 flex-col items-center justify-center rounded-full border",
-                        isStrongBullish && "border-[#FFBF00]/40 bg-[#FFBF00]/10",
+                        "flex h-40 w-40 flex-col items-center justify-center rounded-full border shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+                        isStrongBullish && "border-[#FFBF00]/60 bg-[#FFBF00]/14 shadow-[0_0_34px_rgba(255,191,0,0.18)]",
                         isBullish && "border-emerald-300/35 bg-emerald-300/10",
                         isBearishOrLower && "border-red-300/40 bg-red-300/10",
                         !isStrongBullish && !isBullish && !isBearishOrLower && "border-white/20 bg-white/[0.04]"
                       )}
                     >
-                      <p className="inked-number glow-amber text-4xl font-black leading-none text-white">
+                      <p
+                        className={clsx(
+                          "inked-number text-4xl font-black leading-none",
+                          isStrongBullish ? "text-[#FFD76A] [text-shadow:0_0_24px_rgba(255,191,0,0.32)]" : "glow-amber text-white"
+                        )}
+                      >
                         <HackingScore
                           value={currentRating.score}
                           triggerKey={String(currentRating.id ?? `${currentRating.symbol}:${currentRating.createdAt}`)}
@@ -4545,10 +4567,16 @@ export function StockDashboard({
                     <h2 className="mb-4 text-lg font-semibold text-white">KEY FUNDAMENTALS</h2>
                     <div className="grid grid-cols-2 gap-3 text-center">
                       <div className="rounded-xl border border-white/15 bg-zinc-950/45 px-3 py-3">
-                        <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">P/E</p>
-                        <p className={clsx("mt-1 text-xl font-bold", factorSignalToneClass(fundamentalsSnapshot.pe.signal))}>
+                        <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">{fundamentalsSnapshot.primaryValuation.label}</p>
+                        <p className={clsx("mt-1 text-xl font-bold", factorSignalToneClass(fundamentalsSnapshot.primaryValuation.signal))}>
                           <HackingValueText
-                            finalText={fundamentalsSnapshot.pe.value !== null ? `${fundamentalsSnapshot.pe.value.toFixed(1)}x` : "N/A"}
+                            finalText={
+                              fundamentalsSnapshot.primaryValuation.value !== null
+                                ? fundamentalsSnapshot.primaryValuation.format === "percent"
+                                  ? formatSignedPercent(fundamentalsSnapshot.primaryValuation.value, 1)
+                                  : `${fundamentalsSnapshot.primaryValuation.value.toFixed(1)}x`
+                                : "N/A"
+                            }
                             loading={fundamentalsNumbersLoading}
                             triggerKey={`pe:${fundamentalsHackTrigger}`}
                           />
@@ -5219,8 +5247,7 @@ export function StockDashboard({
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {watchlist.map((item, index) => {
-                const score = item.latest?.score ?? 0;
-                const tone = ratingToneByScore(score);
+                const tone = item.latest ? ratingToneByLabel(item.latest.rating) : "neutral";
 
                 return (
                   <div

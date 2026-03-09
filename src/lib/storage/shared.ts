@@ -6,7 +6,8 @@ import { sql } from "@vercel/postgres";
 
 import type { PersistedPortfolioSnapshot } from "@/lib/scoring/portfolio-types";
 import { SCORING_MODEL_VERSION } from "@/lib/scoring/version";
-import type { Mag7ScoreCard, PersistedAnalysis } from "@/lib/types";
+import { ratingNoteForLabel } from "@/lib/rating";
+import type { AnalysisResult, Mag7ScoreCard, PersistedAnalysis } from "@/lib/types";
 
 export const hasPostgres = Boolean(process.env.POSTGRES_URL);
 
@@ -74,7 +75,25 @@ export function normalizePersistedAnalysis(payload: unknown): PersistedAnalysis 
     throw new Error("Invalid analysis payload shape from store");
   }
 
-  return payload as PersistedAnalysis;
+  const record = payload as Partial<PersistedAnalysis> & {
+    fundamentals?: Partial<AnalysisResult["fundamentals"]>;
+  };
+
+  const toFiniteNumber = (value: unknown): number | null =>
+    typeof value === "number" && Number.isFinite(value) ? value : null;
+
+  return {
+    ...record,
+    fundamentals: {
+      forwardPE: toFiniteNumber(record.fundamentals?.forwardPE),
+      trailingPE: toFiniteNumber(record.fundamentals?.trailingPE),
+      revenueGrowth: toFiniteNumber(record.fundamentals?.revenueGrowth),
+      earningsQuarterlyGrowth: toFiniteNumber(record.fundamentals?.earningsQuarterlyGrowth),
+      fcfYield: toFiniteNumber(record.fundamentals?.fcfYield),
+      evEbitda: toFiniteNumber(record.fundamentals?.evEbitda),
+      ffoYield: toFiniteNumber(record.fundamentals?.ffoYield)
+    }
+  } as PersistedAnalysis;
 }
 
 export function shouldRefreshCachedAnalysis(analysis: PersistedAnalysis): boolean {
@@ -82,8 +101,33 @@ export function shouldRefreshCachedAnalysis(analysis: PersistedAnalysis): boolea
     return true;
   }
 
+  if (analysis.ratingNote !== ratingNoteForLabel(analysis.rating)) {
+    return true;
+  }
+
   const sector = (analysis.sector ?? "").trim().toLowerCase();
   if (!sector || sector === "other" || sector === "unknown") {
+    return true;
+  }
+
+  const fundamentals = analysis.fundamentals;
+  const missingFundamentals =
+    !fundamentals ||
+    [
+      fundamentals.forwardPE,
+      fundamentals.trailingPE,
+      fundamentals.ffoYield,
+      fundamentals.revenueGrowth,
+      fundamentals.earningsQuarterlyGrowth,
+      fundamentals.fcfYield
+    ].every((value) => value === null);
+  const keyFactorNames = new Set(["P/E vs Sector", "FFO Yield (REIT)", "Revenue Growth", "EPS Growth", "FCF Yield"]);
+  const hasLegacyDisplayedFundamentals = analysis.factors.some((factor) => {
+    if (!keyFactorNames.has(factor.factor)) return false;
+    return /-?\d+(?:\.\d+)?/.test(factor.metricValue);
+  });
+
+  if (missingFundamentals && hasLegacyDisplayedFundamentals) {
     return true;
   }
 

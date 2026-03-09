@@ -26,6 +26,25 @@ export interface AlphaVantageFallbackData {
   bearishNewsCount: number;
 }
 
+export interface AlphaVantageNewsHeadline {
+  symbol: string | null;
+  headline: string;
+  url: string | null;
+  source: string | null;
+  publishedAt: string | null;
+  sentiment: "POSITIVE" | "NEGATIVE" | "NEUTRAL";
+}
+
+function parseAlphaVantagePublishedAt(value: unknown): string | null {
+  if (typeof value !== "string" || value.length < 15) {
+    return null;
+  }
+
+  const iso = `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T${value.slice(9, 11)}:${value.slice(11, 13)}:${value.slice(13, 15)}Z`;
+  const parsed = Date.parse(iso);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
+}
+
 const ALPHA_VANTAGE_BASE_URL = "https://www.alphavantage.co/query";
 const ALPHA_VANTAGE_FETCH_TIMEOUT_MS = 4_500;
 
@@ -245,6 +264,88 @@ function parseNews(payload: Record<string, unknown> | null, symbol: string): { b
     bullishNewsCount,
     bearishNewsCount
   };
+}
+
+/**
+ * Fetches headline-level Alpha Vantage news for a set of symbols.
+ *
+ * This is used for dashboard market-news cards, not scoring. It stays separate
+ * from parseNews() because the scoring pipeline only needs sentiment counts.
+ *
+ * @param symbols Focus symbols for the current dashboard universe.
+ * @param limit Maximum number of headlines returned.
+ * @returns Normalized headline records.
+ */
+export async function fetchAlphaVantageNewsHeadlines(
+  symbols: string[],
+  limit = 8
+): Promise<AlphaVantageNewsHeadline[]> {
+  if (!isAlphaVantageConfigured()) {
+    return [];
+  }
+
+  const uniqueSymbols = Array.from(new Set(symbols.map((value) => value.trim().toUpperCase()).filter(Boolean))).slice(0, 10);
+  if (uniqueSymbols.length === 0) {
+    return [];
+  }
+
+  const payload = await fetchAlphaVantage({
+    function: "NEWS_SENTIMENT",
+    tickers: uniqueSymbols.join(","),
+    limit: String(Math.max(limit * 2, 20)),
+    sort: "LATEST"
+  });
+
+  if (!payload) {
+    return [];
+  }
+
+  const feed = Array.isArray(payload.feed) ? payload.feed : [];
+  const items: AlphaVantageNewsHeadline[] = [];
+
+  for (const entry of feed) {
+    if (typeof entry !== "object" || entry === null) {
+      continue;
+    }
+
+    const record = entry as Record<string, unknown>;
+    const headline = typeof record.title === "string" ? record.title.trim() : "";
+    if (!headline) {
+      continue;
+    }
+
+    const tickerSentiment = Array.isArray(record.ticker_sentiment) ? record.ticker_sentiment : [];
+    let matchedSymbol: string | null = null;
+
+    for (const tickerEntry of tickerSentiment) {
+      if (typeof tickerEntry !== "object" || tickerEntry === null) {
+        continue;
+      }
+
+      const ticker = typeof (tickerEntry as Record<string, unknown>).ticker === "string"
+        ? ((tickerEntry as Record<string, unknown>).ticker as string).toUpperCase()
+        : "";
+
+      if (ticker && uniqueSymbols.includes(ticker)) {
+        matchedSymbol = ticker;
+        break;
+      }
+    }
+
+    items.push({
+      symbol: matchedSymbol,
+      headline,
+      url: typeof record.url === "string" ? record.url : null,
+      source: typeof record.source === "string" ? record.source : null,
+      publishedAt: parseAlphaVantagePublishedAt(record.time_published),
+      sentiment: scoreSentiment(
+        parseNumeric(record.overall_sentiment_score),
+        typeof record.overall_sentiment_label === "string" ? record.overall_sentiment_label : null
+      )
+    });
+  }
+
+  return items.slice(0, Math.max(1, limit));
 }
 
 /**

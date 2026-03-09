@@ -6,8 +6,15 @@ import { useRouter } from "next/navigation";
 
 import { AppPageHeader } from "@/components/AppPageHeader";
 import { AppPageShell } from "@/components/AppPageShell";
+import {
+  MacroGateStatusRow,
+  MacroPillarGrid,
+  MacroRegimeNeedlePanel,
+  RawDataSection
+} from "@/components/macro/MacroRegimePanels";
 import { useDashboardPaletteShortcut } from "@/hooks/useDashboardPaletteShortcut";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import type { HomeDashboardPayload } from "@/lib/home/dashboard-types";
 import { stashDashboardIntent } from "@/lib/ui/dashboard-intent";
 
 interface MacroIndicatorSnapshot {
@@ -50,6 +57,7 @@ export default function MacroPage(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [indicators, setIndicators] = useState<MacroIndicatorSnapshot[]>([]);
+  const [macroRegime, setMacroRegime] = useState<HomeDashboardPayload["regime"] | null>(null);
 
   const openDashboardView = useCallback((
     view: "home" | "portfolio" | "watchlist",
@@ -70,16 +78,22 @@ export default function MacroPage(): JSX.Element {
         setLoading(true);
         setError("");
         const response = await fetch("/api/macro/fred");
-        const payload = (await response.json()) as { indicators?: MacroIndicatorSnapshot[]; error?: string };
+        const payload = (await response.json()) as {
+          indicators?: MacroIndicatorSnapshot[];
+          macroRegime?: HomeDashboardPayload["regime"] | null;
+          error?: string;
+        };
         if (cancelled) return;
         if (!response.ok) {
           throw new Error(payload.error ?? "Failed to load macro indicators.");
         }
         setIndicators(Array.isArray(payload.indicators) ? payload.indicators : []);
+        setMacroRegime(payload.macroRegime ?? null);
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : "Failed to load macro indicators.");
           setIndicators([]);
+          setMacroRegime(null);
         }
       } finally {
         if (!cancelled) {
@@ -125,74 +139,72 @@ export default function MacroPage(): JSX.Element {
         eyebrow="Macro Monitor"
         title="Macro"
         subtitle={`Tracking ${macroSummary.available} of ${macroSummary.total || 0} core indicators across rates, inflation, labor, and growth.`}
+        actions={
+          macroRegime ? (
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/45">
+              As of {macroRegime.inputSnapshot.date} · {macroRegime.modelVersion}
+            </span>
+          ) : undefined
+        }
       />
 
       {error ? (
         <div className="mb-6 rounded-2xl border border-zinc-400/35 bg-zinc-300/10 px-4 py-3 text-sm text-zinc-100">{error}</div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {indicators.slice(0, 4).map((item) => {
-          const tone = changeTone(item.change);
-          return (
-            <div key={`macro-top-${item.key}`} className="eldar-panel rounded-2xl p-6">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-white/55">{item.title}</p>
-              <p className="mt-3 text-4xl font-black leading-none text-white">{formatValue(item.value, item.unit)}</p>
-              <p
-                className={clsx(
-                  "mt-3 text-sm",
-                  tone === "positive" && "text-emerald-300",
-                  tone === "negative" && "text-red-300",
-                  tone === "neutral" && "text-white/70"
-                )}
-              >
-                {formatChange(item.change, item.changeMode)}
-              </p>
-              <p className="mt-3 text-[10px] uppercase tracking-[0.12em] text-white/50">{item.frequency} • {item.seriesId}</p>
-            </div>
-          );
-        })}
-      </div>
+      <div className="space-y-4">
+        {macroRegime ? (
+          <>
+            <MacroRegimeNeedlePanel regime={macroRegime} />
+            <MacroPillarGrid regime={macroRegime} />
+            <MacroGateStatusRow gatesFired={macroRegime.gatesFired} />
+          </>
+        ) : (
+          <div className="eldar-panel rounded-2xl p-6">
+            <p className="text-sm text-white/62">{loading ? "Loading macro regime..." : "Macro regime is unavailable."}</p>
+          </div>
+        )}
 
-      <div className="eldar-panel mt-6 overflow-hidden rounded-3xl">
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="border-b border-white/15 bg-white/[0.04]">
-              <tr className="text-left text-xs uppercase tracking-[0.14em] text-white/70">
-                <th className="px-4 py-3">Indicator</th>
-                <th className="px-4 py-3">Latest</th>
-                <th className="px-4 py-3">Move</th>
-                <th className="px-4 py-3">Frequency</th>
-                <th className="px-4 py-3">Series</th>
-                <th className="px-4 py-3">As Of</th>
-              </tr>
-            </thead>
-            <tbody>
-              {indicators.map((item) => {
-                const tone = changeTone(item.change);
-                return (
-                  <tr key={item.key} className="border-b border-white/10 text-sm text-white/90">
-                    <td className="px-4 py-3 font-semibold">{item.title}</td>
-                    <td className="px-4 py-3 font-mono text-white/85">{formatValue(item.value, item.unit)}</td>
-                    <td
-                      className={clsx(
-                        "px-4 py-3 font-mono",
-                        tone === "positive" && "text-emerald-300",
-                        tone === "negative" && "text-red-300",
-                        tone === "neutral" && "text-white/75"
-                      )}
-                    >
-                      {formatChange(item.change, item.changeMode)}
-                    </td>
-                    <td className="px-4 py-3 text-white/70">{item.frequency}</td>
-                    <td className="px-4 py-3 font-mono text-white/70">{item.seriesId}</td>
-                    <td className="px-4 py-3 text-white/70">{item.date ?? "N/A"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <RawDataSection count={indicators.length}>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead className="border-b border-white/15 bg-white/[0.04]">
+                <tr className="text-left text-xs uppercase tracking-[0.14em] text-white/70">
+                  <th className="px-4 py-3">Indicator</th>
+                  <th className="px-4 py-3">Latest</th>
+                  <th className="px-4 py-3">Move</th>
+                  <th className="px-4 py-3">Frequency</th>
+                  <th className="px-4 py-3">Series</th>
+                  <th className="px-4 py-3">As Of</th>
+                </tr>
+              </thead>
+              <tbody>
+                {indicators.map((item) => {
+                  const tone = changeTone(item.change);
+                  return (
+                    <tr key={item.key} className="border-b border-white/10 text-sm text-white/90">
+                      <td className="px-4 py-3 font-semibold">{item.title}</td>
+                      <td className="px-4 py-3 font-mono text-white/85">{formatValue(item.value, item.unit)}</td>
+                      <td
+                        className={clsx(
+                          "px-4 py-3 font-mono",
+                          tone === "positive" && "text-emerald-300",
+                          tone === "negative" && "text-red-300",
+                          tone === "neutral" && "text-white/75"
+                        )}
+                      >
+                        {formatChange(item.change, item.changeMode)}
+                      </td>
+                      <td className="px-4 py-3 text-white/70">{item.frequency}</td>
+                      <td className="px-4 py-3 font-mono text-white/70">{item.seriesId}</td>
+                      <td className="px-4 py-3 text-white/70">{item.date ?? "N/A"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </RawDataSection>
       </div>
     </AppPageShell>
   );

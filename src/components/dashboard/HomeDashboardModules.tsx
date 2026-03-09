@@ -7,10 +7,14 @@
 "use client";
 
 import clsx from "clsx";
-import { useEffect, useState } from "react";
+import { Info } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
+import { LinesSkeleton } from "@/components/ui/FintechPrimitives";
 import type {
   HomeMarketMoverItem,
+  HomeNewsItem,
+  HomeDashboardPayload,
   HomeRegimeMetric,
   HomeSectorRotationItem,
   HomeSnapshotItem,
@@ -32,11 +36,70 @@ function dashboardValueToneClass(value: number | null): string {
   return "text-white/70";
 }
 
-function formatHomeMetricValue(metric: HomeRegimeMetric): string {
-  if (metric.value === null || !Number.isFinite(metric.value)) return "—";
-  if (metric.key === "tenYearYield") return `${metric.value.toFixed(2)}%`;
-  if (metric.key === "oil") return `$${metric.value.toFixed(2)}`;
-  return metric.value.toFixed(2);
+function dashboardToneClass(tone: HomeRegimeMetric["tone"]): string {
+  if (tone === "positive") return "text-emerald-300";
+  if (tone === "negative") return "text-red-300";
+  return "text-white/58";
+}
+
+function macroRegimeToneClasses(label: HomeDashboardPayload["regime"]["label"]): {
+  badge: string;
+  needle: string;
+  glow: string;
+} {
+  if (label === "MAXIMUM_EXPANSION") {
+    return {
+      badge: "border-[#FFBF00]/35 bg-[#FFBF00]/10 text-[#FFBF00] shadow-[0_0_18px_rgba(255,191,0,0.18)]",
+      needle: "#FFBF00",
+      glow: "rgba(255,191,0,0.22)"
+    };
+  }
+  if (label === "CONSTRUCTIVE_BIAS") {
+    return {
+      badge: "border-emerald-400/35 bg-emerald-400/10 text-emerald-300 shadow-[0_0_18px_rgba(52,211,153,0.18)]",
+      needle: "#6EE7B7",
+      glow: "rgba(52,211,153,0.18)"
+    };
+  }
+  if (label === "CHOP_DISTRIBUTION") {
+    return {
+      badge: "border-white/14 bg-white/[0.06] text-white/78 shadow-[0_0_18px_rgba(255,255,255,0.12)]",
+      needle: "#F5F5F5",
+      glow: "rgba(255,255,255,0.14)"
+    };
+  }
+  if (label === "DEFENSIVE_LIQUIDATION") {
+    return {
+      badge: "border-[#FF8A5B]/35 bg-[#FF8A5B]/10 text-[#FF8A5B] shadow-[0_0_18px_rgba(255,138,91,0.16)]",
+      needle: "#FF8A5B",
+      glow: "rgba(255,138,91,0.18)"
+    };
+  }
+  return {
+    badge: "border-red-400/35 bg-red-400/10 text-red-300 shadow-[0_0_18px_rgba(248,113,113,0.16)]",
+    needle: "#F87171",
+    glow: "rgba(248,113,113,0.18)"
+  };
+}
+
+function formatMacroRegimeLabel(label: HomeDashboardPayload["regime"]["label"]): string {
+  return label.replace(/_/g, " ");
+}
+
+function polarToCartesian(cx: number, cy: number, radius: number, angleDeg: number): { x: number; y: number } {
+  const radians = (Math.PI / 180) * angleDeg;
+  return {
+    x: cx + radius * Math.cos(radians),
+    y: cy - radius * Math.sin(radians)
+  };
+}
+
+function arcPath(cx: number, cy: number, radius: number, startAngleDeg: number, endAngleDeg: number): string {
+  const start = polarToCartesian(cx, cy, radius, startAngleDeg);
+  const end = polarToCartesian(cx, cy, radius, endAngleDeg);
+  const largeArcFlag = Math.abs(endAngleDeg - startAngleDeg) > 180 ? 1 : 0;
+  const sweepFlag = endAngleDeg < startAngleDeg ? 1 : 0;
+  return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} ${sweepFlag} ${end.x} ${end.y}`;
 }
 
 function formatSnapshotDisplayValue(value: number | null): string {
@@ -69,15 +132,253 @@ function signalStrengthClass(strength: HomeSectorRotationItem["signalStrength"])
   return "text-white/55";
 }
 
+function macroIndicatorRead(score: number): string {
+  if (score > 0.3) return "supportive";
+  if (score < -0.3) return "stressed";
+  return "mixed";
+}
+
+function macroPillarRead(contribution: number): string {
+  if (contribution > 1.2) return "supportive";
+  if (contribution < -1.2) return "stressed";
+  return "balanced";
+}
+
 export function DashboardMetricTile({ metric }: { metric: HomeRegimeMetric }): JSX.Element {
   return (
     <div className="eldar-dashboard-surface px-4 py-3">
       <p className="text-[10px] uppercase tracking-[0.16em] text-white/42">{metric.label}</p>
-      <p className="mt-3 text-[24px] font-semibold tracking-[-0.03em] text-white">{formatHomeMetricValue(metric)}</p>
-      <p className={clsx("mt-2 text-[11px] font-medium", dashboardValueToneClass(metric.changePercent))}>
-        {metric.changePercent === null ? "No session delta" : formatSignedPercent(metric.changePercent, 2)}
+      <p className="mt-3 text-[24px] font-semibold tracking-[-0.03em] text-white">{metric.displayValue}</p>
+      <p className={clsx("mt-2 text-[11px] font-medium", dashboardToneClass(metric.tone))}>
+        {metric.detail}
       </p>
     </div>
+  );
+}
+
+export function MacroEnvironmentCard({
+  regime,
+  loading
+}: {
+  regime: HomeDashboardPayload["regime"] | null;
+  loading: boolean;
+}): JSX.Element {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        setDrawerOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [drawerOpen]);
+
+  if (loading && !regime) {
+    return (
+      <section className="eldar-panel texture-none xl:col-span-8 p-6">
+        <div className="mb-5">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Macro Environment</p>
+        </div>
+        <div className="grid gap-5 md:grid-cols-[240px_minmax(0,1fr)]">
+          <div className="eldar-dashboard-surface min-h-[244px] rounded-[24px]" />
+          <LinesSkeleton rows={5} />
+        </div>
+      </section>
+    );
+  }
+
+  const activeRegime = regime;
+  if (!activeRegime) {
+    return (
+      <section className="eldar-panel texture-none xl:col-span-8 p-6">
+        <div className="flex min-h-[280px] items-center justify-center rounded-[24px] border border-dashed border-white/10 text-center text-sm text-white/46">
+          Macro regime data is unavailable.
+        </div>
+      </section>
+    );
+  }
+
+  const score = Math.max(-10, Math.min(10, activeRegime.compositeScore));
+  const tone = macroRegimeToneClasses(activeRegime.label);
+  const angle = 180 - ((score + 10) / 20) * 180;
+  const needleTip = polarToCartesian(110, 110, 70, angle);
+  const tickAngles = [180, 135, 90, 45, 0];
+  const simplifiedPillars = [
+    { key: "plumbing", label: "Plumbing", detail: "Rates and credit stress", result: activeRegime.pillars.plumbing },
+    { key: "cycle", label: "Cycle", detail: "Growth and recession structure", result: activeRegime.pillars.cycle },
+    { key: "sentiment", label: "Sentiment", detail: "Coincident market pressure", result: activeRegime.pillars.sentiment },
+    { key: "defense", label: "Defense", detail: "Industrial vs fear bid", result: activeRegime.pillars.defense }
+  ] as const;
+
+  return (
+    <section className="eldar-panel texture-none xl:col-span-8 p-6">
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Macro Environment</p>
+        <span className={clsx("rounded-full border px-3 py-1.5 text-[10px] uppercase tracking-[0.14em]", tone.badge)}>
+          {formatMacroRegimeLabel(activeRegime.label)}
+        </span>
+      </div>
+
+      <div className="grid gap-5 md:grid-cols-[240px_minmax(0,1fr)]">
+        <div className="eldar-dashboard-surface flex min-h-[244px] flex-col items-center justify-center px-4 py-5">
+          <svg viewBox="0 0 220 140" className="h-[148px] w-full max-w-[220px]" aria-hidden="true">
+            <defs>
+              <filter id="macro-gauge-glow" x="-40%" y="-40%" width="180%" height="180%">
+                <feGaussianBlur stdDeviation="5" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            <path d={arcPath(110, 110, 82, 180, 0)} stroke="rgba(255,255,255,0.10)" strokeWidth="12" fill="none" strokeLinecap="round" />
+            <path d={arcPath(110, 110, 82, 180, 126)} stroke="rgba(248,113,113,0.7)" strokeWidth="12" fill="none" strokeLinecap="round" />
+            <path d={arcPath(110, 110, 82, 126, 54)} stroke="rgba(255,255,255,0.28)" strokeWidth="12" fill="none" strokeLinecap="round" />
+            <path d={arcPath(110, 110, 82, 54, 18)} stroke="rgba(110,231,183,0.78)" strokeWidth="12" fill="none" strokeLinecap="round" />
+            <path d={arcPath(110, 110, 82, 18, 0)} stroke="rgba(255,191,0,0.92)" strokeWidth="12" fill="none" strokeLinecap="round" />
+            {tickAngles.map((tickAngle) => {
+              const outer = polarToCartesian(110, 110, 92, tickAngle);
+              const inner = polarToCartesian(110, 110, 78, tickAngle);
+              return (
+                <line
+                  key={`macro-tick-${tickAngle}`}
+                  x1={outer.x}
+                  y1={outer.y}
+                  x2={inner.x}
+                  y2={inner.y}
+                  stroke="rgba(255,255,255,0.18)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              );
+            })}
+            <circle cx="110" cy="110" r="32" fill={tone.glow} filter="url(#macro-gauge-glow)" />
+            <line
+              x1="110"
+              y1="110"
+              x2={needleTip.x}
+              y2={needleTip.y}
+              stroke={tone.needle}
+              strokeWidth="4"
+              strokeLinecap="round"
+              filter="url(#macro-gauge-glow)"
+            />
+            <circle cx="110" cy="110" r="8" fill={tone.needle} />
+          </svg>
+        </div>
+
+        <div className="flex min-h-[244px] flex-col justify-between">
+          <div>
+            <h2 className="text-[28px] font-semibold tracking-[-0.03em] text-white">{formatMacroRegimeLabel(activeRegime.label)}</h2>
+            {activeRegime.warnings.length > 0 ? (
+              <p className="mt-3 max-w-xl text-[14px] leading-7 text-red-200/82">{activeRegime.warnings[0]}</p>
+            ) : (
+              <p className="mt-3 max-w-xl text-[14px] leading-7 text-white/62">Tracking the current regime across plumbing, cycle, sentiment, and defense.</p>
+            )}
+          </div>
+
+          <div className="mt-5 flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {activeRegime.gatesFired.length > 0 ? (
+                <span className="rounded-full border border-red-300/24 bg-red-300/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.14em] text-red-200/85">
+                  {activeRegime.gatesFired.length} gate{activeRegime.gatesFired.length > 1 ? "s" : ""} active
+                </span>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open macro breakdown"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/12 bg-white/[0.03] text-white/72 transition hover:border-white/25 hover:bg-white/[0.06] hover:text-white"
+            >
+              <Info className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            {activeRegime.metrics.map((metric) => (
+              <DashboardMetricTile key={metric.key} metric={metric} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {drawerOpen ? (
+        <div className="fixed inset-0 z-[120] flex">
+          <button
+            type="button"
+            aria-label="Close macro regime drawer"
+            className="flex-1 bg-black/50 backdrop-blur-[2px]"
+            onClick={() => setDrawerOpen(false)}
+          />
+          <aside className="h-full w-full max-w-[540px] overflow-y-auto border-l border-white/10 bg-[#0B0B0B] px-5 py-5 shadow-[0_0_60px_rgba(0,0,0,0.55)]">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.16em] text-white/42">Macro Read</p>
+                <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white">{formatMacroRegimeLabel(activeRegime.label)}</h3>
+                <p className="mt-2 text-sm leading-6 text-white/62">Four pillars. One regime. Only the current pressure points.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(false)}
+                className="rounded-full border border-white/12 px-3 py-1.5 text-[10px] uppercase tracking-[0.14em] text-white/68 transition hover:border-white/25 hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {activeRegime.warnings.length > 0 ? (
+                <div className="rounded-[22px] border border-red-300/16 bg-red-300/8 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-red-200/70">Active pressure</p>
+                  <div className="mt-3 space-y-2">
+                    {activeRegime.warnings.map((warning, index) => (
+                      <p key={`macro-warning-${index}`} className="text-sm leading-6 text-red-100/88">
+                        {warning}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {simplifiedPillars.map((pillar) => (
+                  <div key={pillar.key} className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-white/42">{pillar.label}</p>
+                        <p className="mt-1 text-sm text-white/78">{macroPillarRead(pillar.result.contribution)}</p>
+                      </div>
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-white/36">{pillar.detail}</span>
+                    </div>
+                    <div className="mt-4 space-y-2.5">
+                      {pillar.result.indicators.map((indicator) => (
+                        <div key={`${pillar.key}-${indicator.name}`} className="flex items-center justify-between gap-3">
+                          <span className="text-sm text-white/78">{indicator.name}</span>
+                          <span
+                            className={clsx(
+                              "rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.14em]",
+                              indicator.finalScore > 0.3 && "border-emerald-300/20 bg-emerald-300/10 text-emerald-200",
+                              indicator.finalScore < -0.3 && "border-red-300/20 bg-red-300/10 text-red-200",
+                              indicator.finalScore >= -0.3 && indicator.finalScore <= 0.3 && "border-white/12 bg-white/[0.04] text-white/58"
+                            )}
+                          >
+                            {macroIndicatorRead(indicator.finalScore)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -135,10 +436,7 @@ export function SectorRotationBoard({ rows, currentWindow, onWindowChange }: Sec
   return (
     <section className="eldar-panel texture-none xl:col-span-8 p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Sector Rotation</p>
-          <p className="mt-2 text-sm text-white/64">Leadership map by sector.</p>
-        </div>
+        <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Sector Rotation</p>
         <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1">
           {SECTOR_ROTATION_WINDOW_OPTIONS.map((windowOption) => (
             <button
@@ -163,7 +461,7 @@ export function SectorRotationBoard({ rows, currentWindow, onWindowChange }: Sec
         </div>
       ) : (
         <div className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
-          <div className="eldar-dashboard-surface flex min-h-[252px] flex-col justify-between px-5 py-5">
+          <div className="eldar-dashboard-surface flex min-h-[228px] flex-col justify-between px-5 py-5">
             <div>
               <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">Selected Sector</p>
               <p className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-white">{activeRow?.name ?? "—"}</p>
@@ -173,16 +471,18 @@ export function SectorRotationBoard({ rows, currentWindow, onWindowChange }: Sec
               <p className={clsx("text-[32px] font-semibold tracking-[-0.04em]", dashboardValueToneClass(activeRow?.performancePercent ?? null))}>
                 {formatSignedPercent(activeRow?.performancePercent ?? null, 1)}
               </p>
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <span className={clsx("text-[10px] uppercase tracking-[0.14em]", signalStrengthClass(activeRow?.signalStrength ?? "UNAVAILABLE"))}>
-                  {activeRow?.signalStrength === "CONSTRUCTIVE" ? "Constructive" : activeRow?.signalStrength ?? "UNAVAILABLE"}
-                </span>
-                <span className="text-[10px] uppercase tracking-[0.14em] text-white/42">
-                  {activeRow?.signalScore !== null && activeRow?.signalScore !== undefined
-                    ? `${activeRow.signalScore.toFixed(1)} composite`
-                    : "Signal score pending"}
-                </span>
-              </div>
+              {activeRow?.signalStrength && activeRow.signalStrength !== "UNAVAILABLE" ? (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <span className={clsx("text-[10px] uppercase tracking-[0.14em]", signalStrengthClass(activeRow.signalStrength))}>
+                    {activeRow.signalStrength === "CONSTRUCTIVE" ? "Constructive" : activeRow.signalStrength}
+                  </span>
+                  {typeof activeRow.signalScore === "number" ? (
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-white/42">
+                      {activeRow.signalScore.toFixed(1)} signal
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -197,7 +497,7 @@ export function SectorRotationBoard({ rows, currentWindow, onWindowChange }: Sec
               <span>{formatSectorAxisLabel(-axisAbsMax)}</span>
             </div>
 
-            <div className="mr-12 grid h-[252px] grid-cols-4 gap-2 sm:grid-cols-6 xl:grid-cols-11">
+            <div className="mr-12 grid h-[228px] grid-cols-4 gap-2 sm:grid-cols-6 xl:grid-cols-11">
               {rows.map((sector) => {
                 const raw = typeof sector.performancePercent === "number" && Number.isFinite(sector.performancePercent) ? sector.performancePercent : 0;
                 const heightPercent = Math.max(10, (Math.abs(raw) / axisAbsMax) * 46);
@@ -246,9 +546,49 @@ export function MarketMoverStack({
   items: HomeMarketMoverItem[];
   onAnalyze: (symbol: string) => void;
 }): JSX.Element {
+  const [filter, setFilter] = useState<"ALL" | "W" | "L">("ALL");
+  const filteredItems = useMemo(() => {
+    if (filter === "W") {
+      return items
+        .filter((item) => (item.changePercent ?? 0) > 0)
+        .slice()
+        .sort((left, right) => (right.changePercent ?? 0) - (left.changePercent ?? 0))
+        .slice(0, 3);
+    }
+    if (filter === "L") {
+      return items
+        .filter((item) => (item.changePercent ?? 0) < 0)
+        .slice()
+        .sort((left, right) => (left.changePercent ?? 0) - (right.changePercent ?? 0))
+        .slice(0, 3);
+    }
+    return items.slice(0, 3);
+  }, [filter, items]);
+
   return (
-    <div className="space-y-2.5">
-      {items.slice(0, 3).map((item, index) => (
+    <div className="space-y-3">
+      <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1">
+        {(["ALL", "W", "L"] as const).map((option) => (
+          <button
+            key={`mover-filter-${option}`}
+            type="button"
+            onClick={() => setFilter(option)}
+            aria-pressed={filter === option}
+            className={clsx(
+              "eldar-dashboard-pill rounded-full px-3 py-1.5 text-[10px] uppercase tracking-[0.14em]",
+              filter === option && "bg-white text-black hover:bg-white"
+            )}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+
+      {filteredItems.length === 0 ? (
+        <div className="flex min-h-[180px] items-center justify-center rounded-[24px] border border-dashed border-white/10 text-center text-sm text-white/46">
+          No movers in this bucket.
+        </div>
+      ) : filteredItems.map((item) => (
         <button
           key={`market-mover-${item.symbol}`}
           type="button"
@@ -257,10 +597,7 @@ export function MarketMoverStack({
         >
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/34">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <p className="mt-2 font-mono text-[14px] font-semibold text-white">{item.symbol}</p>
+              <p className="font-mono text-[14px] font-semibold text-white">{item.symbol}</p>
             </div>
             <div className="text-right">
               <p className={clsx("text-[13px] font-semibold", dashboardValueToneClass(item.changePercent ?? null))}>
@@ -274,5 +611,47 @@ export function MarketMoverStack({
         </button>
       ))}
     </div>
+  );
+}
+
+export function MarketNewsPanel({ items }: { items: HomeNewsItem[] }): JSX.Element {
+  return (
+    <section className="eldar-panel texture-none p-6 xl:col-span-4">
+      <div className="mb-5">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Market News</p>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="flex min-h-[180px] items-center justify-center rounded-[24px] border border-dashed border-white/10 text-center text-sm text-white/46">
+          No market headlines are available right now.
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {items.map((item, index) => {
+            const content = <p className="text-[15px] font-medium leading-7 text-white/90">{item.headline}</p>;
+
+            if (!item.url) {
+              return (
+                <div key={`${item.headline}-${index}`} className="eldar-dashboard-surface px-4 py-4 text-left">
+                  {content}
+                </div>
+              );
+            }
+
+            return (
+              <a
+                key={`${item.headline}-${index}`}
+                href={item.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="eldar-dashboard-surface block px-4 py-4 text-left"
+              >
+                {content}
+              </a>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }

@@ -101,6 +101,14 @@ export function ratingShortNote(score: number): string {
   return RATING_BANDS[toRating(score)].shortExplanation;
 }
 
+export function ratingNoteForLabel(rating: RatingLabel): string {
+  return RATING_BANDS[rating].explanation;
+}
+
+export function ratingShortNoteForLabel(rating: RatingLabel): string {
+  return RATING_BANDS[rating].shortExplanation;
+}
+
 export function ratingColor(rating: RatingLabel): (typeof RATING_BANDS)[RatingLabel]["color"] {
   return RATING_BANDS[rating].color;
 }
