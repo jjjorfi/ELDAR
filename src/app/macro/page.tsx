@@ -138,14 +138,7 @@ export default function MacroPage(): JSX.Element {
       <AppPageHeader
         eyebrow="Macro Monitor"
         title="Macro"
-        subtitle={`Tracking ${macroSummary.available} of ${macroSummary.total || 0} core indicators across rates, inflation, labor, and growth.`}
-        actions={
-          macroRegime ? (
-            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/45">
-              As of {macroRegime.inputSnapshot.date} · {macroRegime.modelVersion}
-            </span>
-          ) : undefined
-        }
+        subtitle={undefined}
       />
 
       {error ? (

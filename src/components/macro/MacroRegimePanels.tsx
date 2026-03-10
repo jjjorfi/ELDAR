@@ -67,17 +67,13 @@ function RegimeNeedle({
   regime,
   confidence,
   gatesFired,
-  warnings,
-  formulaScore,
-  modelVersion
+  warnings
 }: {
   score: number;
   regime: MacroRegime["label"];
   confidence: MacroRegime["confidence"];
   gatesFired: MacroRegime["gatesFired"];
   warnings: string[];
-  formulaScore: number;
-  modelVersion: string;
 }): JSX.Element {
   const [mounted, setMounted] = useState(false);
   const pct = ((Math.max(-10, Math.min(10, score)) + 10) / 20) * 100;
@@ -98,9 +94,6 @@ function RegimeNeedle({
           <span className={clsx("rounded-full border px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.14em]", confidenceBadgeClass(confidence))}>
             {confidence}
           </span>
-          <span className="font-mono text-[9px] text-[#444]">
-            {modelVersion}
-          </span>
         </div>
       </div>
 
@@ -111,10 +104,6 @@ function RegimeNeedle({
         </span>
         <span className="font-mono text-[11px] uppercase tracking-[0.15em]" style={{ color }}>
           {regimeLabel(regime)}
-        </span>
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#555]">
-          Formula {formulaScore > 0 ? "+" : ""}
-          {formulaScore.toFixed(1)}
         </span>
       </div>
 
@@ -338,8 +327,6 @@ export function MacroRegimeNeedlePanel({ regime }: { regime: MacroRegime }): JSX
       confidence={regime.confidence}
       gatesFired={regime.gatesFired}
       warnings={regime.warnings}
-      formulaScore={regime.formulaScore}
-      modelVersion={regime.modelVersion}
     />
   );
 }

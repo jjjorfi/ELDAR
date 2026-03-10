@@ -181,6 +181,46 @@ label,
   background: #50576b;
 }
 
+.eldar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(226, 231, 238, 0.52) rgba(255, 255, 255, 0.04);
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+.eldar-scrollbar::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+.eldar-scrollbar::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0.01) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 10px 20px rgba(0, 0, 0, 0.22);
+}
+
+.eldar-scrollbar::-webkit-scrollbar-thumb {
+  min-height: 48px;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(243, 245, 246, 0.52) 0%, rgba(139, 143, 152, 0.62) 100%) padding-box;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 14px rgba(255, 255, 255, 0.08);
+}
+
+.eldar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background:
+    linear-gradient(180deg, rgba(243, 245, 246, 0.68) 0%, rgba(170, 176, 186, 0.7) 100%) padding-box;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 0 18px rgba(255, 255, 255, 0.12);
+}
+
 .eldar-home-wordmark,
 .eldar-brand-text {
   font-family: var(--eldar-font-primary);

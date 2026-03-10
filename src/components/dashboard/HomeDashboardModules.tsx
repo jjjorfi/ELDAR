@@ -11,6 +11,7 @@ import { Info } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { LinesSkeleton } from "@/components/ui/FintechPrimitives";
+import { usePopupWheelScroll } from "@/hooks/usePopupWheelScroll";
 import type {
   HomeMarketMoverItem,
   HomeNewsItem,
@@ -45,40 +46,34 @@ function dashboardToneClass(tone: HomeRegimeMetric["tone"]): string {
 function macroRegimeToneClasses(label: HomeDashboardPayload["regime"]["label"]): {
   badge: string;
   needle: string;
-  glow: string;
 } {
   if (label === "MAXIMUM_EXPANSION") {
     return {
       badge: "border-[#FFBF00]/35 bg-[#FFBF00]/10 text-[#FFBF00] shadow-[0_0_18px_rgba(255,191,0,0.18)]",
-      needle: "#FFBF00",
-      glow: "rgba(255,191,0,0.22)"
+      needle: "#FFBF00"
     };
   }
   if (label === "CONSTRUCTIVE_BIAS") {
     return {
       badge: "border-emerald-400/35 bg-emerald-400/10 text-emerald-300 shadow-[0_0_18px_rgba(52,211,153,0.18)]",
-      needle: "#6EE7B7",
-      glow: "rgba(52,211,153,0.18)"
+      needle: "#6EE7B7"
     };
   }
   if (label === "CHOP_DISTRIBUTION") {
     return {
       badge: "border-white/14 bg-white/[0.06] text-white/78 shadow-[0_0_18px_rgba(255,255,255,0.12)]",
-      needle: "#F5F5F5",
-      glow: "rgba(255,255,255,0.14)"
+      needle: "#F5F5F5"
     };
   }
   if (label === "DEFENSIVE_LIQUIDATION") {
     return {
       badge: "border-[#FF8A5B]/35 bg-[#FF8A5B]/10 text-[#FF8A5B] shadow-[0_0_18px_rgba(255,138,91,0.16)]",
-      needle: "#FF8A5B",
-      glow: "rgba(255,138,91,0.18)"
+      needle: "#FF8A5B"
     };
   }
   return {
     badge: "border-red-400/35 bg-red-400/10 text-red-300 shadow-[0_0_18px_rgba(248,113,113,0.16)]",
-    needle: "#F87171",
-    glow: "rgba(248,113,113,0.18)"
+    needle: "#F87171"
   };
 }
 
@@ -144,6 +139,24 @@ function macroPillarRead(contribution: number): string {
   return "balanced";
 }
 
+const REGIME_GAUGE_ZONES = [
+  { key: "systemic", label: "Systemic Shock", min: -10, max: -7.5, color: "rgba(248,113,113,0.88)" },
+  { key: "defensive", label: "Defensive Liquidation", min: -7.5, max: -2.5, color: "rgba(255,138,91,0.82)" },
+  { key: "chop", label: "Chop Distribution", min: -2.5, max: 2.5, color: "rgba(255,255,255,0.34)" },
+  { key: "constructive", label: "Constructive Bias", min: 2.5, max: 7.5, color: "rgba(110,231,183,0.82)" },
+  { key: "expansion", label: "Maximum Expansion", min: 7.5, max: 10, color: "rgba(255,191,0,0.92)" }
+] as const;
+
+function scoreToGaugeAngle(score: number): number {
+  return 180 - ((score + 10) / 20) * 180;
+}
+
+function formatGaugeRange(min: number, max: number): string {
+  const left = `${min > 0 ? "+" : ""}${min.toFixed(1)}`;
+  const right = `${max > 0 ? "+" : ""}${max.toFixed(1)}`;
+  return `${left} to ${right}`;
+}
+
 export function DashboardMetricTile({ metric }: { metric: HomeRegimeMetric }): JSX.Element {
   return (
     <div className="eldar-dashboard-surface px-4 py-3">
@@ -164,6 +177,8 @@ export function MacroEnvironmentCard({
   loading: boolean;
 }): JSX.Element {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [hoveredZoneKey, setHoveredZoneKey] = useState<string | null>(null);
+  const handleDrawerWheel = usePopupWheelScroll<HTMLElement>();
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -182,8 +197,8 @@ export function MacroEnvironmentCard({
         <div className="mb-5">
           <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Macro Environment</p>
         </div>
-        <div className="grid gap-5 md:grid-cols-[240px_minmax(0,1fr)]">
-          <div className="eldar-dashboard-surface min-h-[244px] rounded-[24px]" />
+        <div className="grid gap-5 md:grid-cols-[280px_minmax(0,1fr)]">
+          <div className="min-h-[244px]" />
           <LinesSkeleton rows={5} />
         </div>
       </section>
@@ -203,9 +218,10 @@ export function MacroEnvironmentCard({
 
   const score = Math.max(-10, Math.min(10, activeRegime.compositeScore));
   const tone = macroRegimeToneClasses(activeRegime.label);
-  const angle = 180 - ((score + 10) / 20) * 180;
+  const angle = scoreToGaugeAngle(score);
   const needleTip = polarToCartesian(110, 110, 70, angle);
-  const tickAngles = [180, 135, 90, 45, 0];
+  const tickAngles = [180, 157.5, 112.5, 90, 67.5, 22.5, 0];
+  const hoveredZone = hoveredZoneKey ? REGIME_GAUGE_ZONES.find((zone) => zone.key === hoveredZoneKey) ?? null : null;
   const simplifiedPillars = [
     { key: "plumbing", label: "Plumbing", detail: "Rates and credit stress", result: activeRegime.pillars.plumbing },
     { key: "cycle", label: "Cycle", detail: "Growth and recession structure", result: activeRegime.pillars.cycle },
@@ -214,34 +230,58 @@ export function MacroEnvironmentCard({
   ] as const;
 
   return (
-    <section className="eldar-panel texture-none xl:col-span-8 p-6">
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Macro Environment</p>
-        <span className={clsx("rounded-full border px-3 py-1.5 text-[10px] uppercase tracking-[0.14em]", tone.badge)}>
-          {formatMacroRegimeLabel(activeRegime.label)}
-        </span>
+      <section className="eldar-panel texture-none xl:col-span-8 p-6">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Macro Environment</p>
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open macro breakdown"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/12 bg-white/[0.03] text-white/72 transition hover:border-white/25 hover:bg-white/[0.06] hover:text-white"
+          >
+            <Info className="h-4 w-4" aria-hidden="true" />
+          </button>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-[240px_minmax(0,1fr)]">
-        <div className="eldar-dashboard-surface flex min-h-[244px] flex-col items-center justify-center px-4 py-5">
-          <svg viewBox="0 0 220 140" className="h-[148px] w-full max-w-[220px]" aria-hidden="true">
-            <defs>
-              <filter id="macro-gauge-glow" x="-40%" y="-40%" width="180%" height="180%">
-                <feGaussianBlur stdDeviation="5" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
-            <path d={arcPath(110, 110, 82, 180, 0)} stroke="rgba(255,255,255,0.10)" strokeWidth="12" fill="none" strokeLinecap="round" />
-            <path d={arcPath(110, 110, 82, 180, 126)} stroke="rgba(248,113,113,0.7)" strokeWidth="12" fill="none" strokeLinecap="round" />
-            <path d={arcPath(110, 110, 82, 126, 54)} stroke="rgba(255,255,255,0.28)" strokeWidth="12" fill="none" strokeLinecap="round" />
-            <path d={arcPath(110, 110, 82, 54, 18)} stroke="rgba(110,231,183,0.78)" strokeWidth="12" fill="none" strokeLinecap="round" />
-            <path d={arcPath(110, 110, 82, 18, 0)} stroke="rgba(255,191,0,0.92)" strokeWidth="12" fill="none" strokeLinecap="round" />
-            {tickAngles.map((tickAngle) => {
+      <div className="grid gap-5 md:grid-cols-[300px_minmax(0,1fr)]">
+        <div className="flex min-h-[244px] flex-col items-center justify-center px-2 py-2">
+          <div className="flex w-full max-w-[260px] flex-col items-center">
+            <svg viewBox="0 0 220 140" className="h-[156px] w-full max-w-[220px]" aria-label="Macro regime gauge" role="img">
+              <path d={arcPath(110, 110, 82, 180, 0)} stroke="rgba(255,255,255,0.12)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+              <path d={arcPath(110, 110, 76, 180, 0)} stroke="rgba(255,255,255,0.06)" strokeWidth="1" fill="none" strokeLinecap="round" />
+              {REGIME_GAUGE_ZONES.map((zone) => {
+                const isHovered = hoveredZoneKey === zone.key;
+                const isActive = activeRegime.label === zone.label.replace(/ /g, "_").toUpperCase();
+                return (
+                  <g key={zone.key}>
+                    <path
+                      d={arcPath(110, 110, 82, scoreToGaugeAngle(zone.min), scoreToGaugeAngle(zone.max))}
+                      stroke={zone.color}
+                      strokeWidth={isHovered ? 7 : isActive ? 6 : 5}
+                      fill="none"
+                      strokeLinecap="round"
+                      opacity={isHovered ? 1 : isActive ? 0.92 : 0.38}
+                      className="transition-all duration-150 ease-out"
+                    />
+                    <path
+                      d={arcPath(110, 110, 82, scoreToGaugeAngle(zone.min), scoreToGaugeAngle(zone.max))}
+                      stroke="transparent"
+                      strokeWidth="18"
+                      fill="none"
+                      strokeLinecap="round"
+                      tabIndex={0}
+                      aria-label={`${zone.label}, ${formatGaugeRange(zone.min, zone.max)}`}
+                      onMouseEnter={() => setHoveredZoneKey(zone.key)}
+                      onMouseLeave={() => setHoveredZoneKey(null)}
+                      onFocus={() => setHoveredZoneKey(zone.key)}
+                      onBlur={() => setHoveredZoneKey(null)}
+                    />
+                  </g>
+                );
+              })}
+              {tickAngles.map((tickAngle) => {
               const outer = polarToCartesian(110, 110, 92, tickAngle);
-              const inner = polarToCartesian(110, 110, 78, tickAngle);
+              const inner = polarToCartesian(110, 110, tickAngle === 180 || tickAngle === 0 || tickAngle === 90 ? 74 : 78, tickAngle);
               return (
                 <line
                   key={`macro-tick-${tickAngle}`}
@@ -249,56 +289,56 @@ export function MacroEnvironmentCard({
                   y1={outer.y}
                   x2={inner.x}
                   y2={inner.y}
-                  stroke="rgba(255,255,255,0.18)"
-                  strokeWidth="2"
+                  stroke="rgba(255,255,255,0.24)"
+                  strokeWidth="1.4"
                   strokeLinecap="round"
                 />
               );
             })}
-            <circle cx="110" cy="110" r="32" fill={tone.glow} filter="url(#macro-gauge-glow)" />
             <line
               x1="110"
               y1="110"
               x2={needleTip.x}
               y2={needleTip.y}
               stroke={tone.needle}
-              strokeWidth="4"
+              strokeWidth="2.4"
               strokeLinecap="round"
-              filter="url(#macro-gauge-glow)"
+              className="transition-all duration-300 ease-out"
             />
-            <circle cx="110" cy="110" r="8" fill={tone.needle} />
-          </svg>
+              <circle cx="110" cy="110" r="8" fill="#050505" stroke="rgba(255,255,255,0.14)" strokeWidth="1.5" />
+              <circle cx="110" cy="110" r="2.5" fill={tone.needle} />
+            </svg>
+            <div className="mt-2 h-[34px] text-center">
+              {hoveredZone ? (
+                <>
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-white/68">{hoveredZone.label}</p>
+                  <p className="mt-1 font-mono text-[10px] text-white/42">{formatGaugeRange(hoveredZone.min, hoveredZone.max)}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.needle }}>{formatMacroRegimeLabel(activeRegime.label)}</p>
+                  <p className="mt-1 font-mono text-[10px] text-white/42">{score > 0 ? "+" : ""}{score.toFixed(1)} current read</p>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex min-h-[244px] flex-col justify-between">
-          <div>
-            <h2 className="text-[28px] font-semibold tracking-[-0.03em] text-white">{formatMacroRegimeLabel(activeRegime.label)}</h2>
-            {activeRegime.warnings.length > 0 ? (
-              <p className="mt-3 max-w-xl text-[14px] leading-7 text-red-200/82">{activeRegime.warnings[0]}</p>
-            ) : (
-              <p className="mt-3 max-w-xl text-[14px] leading-7 text-white/62">Tracking the current regime across plumbing, cycle, sentiment, and defense.</p>
-            )}
-          </div>
-
-          <div className="mt-5 flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               {activeRegime.gatesFired.length > 0 ? (
                 <span className="rounded-full border border-red-300/24 bg-red-300/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.14em] text-red-200/85">
                   {activeRegime.gatesFired.length} gate{activeRegime.gatesFired.length > 1 ? "s" : ""} active
                 </span>
               ) : null}
+              {activeRegime.warnings.length > 0 ? (
+                <span className="text-sm text-red-200/82">{activeRegime.warnings[0]}</span>
+              ) : null}
             </div>
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
-              aria-label="Open macro breakdown"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/12 bg-white/[0.03] text-white/72 transition hover:border-white/25 hover:bg-white/[0.06] hover:text-white"
-            >
-              <Info className="h-4 w-4" aria-hidden="true" />
-            </button>
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-3">
+          <div className="mt-4 grid grid-cols-2 gap-3">
             {activeRegime.metrics.map((metric) => (
               <DashboardMetricTile key={metric.key} metric={metric} />
             ))}
@@ -314,7 +354,7 @@ export function MacroEnvironmentCard({
             className="flex-1 bg-black/50 backdrop-blur-[2px]"
             onClick={() => setDrawerOpen(false)}
           />
-          <aside className="h-full w-full max-w-[540px] overflow-y-auto border-l border-white/10 bg-[#0B0B0B] px-5 py-5 shadow-[0_0_60px_rgba(0,0,0,0.55)]">
+          <aside onWheelCapture={handleDrawerWheel} className="eldar-scrollbar h-full w-full max-w-[540px] overflow-y-auto overscroll-contain border-l border-white/10 bg-[#0B0B0B] px-5 py-5 shadow-[0_0_60px_rgba(0,0,0,0.55)]">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.16em] text-white/42">Macro Read</p>

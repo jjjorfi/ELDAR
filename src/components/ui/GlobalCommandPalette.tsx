@@ -5,6 +5,7 @@ import { BriefcaseBusiness, BookText, Home, Layers, LineChart, Plus, Search, Sha
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { usePopupWheelScroll } from "@/hooks/usePopupWheelScroll";
 import { isPaletteOpenShortcut } from "@/lib/ui/command-palette";
 import { getRecentTickers } from "@/lib/ui/recent-tickers";
 
@@ -282,6 +283,7 @@ export function GlobalCommandPalette(): JSX.Element | null {
     }
     return Array.from(deduped.values()).slice(0, 18);
   }, [filteredBase, dynamicTickerItems]);
+  const handlePopupWheel = usePopupWheelScroll<HTMLDivElement>();
 
   useEffect(() => {
     if (selectedIndex >= items.length) {
@@ -341,7 +343,7 @@ export function GlobalCommandPalette(): JSX.Element | null {
           <span className="border border-white/20 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-white/50">Esc</span>
         </div>
 
-        <div className="max-h-[52vh] overflow-y-auto" role="listbox" aria-label="Palette results">
+        <div onWheelCapture={handlePopupWheel} className="eldar-scrollbar max-h-[52vh] overflow-y-auto overscroll-contain" role="listbox" aria-label="Palette results">
           {items.length === 0 ? (
             <p className="px-2 py-6 text-center text-xs uppercase tracking-[0.12em] text-white/45">No matches</p>
           ) : (

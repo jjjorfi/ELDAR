@@ -71,6 +71,7 @@ import { exportCard } from "@/lib/share/export-card";
 import { DASHBOARD_RETURN_STATE_KEY } from "@/lib/ui/dashboard-intent";
 import { isPaletteOpenShortcut } from "@/lib/ui/command-palette";
 import { pushRecentTicker } from "@/lib/ui/recent-tickers";
+import { usePopupWheelScroll } from "@/hooks/usePopupWheelScroll";
 import { useSocket } from "@/hooks/useSocket";
 
 type ViewMode = "home" | "results" | "watchlist" | "portfolio";
@@ -989,6 +990,7 @@ export function StockDashboard({
   const [shareError, setShareError] = useState("");
   const heroSectionRef = useRef<HTMLDivElement | null>(null);
   const paletteInputRef = useRef<HTMLInputElement | null>(null);
+  const handlePopupWheel = usePopupWheelScroll<HTMLElement>();
   const shareCardRef = useRef<HTMLDivElement | null>(null);
   const paletteCacheRef = useRef<Map<string, SearchResultItem[]>>(new Map());
   const analysisCacheRef = useRef<Map<string, { analysis: PersistedAnalysis; expiresAt: number }>>(new Map());
@@ -3728,7 +3730,7 @@ export function StockDashboard({
             </p>
           </div>
 
-          <div className="max-h-[420px] overflow-y-auto overscroll-contain p-2">
+          <div onWheelCapture={handlePopupWheel} className="eldar-scrollbar max-h-[420px] overflow-y-auto overscroll-contain p-2">
             {paletteLoading ? (
               <div className="px-3 py-4">
                 <LinesSkeleton rows={5} />
@@ -3998,7 +4000,7 @@ export function StockDashboard({
             </button>
           </div>
 
-          <div className="max-h-[70vh] overflow-auto rounded-2xl border border-white/15 bg-black/60 p-4">
+          <div onWheelCapture={handlePopupWheel} className="eldar-scrollbar max-h-[70vh] overflow-auto rounded-2xl border border-white/15 bg-black/60 p-4">
             {cardNode ? (
               <div style={{ width: previewWidth * previewScale, height: previewHeight * previewScale }}>
                 <div style={{ transform: `scale(${previewScale})`, transformOrigin: "top left" }}>
@@ -4039,7 +4041,7 @@ export function StockDashboard({
           className="absolute inset-0 bg-black/45"
           onClick={() => setHomeTickerDrawer(null)}
         />
-        <aside className="card-grain rough-border absolute right-0 top-0 h-full w-full max-w-[480px] border-l border-white/15 bg-[#0a0a0a] p-5 shadow-2xl shadow-black/70">
+        <aside onWheelCapture={handlePopupWheel} className="eldar-scrollbar card-grain rough-border absolute right-0 top-0 h-full w-full max-w-[480px] overflow-y-auto overscroll-contain border-l border-white/15 bg-[#0a0a0a] p-5 shadow-2xl shadow-black/70">
           <div className="sticky top-0 z-10 mb-4 flex items-center justify-between border-b border-white/10 bg-[#0a0a0a] pb-3">
             <div>
               <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">
@@ -5155,7 +5157,7 @@ export function StockDashboard({
                   Close
                 </button>
               </div>
-              <div className="space-y-3 overflow-y-auto pb-24">
+              <div onWheelCapture={handlePopupWheel} className="eldar-scrollbar space-y-3 overflow-y-auto pb-24">
                 <div className="rounded-xl border border-white/12 bg-black/25 p-3">
                   <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Allocation</p>
                   <p className="mt-1 font-mono text-2xl font-bold text-white">

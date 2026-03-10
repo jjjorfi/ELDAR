@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { AppPageHeader } from "@/components/AppPageHeader";
 import { AppPageShell } from "@/components/AppPageShell";
 import { useDashboardPaletteShortcut } from "@/hooks/useDashboardPaletteShortcut";
+import { usePopupWheelScroll } from "@/hooks/usePopupWheelScroll";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { GICS_SECTORS, GICS_SECTOR_ORDER } from "@/lib/market/gics-sectors";
 import { stashDashboardIntent } from "@/lib/ui/dashboard-intent";
@@ -169,6 +170,7 @@ export default function SectorsPage(): JSX.Element {
   const [sortMode, setSortMode] = useState<SectorSortMode>("default");
   const [viewMode, setViewMode] = useState<SectorViewMode>("heatmap");
   const [activeSectorEtf, setActiveSectorEtf] = useState<string | null>(null);
+  const handlePopupWheel = usePopupWheelScroll<HTMLElement>();
 
   const openDashboardView = useCallback((
     view: "home" | "portfolio" | "watchlist",
@@ -511,7 +513,7 @@ export default function SectorsPage(): JSX.Element {
             className="absolute inset-0 bg-black/45"
             onClick={() => setActiveSectorEtf(null)}
           />
-          <aside className="card-grain rough-border absolute right-0 top-0 h-full w-full max-w-[480px] border-l border-white/15 bg-[#0a0a0a] p-5 shadow-2xl shadow-black/70">
+          <aside onWheelCapture={handlePopupWheel} className="eldar-scrollbar card-grain rough-border absolute right-0 top-0 h-full w-full max-w-[480px] overflow-y-auto overscroll-contain border-l border-white/15 bg-[#0a0a0a] p-5 shadow-2xl shadow-black/70">
             <div className="sticky top-0 z-10 mb-4 flex items-center justify-between border-b border-white/10 bg-[#0a0a0a] pb-3">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Sector Detail</p>

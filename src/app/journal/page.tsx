@@ -10,6 +10,7 @@ import type { JournalEntry, JournalReviewStats, SetupQuality, TradeStatus } from
 import { AppPageHeader } from "@/components/AppPageHeader";
 import { AppPageShell } from "@/components/AppPageShell";
 import { useDashboardPaletteShortcut } from "@/hooks/useDashboardPaletteShortcut";
+import { usePopupWheelScroll } from "@/hooks/usePopupWheelScroll";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { stashDashboardIntent } from "@/lib/ui/dashboard-intent";
 
@@ -132,6 +133,7 @@ export default function JournalPage(): JSX.Element {
   const [newTradeLoading, setNewTradeLoading] = useState(false);
   const [newTradeError, setNewTradeError] = useState("");
   const [newTradeSearchLoading, setNewTradeSearchLoading] = useState(false);
+  const handlePopupWheel = usePopupWheelScroll<HTMLElement>();
   const [newTradeCandidates, setNewTradeCandidates] = useState<SearchCandidate[]>([]);
   const [tagInput, setTagInput] = useState("");
 
@@ -603,7 +605,7 @@ export default function JournalPage(): JSX.Element {
 
     return (
       <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
-        <div className="h-full w-full max-w-3xl overflow-y-auto border border-white/15 bg-black md:h-auto md:max-h-[88vh]">
+        <div onWheelCapture={handlePopupWheel} className="eldar-scrollbar h-full w-full max-w-3xl overflow-y-auto overscroll-contain border border-white/15 bg-black md:h-auto md:max-h-[88vh]">
           <div className="sticky top-0 z-10 border-b border-white/12 bg-black/95 px-5 py-4 backdrop-blur">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -941,7 +943,6 @@ export default function JournalPage(): JSX.Element {
       contentClassName="pb-12"
     >
       <AppPageHeader
-        eyebrow="Decision Log"
         title="Investment Journal"
         subtitle="Capture one trade decision through six structured steps."
         actions={
@@ -1001,7 +1002,7 @@ export default function JournalPage(): JSX.Element {
                   className="h-11 w-full rounded-xl border border-white/15 bg-zinc-950/60 px-3 text-sm text-white outline-none"
                 />
                 {newTradeOpen && (newTradeSearchLoading || newTradeCandidates.length > 0) ? (
-                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-10 max-h-52 overflow-y-auto rounded-xl border border-white/15 bg-zinc-950/95 p-1">
+                  <div onWheelCapture={handlePopupWheel} className="eldar-scrollbar absolute left-0 right-0 top-[calc(100%+6px)] z-10 max-h-52 overflow-y-auto overscroll-contain rounded-xl border border-white/15 bg-zinc-950/95 p-1">
                     {newTradeSearchLoading ? (
                       <p className="px-3 py-2 text-xs text-white/65">Searching stocks…</p>
                     ) : (
