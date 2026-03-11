@@ -23,6 +23,12 @@ export interface ApiErrorOptions extends ApiJsonInit {
   noStore?: boolean;
 }
 
+export interface ApiPerfOptions {
+  startedAt: number;
+  cache?: string;
+  source?: string;
+}
+
 export const NO_STORE_HEADERS: Readonly<Record<string, string>> = Object.freeze({
   "Cache-Control": "no-store"
 });
@@ -34,6 +40,34 @@ function mergeHeaders(...sources: Array<HeadersInit | undefined>): Headers {
     const headers = new Headers(source);
     headers.forEach((value, key) => merged.set(key, value));
   }
+  return merged;
+}
+
+function formatDurationMs(startedAt: number): number {
+  const raw = Date.now() - startedAt;
+  if (!Number.isFinite(raw) || raw < 0) {
+    return 0;
+  }
+  return Math.round(raw);
+}
+
+export function withApiPerfHeaders(
+  headers: HeadersInit | undefined,
+  options: ApiPerfOptions
+): Headers {
+  const merged = mergeHeaders(headers);
+  const durationMs = formatDurationMs(options.startedAt);
+
+  merged.set("Server-Timing", `app;dur=${durationMs}`);
+  merged.set("x-eldar-latency-ms", String(durationMs));
+
+  if (options.cache) {
+    merged.set("x-eldar-cache", options.cache);
+  }
+  if (options.source) {
+    merged.set("x-eldar-source", options.source);
+  }
+
   return merged;
 }
 

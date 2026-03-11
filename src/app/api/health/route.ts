@@ -32,7 +32,12 @@ function redactProviderEndpoint(rawUrl: string): string {
   }
 }
 
-async function timedFetch(url: string, includeDetail: boolean, timeoutMs = 12_000): Promise<ProviderCheck> {
+async function timedFetch(
+  url: string,
+  includeDetail: boolean,
+  timeoutMs = 12_000,
+  extraHeaders: Record<string, string> = {}
+): Promise<ProviderCheck> {
   const start = Date.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -42,7 +47,8 @@ async function timedFetch(url: string, includeDetail: boolean, timeoutMs = 12_00
       signal: controller.signal,
       headers: {
         Accept: "application/json, text/plain, */*",
-        "User-Agent": "Mozilla/5.0"
+        "User-Agent": "Mozilla/5.0",
+        ...extraHeaders
       },
       cache: "no-store"
     });
@@ -106,6 +112,14 @@ export async function GET(request: Request): Promise<NextResponse> {
   const fmpKey = safeToken(process.env.FMP_API_KEY);
   const massiveKey = safeToken(process.env.MASSIVE_API_KEY);
   const eodhdKey = safeToken(process.env.EODHD_API_KEY);
+  const alpacaKey =
+    safeToken(process.env.ALPACA_API_KEY) ??
+    safeToken(process.env.ALPACA_API_KEY_ID) ??
+    safeToken(process.env.APCA_API_KEY_ID);
+  const alpacaSecret =
+    safeToken(process.env.ALPACA_API_SECRET) ??
+    safeToken(process.env.ALPACA_SECRET_KEY) ??
+    safeToken(process.env.APCA_API_SECRET_KEY);
 
   const checks = await Promise.all([
     timedFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`, includeDetail),
@@ -138,10 +152,21 @@ export async function GET(request: Request): Promise<NextResponse> {
         ? `https://eodhd.com/api/real-time/${encodeURIComponent(toEodhdSymbol(symbol))}?api_token=${encodeURIComponent(eodhdKey)}&fmt=json`
         : "https://eodhd.com/api/real-time/AAPL.US?api_token=MISSING_KEY&fmt=json",
       includeDetail
+    ),
+    timedFetch(
+      `https://data.alpaca.markets/v2/stocks/${encodeURIComponent(symbol)}/bars/latest?feed=iex`,
+      includeDetail,
+      12_000,
+      alpacaKey && alpacaSecret
+        ? {
+            "APCA-API-KEY-ID": alpacaKey,
+            "APCA-API-SECRET-KEY": alpacaSecret
+          }
+        : {}
     )
   ]);
 
-  const [yahoo, finnhub, alpha, fmp, massive, eodhd] = checks;
+  const [yahoo, finnhub, alpha, fmp, massive, eodhd, alpaca] = checks;
   const providersOk = checks.some((item) => item.ok);
 
   if (!includeDetail) {
@@ -170,6 +195,8 @@ export async function GET(request: Request): Promise<NextResponse> {
       FMP_API_KEY: keyExists("FMP_API_KEY"),
       MASSIVE_API_KEY: keyExists("MASSIVE_API_KEY"),
       EODHD_API_KEY: keyExists("EODHD_API_KEY"),
+      ALPACA_API_KEY: keyExists("ALPACA_API_KEY") || keyExists("ALPACA_API_KEY_ID") || keyExists("APCA_API_KEY_ID"),
+      ALPACA_API_SECRET: keyExists("ALPACA_API_SECRET") || keyExists("ALPACA_SECRET_KEY") || keyExists("APCA_API_SECRET_KEY"),
       POSTGRES_URL: keyExists("POSTGRES_URL")
     },
     providers: {
@@ -178,7 +205,8 @@ export async function GET(request: Request): Promise<NextResponse> {
       alphaVantage: alpha,
       financialModelingPrep: fmp,
       massive,
-      eodhd
+      eodhd,
+      alpaca
     }
   }, {
     headers: {

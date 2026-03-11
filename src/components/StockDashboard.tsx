@@ -7,20 +7,11 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  Bookmark,
-  BriefcaseBusiness,
-  Grid2x2,
-  LayoutDashboard,
-  LineChart,
-  BookText,
-  FileText,
   Loader2,
-  Mail,
-  Moon,
   Plus,
   Search,
   Share2,
-  Sun,
+  Star,
   X,
   Trash2
 } from "lucide-react";
@@ -49,15 +40,17 @@ import {
   SnapshotTile
 } from "@/components/dashboard/HomeDashboardModules";
 import { HeroLanding } from "@/components/landing/HeroLanding";
+import { NavigationSidebar } from "@/components/stock-dashboard/NavigationSidebar";
 import { RATING_BANDS, toRating } from "@/lib/rating";
-import { scorePortfolio } from "@/lib/scoring/portfolio-engine";
-import type { PersistedPortfolioSnapshot, PortfolioEngineInput, PortfolioInputHolding } from "@/lib/scoring/portfolio-types";
+import { scorePortfolio } from "@/lib/scoring/portfolio/engine";
+import type { PersistedPortfolioSnapshot, PortfolioEngineInput, PortfolioInputHolding } from "@/lib/scoring/portfolio/types";
 import {
   SOCKET_EVENTS,
   type EarningsPayload,
   type IndicesYtdPayload,
   type Mag7Payload,
   type MarketMoversPayload,
+  type QuoteTicksPayload,
   type WatchlistDeltaPayload
 } from "@/lib/realtime/events";
 import type { FactorResult, Mag7ScoreCard, PersistedAnalysis, RatingLabel, WatchlistItem } from "@/lib/types";
@@ -66,11 +59,11 @@ import type {
   HomeDashboardPayload,
   SectorRotationWindow
 } from "@/lib/home/dashboard-types";
-import { getTop100Sp500Symbols, isTop100Sp500Symbol } from "@/lib/market/top100";
 import { exportCard } from "@/lib/share/export-card";
 import { DASHBOARD_RETURN_STATE_KEY } from "@/lib/ui/dashboard-intent";
 import { isPaletteOpenShortcut } from "@/lib/ui/command-palette";
 import { pushRecentTicker } from "@/lib/ui/recent-tickers";
+import type { PriceRange } from "@/lib/features/price/types";
 import { usePopupWheelScroll } from "@/hooks/usePopupWheelScroll";
 import { useSocket } from "@/hooks/useSocket";
 
@@ -79,7 +72,6 @@ type ThemeMode = "dark" | "light";
 type AuthMode = "login" | "signup";
 type AnalysisPhase = "idle" | "fetching" | "rendering";
 type PaletteAction = "analyze" | "portfolio-add" | "compare-add" | "watchlist-add";
-type PriceRange = "1W" | "1M" | "3M" | "1Y";
 
 interface StockDashboardProps {
   initialHistory: PersistedAnalysis[];
@@ -165,6 +157,13 @@ interface PriceHistoryPoint {
   price: number;
 }
 
+interface LiveQuotePollRow {
+  symbol: string;
+  price: number | null;
+  changePercent: number | null;
+  asOfMs: number | null;
+}
+
 interface PortfolioHolding {
   id: string;
   symbol: string;
@@ -192,7 +191,6 @@ const FALLBACK_INDICES_YTD: IndexYtdItem[] = [
   { code: "US100", label: "US100", symbol: "^NDX", current: null, ytdChangePercent: null, asOf: null, points: [] },
   { code: "US500", label: "US500", symbol: "^GSPC", current: null, ytdChangePercent: null, asOf: null, points: [] }
 ];
-const TOP_100_SYMBOLS = getTop100Sp500Symbols();
 const COMMAND_PALETTE_LIMIT = 12;
 const JOURNAL_VISIBLE_COUNT = 5;
 const PRICE_RANGE_OPTIONS: PriceRange[] = ["1W", "1M", "3M", "1Y"];
@@ -209,10 +207,11 @@ const ANALYSIS_CACHE_TTL_MS = 90_000;
 const LOCAL_WATCHLIST_STORAGE_KEY = "eldar:watchlist:local";
 const LOCAL_INDICES_STORAGE_KEY = "eldar:indices:ytd";
 const LOCAL_HOME_DASHBOARD_STORAGE_PREFIX = "eldar:home:dashboard";
-
-interface EldarLogoProps {
-  onClick: () => void;
-}
+const QUOTE_STREAM_IDLE_THRESHOLD_MS = 8_000;
+const QUOTE_HTTP_POLL_INTERVAL_MS = 2_000;
+const QUOTE_HTTP_POLL_TICK_MS = 1_000;
+const QUOTE_HTTP_POLL_TIMEOUT_MS = 1_500;
+const QUOTE_HTTP_POLL_SYMBOL_LIMIT = 24;
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -248,209 +247,6 @@ function writeCachedHomeDashboard(payload: HomeDashboardPayload): void {
   }
 }
 
-function EldarLogo({ onClick }: EldarLogoProps): JSX.Element {
-  return (
-    <button
-      type="button"
-      className="eldar-logo-button flex cursor-pointer items-center gap-3"
-      onClick={onClick}
-    >
-      <div className="relative h-[60px] w-[60px] overflow-hidden">
-        <Image
-          src={ELDAR_BRAND_LOGO}
-          alt="ELDAR logo"
-          fill
-          sizes="60px"
-          className="object-contain"
-          priority
-        />
-      </div>
-    </button>
-  );
-}
-
-interface NavigationBarProps {
-  view: ViewMode;
-  themeMode: ThemeMode;
-  loading: boolean;
-  marketOpen: boolean;
-  profileOpen: boolean;
-  menuContext: "home" | "sectors";
-  headerVisible: boolean;
-  showFadeTransition: boolean;
-  defaultSearchValue: string;
-  onToggleTheme: () => void;
-  onHome: () => void;
-  onOpenSectors: () => void;
-  onOpenMacro: () => void;
-  onOpenJournal: () => void;
-  onPortfolio: () => void;
-  onQuickSearch: (value: string) => void;
-}
-
-function NavigationBar({
-  view,
-  themeMode,
-  loading,
-  marketOpen,
-  profileOpen,
-  menuContext,
-  headerVisible,
-  showFadeTransition,
-  defaultSearchValue,
-  onToggleTheme,
-  onHome,
-  onOpenSectors,
-  onOpenMacro,
-  onOpenJournal,
-  onPortfolio,
-  onQuickSearch
-}: NavigationBarProps): JSX.Element {
-  void headerVisible;
-  void showFadeTransition;
-
-  return (
-    <aside
-      className={clsx(
-        "eldar-sidebar-liquid fixed bottom-0 left-0 top-0 z-50 w-[84px] transition-all duration-[220ms] ease-out",
-        "pointer-events-auto translate-y-0 opacity-100"
-      )}
-    >
-      <div className="flex h-full flex-col items-center justify-between px-1 pb-4 pt-6">
-        <div className="flex w-full flex-col items-center gap-3">
-          <EldarLogo onClick={onHome} />
-          <div className="flex flex-col items-center gap-2 pb-1">
-            <button
-              type="button"
-              onClick={() => onQuickSearch(defaultSearchValue)}
-              aria-label="Search"
-              className="eldar-nav-icon text-white/75 transition-colors hover:text-white flex h-11 w-11 items-center justify-center"
-            >
-              <Search className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={onHome}
-              aria-label="Dashboard"
-              className={clsx(
-                "eldar-nav-icon text-white/75 transition-colors hover:text-white flex h-11 w-11 items-center justify-center text-sm font-semibold",
-                view === "home" ? "text-white" : "text-white/75"
-              )}
-            >
-              <LayoutDashboard className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={onOpenSectors}
-              aria-label="Sectors"
-              className="eldar-nav-icon text-white/75 transition-colors hover:text-white flex h-11 w-11 items-center justify-center text-sm font-semibold"
-            >
-              <Grid2x2 className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={onOpenMacro}
-              aria-label="Macro"
-              className="eldar-nav-icon text-white/75 transition-colors hover:text-white flex h-11 w-11 items-center justify-center text-sm font-semibold"
-            >
-              <LineChart className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={onOpenJournal}
-              aria-label="Journal"
-              className="eldar-nav-icon text-white/75 transition-colors hover:text-white flex h-11 w-11 items-center justify-center text-sm font-semibold"
-            >
-              <BookText className="h-4 w-4" />
-            </button>
-            <button
-              onClick={onPortfolio}
-              aria-label="Portfolio"
-              className="eldar-nav-icon text-white/75 transition-colors hover:text-white flex h-11 w-11 items-center justify-center text-sm font-semibold"
-            >
-              <BriefcaseBusiness className="h-4 w-4" />
-            </button>
-          </div>
-          {loading ? (
-            <div className="mt-2 flex flex-col items-center gap-1">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/90" />
-              <span className="h-6 w-[2px] animate-[eldar-request-sheen_900ms_linear_infinite] bg-gradient-to-b from-transparent via-white to-transparent" />
-            </div>
-          ) : null}
-        </div>
-
-          <div className="flex flex-col items-center gap-2">
-            <button
-              type="button"
-              onClick={onToggleTheme}
-            className={clsx(
-              "eldar-menu-icon p-1.5 text-white/75 transition hover:text-white",
-              themeMode === "dark"
-                ? "text-white"
-                : "bg-transparent text-white/85"
-            )}
-            aria-label="Toggle theme"
-          >
-            {themeMode === "dark" ? <Sun className="eldar-theme-glyph h-3.5 w-3.5" /> : <Moon className="eldar-theme-glyph h-3.5 w-3.5" />}
-          </button>
-          <a
-            href="https://x.com/ELDAR_AI?s=20"
-            target="_blank"
-            rel="noreferrer"
-            className="eldar-menu-icon p-1.5 text-white/75 transition hover:text-white"
-            aria-label="X"
-          >
-            <XBrandIcon />
-          </a>
-          <a
-            href="https://t.me"
-            target="_blank"
-            rel="noreferrer"
-            className="eldar-menu-icon p-1.5 text-white/75 transition hover:text-white"
-            aria-label="Telegram"
-          >
-            <TelegramBrandIcon />
-          </a>
-          <a
-            href="https://eldarfrequency.substack.com"
-            target="_blank"
-            rel="noreferrer"
-            className="eldar-menu-icon p-1.5 text-white/75 transition hover:text-white"
-            aria-label="Substack"
-          >
-            <FileText className="h-3.5 w-3.5" />
-          </a>
-          <a
-            href="https://eldar.beehiiv.com"
-            target="_blank"
-            rel="noreferrer"
-            className="eldar-menu-icon p-1.5 text-white/75 transition hover:text-white"
-            aria-label="Newsletter"
-          >
-            <Mail className="h-3.5 w-3.5" />
-          </a>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-function XBrandIcon(): JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
-      <path d="M18.901 1.153h3.68l-8.039 9.19L24 22.847h-7.406l-5.8-7.584-6.64 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932 6.064-6.932zM17.61 20.644h2.039L6.486 3.24H4.298z" />
-    </svg>
-  );
-}
-
-function TelegramBrandIcon(): JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
-      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.62 8.17-1.95 9.19c-.15.65-.54.81-1.09.5l-3.02-2.23-1.46 1.41c-.16.16-.3.3-.62.3l.22-3.11 5.66-5.11c.25-.22-.05-.34-.38-.12l-7 4.41-3.02-.94c-.66-.2-.67-.66.14-.97l11.79-4.55c.55-.2 1.03.13.85.93z" />
-    </svg>
-  );
-}
-
 interface AnalysisRadarOverlayProps {
   symbol: string | null;
   phase: AnalysisPhase;
@@ -460,12 +256,14 @@ function AnalysisRadarOverlay({ symbol, phase }: AnalysisRadarOverlayProps): JSX
   return (
     <div className="eldar-radar-overlay fixed inset-0 z-[80] flex items-center justify-center px-6">
       <div className="eldar-radar-panel rounded-3xl border border-white/20 px-8 py-7 text-center backdrop-blur-xl">
-        <div className="eldar-radar mx-auto mb-5" aria-hidden="true">
-          <span className="eldar-radar-ring eldar-radar-ring-1" />
-          <span className="eldar-radar-ring eldar-radar-ring-2" />
-          <span className="eldar-radar-ring eldar-radar-ring-3" />
-          <span className="eldar-radar-sweep" />
-          <span className="eldar-radar-core" />
+        <div className="eldar-sci-loader mx-auto mb-5" aria-hidden="true">
+          <span className="eldar-sci-ring eldar-sci-ring-outer" />
+          <span className="eldar-sci-ring eldar-sci-ring-mid" />
+          <span className="eldar-sci-ring eldar-sci-ring-inner" />
+          <span className="eldar-sci-orbit eldar-sci-orbit-a" />
+          <span className="eldar-sci-orbit eldar-sci-orbit-b" />
+          <span className="eldar-sci-core" />
+          <span className="eldar-sci-grid" />
         </div>
         <p className="eldar-caption text-[10px] text-white/65">ANALYZING {symbol ? `$${symbol}` : "SYMBOL"}</p>
         <p className="mt-2 text-sm text-white/82">
@@ -921,7 +719,7 @@ export function StockDashboard({
   const router = useRouter();
   const [isAppOpen, setIsAppOpen] = useState(false);
   const [view, setView] = useState<ViewMode>("home");
-  const [ticker, setTicker] = useState(initialSymbol && isTop100Sp500Symbol(initialSymbol) ? initialSymbol.toUpperCase() : "");
+  const [ticker, setTicker] = useState(initialSymbol ? initialSymbol.toUpperCase() : "");
   const [loading, setLoading] = useState(false);
   const [analysisPhase, setAnalysisPhase] = useState<AnalysisPhase>("idle");
   const [currentRating, setCurrentRating] = useState<PersistedAnalysis | null>(initialHistory[0] ?? null);
@@ -1002,6 +800,12 @@ export function StockDashboard({
   const watchlistHintTimeoutRef = useRef<number | null>(null);
   const priceHistoryCacheRef = useRef<Map<string, { points: PriceHistoryPoint[]; changePercent: number | null }>>(new Map());
   const homeDashboardLoadedRef = useRef(false);
+  const quoteTickLastSeenRef = useRef<number>(Date.now());
+  const quotePollInFlightRef = useRef(false);
+  const quotePollLastRunRef = useRef(0);
+  const quotePollAbortRef = useRef<AbortController | null>(null);
+  const quotePollSymbolsRef = useRef<string[]>([]);
+  const quoteFallbackActiveRef = useRef(false);
   const mouseRafRef = useRef<number | null>(null);
   const mousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const mouseLastPaintRef = useRef(0);
@@ -1016,8 +820,97 @@ export function StockDashboard({
   const { socket, status: socketStatus, error: socketError } = useSocket({
     enabled: isAppOpen
   });
+  const liveQuotePollSymbols = useMemo(() => {
+    const symbols = new Set<string>();
+    const add = (value: string | null | undefined): void => {
+      const normalized = (value ?? "").trim().toUpperCase();
+      if (!normalized) return;
+      symbols.add(normalized);
+    };
+
+    add(ticker);
+    add(currentRating?.symbol);
+    add(homeTickerDrawer?.symbol);
+    for (const mover of marketMovers) add(mover.symbol);
+    for (const card of mag7Cards) add(card.symbol);
+    for (const holding of portfolioHoldings) add(holding.symbol);
+
+    return Array.from(symbols).slice(0, QUOTE_HTTP_POLL_SYMBOL_LIMIT);
+  }, [ticker, currentRating?.symbol, homeTickerDrawer?.symbol, marketMovers, mag7Cards, portfolioHoldings]);
   const headerVisible = view === "home" ? homeHeaderVisible : true;
   const showFadeTransition = view === "home";
+
+  useEffect(() => {
+    quotePollSymbolsRef.current = liveQuotePollSymbols;
+  }, [liveQuotePollSymbols]);
+
+  const applyLiveQuoteMap = useCallback((bySymbol: Map<string, { price: number; asOfMs: number }>): void => {
+    if (bySymbol.size === 0) return;
+
+    setCurrentRating((prev) => {
+      if (!prev) return prev;
+      const live = bySymbol.get(prev.symbol.toUpperCase());
+      if (!live) return prev;
+      if (Math.abs(prev.currentPrice - live.price) < 0.0001) return prev;
+      return {
+        ...prev,
+        currentPrice: live.price
+      };
+    });
+
+    setMarketMovers((prev) =>
+      prev.map((item) => {
+        const live = bySymbol.get(item.symbol.toUpperCase());
+        if (!live) return item;
+        if (item.currentPrice !== null && Math.abs(item.currentPrice - live.price) < 0.0001) return item;
+        return {
+          ...item,
+          currentPrice: live.price
+        };
+      })
+    );
+
+    setMag7Cards((prev) =>
+      sortMag7Cards(
+        prev.map((card) => {
+          const live = bySymbol.get(card.symbol.toUpperCase());
+          if (!live) return card;
+          if (Math.abs(card.currentPrice - live.price) < 0.0001) return card;
+          return {
+            ...card,
+            currentPrice: live.price
+          };
+        })
+      )
+    );
+
+    setHomeTickerDrawer((prev) => {
+      if (!prev) return prev;
+      const live = bySymbol.get(prev.symbol.toUpperCase());
+      if (!live) return prev;
+      if (prev.currentPrice !== null && Math.abs(prev.currentPrice - live.price) < 0.0001) return prev;
+      return {
+        ...prev,
+        currentPrice: live.price
+      };
+    });
+
+    setPortfolioHoldings((prev) =>
+      prev.map((holding) => {
+        if (!holding.analysis) return holding;
+        const live = bySymbol.get(holding.symbol.toUpperCase());
+        if (!live) return holding;
+        if (Math.abs(holding.analysis.currentPrice - live.price) < 0.0001) return holding;
+        return {
+          ...holding,
+          analysis: {
+            ...holding.analysis,
+            currentPrice: live.price
+          }
+        };
+      })
+    );
+  }, []);
 
   const closeCommandPalette = useCallback((): void => {
     setIsCommandPaletteOpen(false);
@@ -1185,7 +1078,7 @@ export function StockDashboard({
     if (!isAppOpen) return;
     if (!initialSymbol) return;
     const symbol = initialSymbol.trim().toUpperCase();
-    if (!symbol || !isTop100Sp500Symbol(symbol)) return;
+    if (!symbol) return;
     setTicker(symbol);
     window.setTimeout(() => {
       void analyzeSymbolRef.current(symbol);
@@ -1271,7 +1164,7 @@ export function StockDashboard({
           error: null,
           expanded: false
         }))
-        .filter((item) => item.symbol && item.shares > 0 && isTop100Sp500Symbol(item.symbol));
+        .filter((item) => item.symbol && item.shares > 0);
 
       if (restored.length > 0) {
         setPortfolioHoldings(restored);
@@ -1334,7 +1227,7 @@ export function StockDashboard({
               error: null,
               expanded: false
             }))
-            .filter((holding) => isTop100Sp500Symbol(holding.symbol));
+            .filter((holding) => Boolean(holding.symbol));
 
           if (restored.length > 0) {
             setPortfolioHoldings(restored);
@@ -1498,11 +1391,37 @@ export function StockDashboard({
       }
     };
 
+    const handleQuoteTicksDelta = (payload: QuoteTicksPayload): void => {
+      try {
+        if (!payload || !Array.isArray(payload.updates) || payload.updates.length === 0) return;
+        const bySymbol = new Map<string, { price: number; asOfMs: number }>();
+        for (const row of payload.updates) {
+          if (!row || typeof row.symbol !== "string") continue;
+          if (typeof row.price !== "number" || !Number.isFinite(row.price) || row.price <= 0) continue;
+          bySymbol.set(row.symbol.toUpperCase(), {
+            price: row.price,
+            asOfMs: typeof row.asOfMs === "number" && Number.isFinite(row.asOfMs) ? row.asOfMs : Date.now()
+          });
+        }
+        if (bySymbol.size === 0) return;
+        quoteTickLastSeenRef.current = Date.now();
+        if (quoteFallbackActiveRef.current) {
+          quoteFallbackActiveRef.current = false;
+          console.info("[Stock Dashboard]: Realtime quote ticks resumed. HTTP fallback polling suspended.");
+        }
+        applyLiveQuoteMap(bySymbol);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Malformed quote-ticks realtime payload.";
+        console.error(`[Stock Dashboard]: Quote-ticks delta error: ${message}`);
+      }
+    };
+
     socket.on(SOCKET_EVENTS.WATCHLIST_UPDATED, handleWatchlistDelta);
     socket.on(SOCKET_EVENTS.MARKET_MOVERS_UPDATED, handleMarketMoversDelta);
     socket.on(SOCKET_EVENTS.INDICES_YTD_UPDATED, handleIndicesDelta);
     socket.on(SOCKET_EVENTS.EARNINGS_UPDATED, handleEarningsDelta);
     socket.on(SOCKET_EVENTS.MAG7_UPDATED, handleMag7Delta);
+    socket.on(SOCKET_EVENTS.QUOTE_TICKS_UPDATED, handleQuoteTicksDelta);
 
     return () => {
       cancelled = true;
@@ -1511,8 +1430,114 @@ export function StockDashboard({
       socket.off(SOCKET_EVENTS.INDICES_YTD_UPDATED, handleIndicesDelta);
       socket.off(SOCKET_EVENTS.EARNINGS_UPDATED, handleEarningsDelta);
       socket.off(SOCKET_EVENTS.MAG7_UPDATED, handleMag7Delta);
+      socket.off(SOCKET_EVENTS.QUOTE_TICKS_UPDATED, handleQuoteTicksDelta);
     };
-  }, [socket, currentUserId]);
+  }, [socket, currentUserId, applyLiveQuoteMap]);
+
+  useEffect(() => {
+    if (!isAppOpen) return;
+
+    let disposed = false;
+    let timer: number | null = null;
+
+    const pollQuotes = async (): Promise<void> => {
+      if (disposed) return;
+      if (!isPageVisible) return;
+      if (quotePollInFlightRef.current) return;
+
+      const symbols = quotePollSymbolsRef.current;
+      if (symbols.length === 0) return;
+
+      const now = Date.now();
+      const disconnected = socketStatus !== "connected";
+      const streamIdle = socketStatus === "connected" && (now - quoteTickLastSeenRef.current) >= QUOTE_STREAM_IDLE_THRESHOLD_MS;
+      const shouldFallbackPoll = disconnected || streamIdle;
+
+      if (!shouldFallbackPoll) {
+        if (quoteFallbackActiveRef.current) {
+          quoteFallbackActiveRef.current = false;
+          console.info("[Stock Dashboard]: Realtime stream healthy. HTTP fallback polling paused.");
+        }
+        return;
+      }
+
+      if (now - quotePollLastRunRef.current < QUOTE_HTTP_POLL_INTERVAL_MS) {
+        return;
+      }
+
+      quotePollInFlightRef.current = true;
+      quotePollLastRunRef.current = now;
+      if (!quoteFallbackActiveRef.current) {
+        quoteFallbackActiveRef.current = true;
+        const reason = disconnected
+          ? `socket status=${socketStatus}`
+          : `idle>${Math.round(QUOTE_STREAM_IDLE_THRESHOLD_MS / 1000)}s`;
+        console.warn(`[Stock Dashboard]: Activating HTTP quote fallback polling (${reason}).`);
+      }
+
+      const controller = new AbortController();
+      quotePollAbortRef.current = controller;
+      const timeoutId = window.setTimeout(() => controller.abort(), QUOTE_HTTP_POLL_TIMEOUT_MS);
+
+      try {
+        const params = new URLSearchParams({ symbols: symbols.join(",") });
+        const response = await fetch(`/api/price/live?${params.toString()}`, {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal
+        });
+        const payload = (await response.json().catch(() => ({}))) as {
+          quotes?: LiveQuotePollRow[];
+        };
+        if (!response.ok || !Array.isArray(payload.quotes)) return;
+
+        const bySymbol = new Map<string, { price: number; asOfMs: number }>();
+        for (const row of payload.quotes) {
+          if (!row || typeof row.symbol !== "string") continue;
+          if (typeof row.price !== "number" || !Number.isFinite(row.price) || row.price <= 0) continue;
+          bySymbol.set(row.symbol.toUpperCase(), {
+            price: row.price,
+            asOfMs: typeof row.asOfMs === "number" && Number.isFinite(row.asOfMs) ? row.asOfMs : Date.now()
+          });
+        }
+
+        if (bySymbol.size > 0) {
+          applyLiveQuoteMap(bySymbol);
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        const message = error instanceof Error ? error.message : "Unknown quote fallback polling error.";
+        console.warn(`[Stock Dashboard]: HTTP quote fallback poll failed: ${message}`);
+      } finally {
+        window.clearTimeout(timeoutId);
+        if (quotePollAbortRef.current === controller) {
+          quotePollAbortRef.current = null;
+        }
+        quotePollInFlightRef.current = false;
+      }
+    };
+
+    timer = window.setInterval(() => {
+      void pollQuotes();
+    }, QUOTE_HTTP_POLL_TICK_MS);
+
+    void pollQuotes();
+
+    return () => {
+      disposed = true;
+      if (timer !== null) {
+        window.clearInterval(timer);
+      }
+      if (quotePollAbortRef.current) {
+        quotePollAbortRef.current.abort();
+        quotePollAbortRef.current = null;
+      }
+      quotePollInFlightRef.current = false;
+      quoteFallbackActiveRef.current = false;
+    };
+  }, [isAppOpen, isPageVisible, socketStatus, applyLiveQuoteMap]);
 
   useEffect(() => {
     try {
@@ -2044,7 +2069,6 @@ export function StockDashboard({
     const prewarmDashboard = async (): Promise<void> => {
       try {
         const response = await fetch("/api/home/dashboard?sectorWindow=YTD", {
-          cache: "no-store",
           signal: controller.signal
         });
         if (!response.ok) return;
@@ -2122,7 +2146,6 @@ export function StockDashboard({
       try {
         const params = new URLSearchParams({ sectorWindow: sectorRotationWindow });
         const response = await fetch(`/api/home/dashboard?${params.toString()}`, {
-          cache: "no-store",
           signal: controller.signal
         });
         const payload = (await response.json()) as HomeDashboardPayload & { error?: string };
@@ -2196,8 +2219,7 @@ export function StockDashboard({
         }
 
         const results = Array.isArray(payload.results) ? payload.results : [];
-        const allowed = results.filter((item) => isTop100Sp500Symbol(item.symbol));
-        const deduped = dedupeSearchResultsBySymbol(allowed);
+        const deduped = dedupeSearchResultsBySymbol(results);
         if (paletteCacheRef.current.size > 220) {
           paletteCacheRef.current.clear();
         }
@@ -2469,10 +2491,6 @@ export function StockDashboard({
       throw new Error("Ticker symbol is invalid.");
     }
 
-    if (!isTop100Sp500Symbol(symbol)) {
-      throw new Error("ELDAR currently supports Top 100 S&P 500 symbols only.");
-    }
-
     if (!options?.bypassCache) {
       const cachedEntry = analysisCacheRef.current.get(symbol);
       if (cachedEntry && cachedEntry.expiresAt > Date.now()) {
@@ -2515,11 +2533,6 @@ export function StockDashboard({
 
     if (!shares || shares < 1) {
       setPortfolioError("Shares must be at least 1.");
-      return;
-    }
-
-    if (!isTop100Sp500Symbol(symbol)) {
-      setPortfolioError("Portfolio supports Top 100 S&P 500 symbols only.");
       return;
     }
 
@@ -2644,11 +2657,6 @@ export function StockDashboard({
   async function addComparisonSymbol(rawSymbol: string): Promise<void> {
     const symbol = rawSymbol.trim().toUpperCase();
     if (!symbol) return;
-    if (!isTop100Sp500Symbol(symbol)) {
-      setApiError("Comparison supports Top 100 S&P 500 symbols only.");
-      return;
-    }
-
     setComparisonOpen(true);
     setComparisonSymbols((prev) => {
       const base = currentRating ? [currentRating.symbol] : [];
@@ -2712,11 +2720,6 @@ export function StockDashboard({
 
     if (!symbol) {
       setApiError("Enter a ticker symbol first.");
-      return;
-    }
-
-    if (!isTop100Sp500Symbol(symbol)) {
-      setApiError("ELDAR currently supports Top 100 S&P 500 symbols only.");
       return;
     }
 
@@ -3193,6 +3196,24 @@ export function StockDashboard({
     () => sectorRelativeState(stockContext?.vsSectorPercent ?? null),
     [stockContext?.vsSectorPercent]
   );
+  const relatedNewsItems = useMemo(() => {
+    const directNews = stockContext?.news ?? [];
+    if (directNews.length > 0) {
+      return directNews.slice(0, 4);
+    }
+
+    const sectorName = stockContext?.sector ?? currentRating?.sector ?? "market";
+    const query = encodeURIComponent(`${sectorName} sector stocks`);
+
+    return [
+      {
+        headline: `${sectorName} sector headlines`,
+        url: `https://news.google.com/search?q=${query}`,
+        source: "Google News",
+        publishedAt: null
+      }
+    ];
+  }, [stockContext?.news, stockContext?.sector, currentRating?.sector]);
   const fundamentalsNumbersLoading = loading || analysisPhase !== "idle" || !currentRating;
   const fundamentalsHackTrigger = useMemo(
     () => `${currentRating?.symbol ?? "none"}:${currentRating?.createdAt ?? "na"}:${currentRating?.score ?? "na"}`,
@@ -4137,7 +4158,7 @@ export function StockDashboard({
         className="eldar-nav-icon inline-flex h-10 w-10 items-center justify-center text-white/85"
         aria-label="Watchlist"
       >
-        <Bookmark className="h-4 w-4" />
+        <Star className="h-4 w-4" />
       </button>
       <SignedOut>
         <SignInButton mode="modal">
@@ -4175,7 +4196,7 @@ export function StockDashboard({
           background: appBackground
         }}
       >
-        <NavigationBar
+        <NavigationSidebar
           view={view}
           themeMode={themeMode}
           loading={loading}
@@ -4201,13 +4222,13 @@ export function StockDashboard({
                   type="button"
                   onClick={() => openCommandPalette(ticker)}
                   disabled={loading}
-                  className="eldar-search-shell primary-cta flex h-14 w-full max-w-[520px] items-center justify-between rounded-3xl px-5 text-left text-base font-semibold transition-all duration-300"
+                  className="eldar-search-shell primary-cta flex h-14 w-full max-w-[520px] items-center justify-between rounded-3xl px-5 text-left text-sm font-medium transition-all duration-300"
                 >
-                  <span className="flex items-center gap-3 text-white/88">
+                  <span className="flex items-center gap-3 text-white/68">
                     {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                     {loading ? `Analyzing ${ticker || "symbol"}...` : "search stock"}
                   </span>
-                  <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/60">/</span>
+                  <span className="rounded-md border border-white/5 bg-white/[0.02] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/42">/</span>
                 </button>
 
               {apiError ? (
@@ -4295,7 +4316,7 @@ export function StockDashboard({
   if (view === "results" && !currentRating) {
     return (
       <div className="min-h-screen text-white" style={{ background: appBackground }}>
-        <NavigationBar
+        <NavigationSidebar
           view={view}
           themeMode={themeMode}
           loading={loading}
@@ -4375,7 +4396,7 @@ export function StockDashboard({
           background: appBackground
         }}
       >
-        <NavigationBar
+        <NavigationSidebar
           view={view}
           themeMode={themeMode}
           loading={loading}
@@ -4443,7 +4464,7 @@ export function StockDashboard({
                           isInWatchlist && "border-white/30 bg-white/[0.08] text-white"
                         )}
                       >
-                        <Bookmark className={clsx("h-4 w-4", isInWatchlist && "fill-current")} />
+                        <Star className={clsx("h-4 w-4", isInWatchlist && "fill-current")} />
                         {isInWatchlist ? "Saved" : "Add to Watchlist"}
                       </button>
                       <button
@@ -4708,14 +4729,8 @@ export function StockDashboard({
                   >
                     {stockContextLoading ? (
                       <LinesSkeleton rows={4} />
-                    ) : (stockContext?.news?.length ?? 0) === 0 ? (
-                      <EmptyState
-                        icon="📰"
-                        message={`No related news for ${currentRating.symbol}`}
-                        action={{ label: "Open source", onClick: () => window.open(`https://finance.yahoo.com/quote/${encodeURIComponent(currentRating.symbol)}/news`, "_blank", "noopener,noreferrer") }}
-                      />
                     ) : (
-                      (stockContext?.news ?? []).slice(0, 4).map((item, index) => (
+                      relatedNewsItems.map((item, index) => (
                         <a
                           key={`${item.headline}-${index}`}
                           href={item.url ?? `https://finance.yahoo.com/quote/${encodeURIComponent(currentRating.symbol)}/news`}
@@ -4965,7 +4980,7 @@ export function StockDashboard({
   if (view === "portfolio") {
     return (
       <div className="min-h-screen text-white" style={{ background: appBackground }}>
-        <NavigationBar
+        <NavigationSidebar
           view={view}
           themeMode={themeMode}
           loading={loading || portfolioLoading}
@@ -5220,7 +5235,7 @@ export function StockDashboard({
 
   return (
     <div className="min-h-screen text-white" style={{ background: appBackground }}>
-      <NavigationBar
+      <NavigationSidebar
         view={view}
         themeMode={themeMode}
         loading={loading}

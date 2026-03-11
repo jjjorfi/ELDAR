@@ -49,8 +49,8 @@ function macroRegimeToneClasses(label: HomeDashboardPayload["regime"]["label"]):
 } {
   if (label === "MAXIMUM_EXPANSION") {
     return {
-      badge: "border-[#FFBF00]/35 bg-[#FFBF00]/10 text-[#FFBF00] shadow-[0_0_18px_rgba(255,191,0,0.18)]",
-      needle: "#FFBF00"
+      badge: "border-emerald-400/35 bg-emerald-400/10 text-emerald-300 shadow-[0_0_18px_rgba(16,185,129,0.18)]",
+      needle: "#059669"
     };
   }
   if (label === "CONSTRUCTIVE_BIAS") {
@@ -144,7 +144,7 @@ const REGIME_GAUGE_ZONES = [
   { key: "defensive", label: "Defensive Liquidation", min: -7.5, max: -2.5, color: "rgba(255,138,91,0.82)" },
   { key: "chop", label: "Chop Distribution", min: -2.5, max: 2.5, color: "rgba(255,255,255,0.34)" },
   { key: "constructive", label: "Constructive Bias", min: 2.5, max: 7.5, color: "rgba(110,231,183,0.82)" },
-  { key: "expansion", label: "Maximum Expansion", min: 7.5, max: 10, color: "rgba(255,191,0,0.92)" }
+  { key: "expansion", label: "Maximum Expansion", min: 7.5, max: 10, color: "rgba(5,150,105,0.98)" }
 ] as const;
 
 function scoreToGaugeAngle(score: number): number {
@@ -237,7 +237,7 @@ export function MacroEnvironmentCard({
             type="button"
             onClick={() => setDrawerOpen(true)}
             aria-label="Open macro breakdown"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/12 bg-white/[0.03] text-white/72 transition hover:border-white/25 hover:bg-white/[0.06] hover:text-white"
+            className="inline-flex h-9 w-9 items-center justify-center text-white/62 transition hover:text-white"
           >
             <Info className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -269,12 +269,9 @@ export function MacroEnvironmentCard({
                       strokeWidth="18"
                       fill="none"
                       strokeLinecap="round"
-                      tabIndex={0}
                       aria-label={`${zone.label}, ${formatGaugeRange(zone.min, zone.max)}`}
                       onMouseEnter={() => setHoveredZoneKey(zone.key)}
                       onMouseLeave={() => setHoveredZoneKey(null)}
-                      onFocus={() => setHoveredZoneKey(zone.key)}
-                      onBlur={() => setHoveredZoneKey(null)}
                     />
                   </g>
                 );
@@ -359,7 +356,7 @@ export function MacroEnvironmentCard({
               <div>
                 <p className="text-[10px] uppercase tracking-[0.16em] text-white/42">Macro Read</p>
                 <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white">{formatMacroRegimeLabel(activeRegime.label)}</h3>
-                <p className="mt-2 text-sm leading-6 text-white/62">Four pillars. One regime. Only the current pressure points.</p>
+                <p className="mt-2 text-sm leading-6 text-white/62">Four pillars. One regime.</p>
               </div>
               <button
                 type="button"

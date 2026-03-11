@@ -20,6 +20,7 @@ import {
   type IndicesYtdPayload,
   type Mag7Payload,
   type MarketMoversPayload,
+  type QuoteTicksPayload,
   type WatchlistDeltaPayload
 } from "@/lib/realtime/events";
 
@@ -117,6 +118,14 @@ export async function publishMag7(payload: Mag7Payload): Promise<void> {
   await publish({
     room: SOCKET_ROOMS.publicDashboard(),
     event: SOCKET_EVENTS.MAG7_UPDATED,
+    payload
+  });
+}
+
+export async function publishQuoteTicks(payload: QuoteTicksPayload): Promise<void> {
+  await publish({
+    room: SOCKET_ROOMS.publicDashboard(),
+    event: SOCKET_EVENTS.QUOTE_TICKS_UPDATED,
     payload
   });
 }

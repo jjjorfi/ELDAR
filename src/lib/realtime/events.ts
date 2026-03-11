@@ -19,6 +19,7 @@ export const SOCKET_EVENTS = {
   INDICES_YTD_UPDATED: "indices-ytd:updated",
   EARNINGS_UPDATED: "earnings:updated",
   MAG7_UPDATED: "mag7:updated",
+  QUOTE_TICKS_UPDATED: "price-ticks:updated",
   HEARTBEAT_PING: "heartbeat:ping",
   HEARTBEAT_PONG: "heartbeat:pong"
 } as const;
@@ -74,6 +75,16 @@ export interface Mag7Payload {
     updatedAt: string;
   }>;
   marketOpen: boolean | null;
+}
+
+export interface QuoteTicksPayload {
+  source: "ALPACA_STREAM";
+  emittedAt: string;
+  updates: Array<{
+    symbol: string;
+    price: number;
+    asOfMs: number;
+  }>;
 }
 
 export const SOCKET_ROOMS = {

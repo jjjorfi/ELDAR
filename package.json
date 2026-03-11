@@ -14,6 +14,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "perf:smoke": "tsx scripts/perf-smoke.ts",
     "docs:function-trail": "node scripts/generate-function-trail.mjs",
     "test:security": "tsx --test --test-concurrency=1 src/lib/security/guard.test.ts",
     "security:gate": "bash ./security-gate.sh"
@@ -24,6 +25,7 @@
     "@vercel/postgres": "^0.10.0",
     "chart.js": "^4.4.3",
     "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.1",
     "express": "^4.21.2",
     "html-to-image": "^1.11.13",
     "jsonwebtoken": "^9.0.2",
@@ -35,6 +37,7 @@
     "redis": "^4.7.0",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
+    "ws": "^8.19.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

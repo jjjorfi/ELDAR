@@ -1,0 +1,6201 @@
+{
+  "summary": {
+    "timestamp": "2026-03-11T02:33:57.987Z",
+    "universeSize": 502,
+    "tested": 502,
+    "ok": 128,
+    "failed": 374,
+    "successRate": 25.5,
+    "confidence": {
+      "high": 23,
+      "medium": 43,
+      "low": 62
+    },
+    "pricesSource": {
+      "ALPACA": 127,
+      "TWELVEDATA": 1
+    },
+    "missingCore": 0,
+    "partialHistory": 0,
+    "totalWarnings": 2535,
+    "totalImputed": 1067,
+    "durationSec": 559
+  },
+  "failed": [
+    {
+      "ticker": "DAL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000027904.json"
+    },
+    {
+      "ticker": "DASH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001792789.json"
+    },
+    {
+      "ticker": "DDOG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001561550.json"
+    },
+    {
+      "ticker": "DD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001666700.json"
+    },
+    {
+      "ticker": "DE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000315189.json"
+    },
+    {
+      "ticker": "DECK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000910521.json"
+    },
+    {
+      "ticker": "DELL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001571996.json"
+    },
+    {
+      "ticker": "DG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000029534.json"
+    },
+    {
+      "ticker": "DGX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001022079.json"
+    },
+    {
+      "ticker": "DHI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000882184.json"
+    },
+    {
+      "ticker": "DHR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000313616.json"
+    },
+    {
+      "ticker": "DIS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001744489.json"
+    },
+    {
+      "ticker": "DLR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001297996.json"
+    },
+    {
+      "ticker": "DLTR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000935703.json"
+    },
+    {
+      "ticker": "DOC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000765880.json"
+    },
+    {
+      "ticker": "DOV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000029905.json"
+    },
+    {
+      "ticker": "DOW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001751788.json"
+    },
+    {
+      "ticker": "DPZ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001286681.json"
+    },
+    {
+      "ticker": "DRI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000940944.json"
+    },
+    {
+      "ticker": "DTE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000936340.json"
+    },
+    {
+      "ticker": "DUK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001326160.json"
+    },
+    {
+      "ticker": "DVA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000927066.json"
+    },
+    {
+      "ticker": "DVN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001090012.json"
+    },
+    {
+      "ticker": "DXCM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001093557.json"
+    },
+    {
+      "ticker": "EA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000712515.json"
+    },
+    {
+      "ticker": "EBAY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001065088.json"
+    },
+    {
+      "ticker": "ECL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000031462.json"
+    },
+    {
+      "ticker": "ED",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001047862.json"
+    },
+    {
+      "ticker": "EFX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000033185.json"
+    },
+    {
+      "ticker": "EG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001095073.json"
+    },
+    {
+      "ticker": "EIX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000827052.json"
+    },
+    {
+      "ticker": "EL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001001250.json"
+    },
+    {
+      "ticker": "ELV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001156039.json"
+    },
+    {
+      "ticker": "EME",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000105634.json"
+    },
+    {
+      "ticker": "EMR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000032604.json"
+    },
+    {
+      "ticker": "EOG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000821189.json"
+    },
+    {
+      "ticker": "EPAM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001352010.json"
+    },
+    {
+      "ticker": "EQIX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001101239.json"
+    },
+    {
+      "ticker": "EQT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000033213.json"
+    },
+    {
+      "ticker": "EQR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000906107.json"
+    },
+    {
+      "ticker": "ERIE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000922621.json"
+    },
+    {
+      "ticker": "ES",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000072741.json"
+    },
+    {
+      "ticker": "ETN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001551182.json"
+    },
+    {
+      "ticker": "ESS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000920522.json"
+    },
+    {
+      "ticker": "ETR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000065984.json"
+    },
+    {
+      "ticker": "EVRG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001711269.json"
+    },
+    {
+      "ticker": "EW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001099800.json"
+    },
+    {
+      "ticker": "EXC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001109357.json"
+    },
+    {
+      "ticker": "EXE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000895126.json"
+    },
+    {
+      "ticker": "EXPD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000746515.json"
+    },
+    {
+      "ticker": "EXPE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001324424.json"
+    },
+    {
+      "ticker": "EXR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001289490.json"
+    },
+    {
+      "ticker": "F",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000037996.json"
+    },
+    {
+      "ticker": "FAST",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000815556.json"
+    },
+    {
+      "ticker": "FANG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001539838.json"
+    },
+    {
+      "ticker": "FCX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000831259.json"
+    },
+    {
+      "ticker": "FDS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001013237.json"
+    },
+    {
+      "ticker": "FDX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001048911.json"
+    },
+    {
+      "ticker": "FE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001031296.json"
+    },
+    {
+      "ticker": "FFIV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001048695.json"
+    },
+    {
+      "ticker": "FICO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000814547.json"
+    },
+    {
+      "ticker": "FIS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001136893.json"
+    },
+    {
+      "ticker": "FISV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000798354.json"
+    },
+    {
+      "ticker": "FITB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000035527.json"
+    },
+    {
+      "ticker": "FIX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001035983.json"
+    },
+    {
+      "ticker": "FOX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001754301.json"
+    },
+    {
+      "ticker": "FOXA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001754301.json"
+    },
+    {
+      "ticker": "FRT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000034903.json"
+    },
+    {
+      "ticker": "FSLR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001274494.json"
+    },
+    {
+      "ticker": "FTNT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001262039.json"
+    },
+    {
+      "ticker": "FTV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001659166.json"
+    },
+    {
+      "ticker": "GD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000040533.json"
+    },
+    {
+      "ticker": "GDDY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001609711.json"
+    },
+    {
+      "ticker": "GE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000040545.json"
+    },
+    {
+      "ticker": "GEHC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001932393.json"
+    },
+    {
+      "ticker": "GEN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000849399.json"
+    },
+    {
+      "ticker": "GEV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001996810.json"
+    },
+    {
+      "ticker": "GILD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000882095.json"
+    },
+    {
+      "ticker": "GIS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000040704.json"
+    },
+    {
+      "ticker": "GL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000320335.json"
+    },
+    {
+      "ticker": "GLW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000024741.json"
+    },
+    {
+      "ticker": "GM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001467858.json"
+    },
+    {
+      "ticker": "GNRC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001474735.json"
+    },
+    {
+      "ticker": "GOOG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001652044.json"
+    },
+    {
+      "ticker": "GPC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000040987.json"
+    },
+    {
+      "ticker": "GOOGL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001652044.json"
+    },
+    {
+      "ticker": "GPN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001123360.json"
+    },
+    {
+      "ticker": "GRMN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001121788.json"
+    },
+    {
+      "ticker": "GS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000886982.json"
+    },
+    {
+      "ticker": "GWW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000277135.json"
+    },
+    {
+      "ticker": "HAL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000045012.json"
+    },
+    {
+      "ticker": "HAS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000046080.json"
+    },
+    {
+      "ticker": "HBAN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000049196.json"
+    },
+    {
+      "ticker": "HCA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000860730.json"
+    },
+    {
+      "ticker": "HD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000354950.json"
+    },
+    {
+      "ticker": "HIG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000874766.json"
+    },
+    {
+      "ticker": "HII",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001501585.json"
+    },
+    {
+      "ticker": "HLT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001585689.json"
+    },
+    {
+      "ticker": "HOLX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000859737.json"
+    },
+    {
+      "ticker": "HON",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000773840.json"
+    },
+    {
+      "ticker": "HOOD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001783879.json"
+    },
+    {
+      "ticker": "HPE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001645590.json"
+    },
+    {
+      "ticker": "HPQ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000047217.json"
+    },
+    {
+      "ticker": "HRL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000048465.json"
+    },
+    {
+      "ticker": "HSIC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001000228.json"
+    },
+    {
+      "ticker": "HST",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001070750.json"
+    },
+    {
+      "ticker": "HSY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000047111.json"
+    },
+    {
+      "ticker": "HUBB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000048898.json"
+    },
+    {
+      "ticker": "HUM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000049071.json"
+    },
+    {
+      "ticker": "IBKR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001381197.json"
+    },
+    {
+      "ticker": "HWM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000004281.json"
+    },
+    {
+      "ticker": "IBM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000051143.json"
+    },
+    {
+      "ticker": "ICE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001571949.json"
+    },
+    {
+      "ticker": "IDXX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000874716.json"
+    },
+    {
+      "ticker": "IEX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000832101.json"
+    },
+    {
+      "ticker": "IFF",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000051253.json"
+    },
+    {
+      "ticker": "INCY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000879169.json"
+    },
+    {
+      "ticker": "INTC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000050863.json"
+    },
+    {
+      "ticker": "INTU",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000896878.json"
+    },
+    {
+      "ticker": "INVH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001687229.json"
+    },
+    {
+      "ticker": "IP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000051434.json"
+    },
+    {
+      "ticker": "IQV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001478242.json"
+    },
+    {
+      "ticker": "IR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001699150.json"
+    },
+    {
+      "ticker": "IRM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001020569.json"
+    },
+    {
+      "ticker": "ISRG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001035267.json"
+    },
+    {
+      "ticker": "IT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000749251.json"
+    },
+    {
+      "ticker": "ITW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000049826.json"
+    },
+    {
+      "ticker": "IVZ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000914208.json"
+    },
+    {
+      "ticker": "J",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000052988.json"
+    },
+    {
+      "ticker": "JBHT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000728535.json"
+    },
+    {
+      "ticker": "JBL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000898293.json"
+    },
+    {
+      "ticker": "JCI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000833444.json"
+    },
+    {
+      "ticker": "JKHY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000779152.json"
+    },
+    {
+      "ticker": "JNJ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000200406.json"
+    },
+    {
+      "ticker": "JPM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000019617.json"
+    },
+    {
+      "ticker": "KDP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001418135.json"
+    },
+    {
+      "ticker": "KEY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000091576.json"
+    },
+    {
+      "ticker": "KEYS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001601046.json"
+    },
+    {
+      "ticker": "KHC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001637459.json"
+    },
+    {
+      "ticker": "KIM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000879101.json"
+    },
+    {
+      "ticker": "KKR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001404912.json"
+    },
+    {
+      "ticker": "KLAC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000319201.json"
+    },
+    {
+      "ticker": "KMB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000055785.json"
+    },
+    {
+      "ticker": "KMI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001506307.json"
+    },
+    {
+      "ticker": "KO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000021344.json"
+    },
+    {
+      "ticker": "KR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000056873.json"
+    },
+    {
+      "ticker": "KVUE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001944048.json"
+    },
+    {
+      "ticker": "L",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000060086.json"
+    },
+    {
+      "ticker": "LDOS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001336920.json"
+    },
+    {
+      "ticker": "LEN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000920760.json"
+    },
+    {
+      "ticker": "LH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000920148.json"
+    },
+    {
+      "ticker": "LHX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000202058.json"
+    },
+    {
+      "ticker": "LII",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001069202.json"
+    },
+    {
+      "ticker": "LIN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001707925.json"
+    },
+    {
+      "ticker": "LLY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000059478.json"
+    },
+    {
+      "ticker": "LMT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000936468.json"
+    },
+    {
+      "ticker": "LNT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000352541.json"
+    },
+    {
+      "ticker": "LOW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000060667.json"
+    },
+    {
+      "ticker": "LRCX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000707549.json"
+    },
+    {
+      "ticker": "LULU",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001397187.json"
+    },
+    {
+      "ticker": "LUV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000092380.json"
+    },
+    {
+      "ticker": "LVS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001300514.json"
+    },
+    {
+      "ticker": "LW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001679273.json"
+    },
+    {
+      "ticker": "LYB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001489393.json"
+    },
+    {
+      "ticker": "LYV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001335258.json"
+    },
+    {
+      "ticker": "MA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001141391.json"
+    },
+    {
+      "ticker": "MAA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000912595.json"
+    },
+    {
+      "ticker": "MAR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001048286.json"
+    },
+    {
+      "ticker": "MAS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000062996.json"
+    },
+    {
+      "ticker": "MCD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000063908.json"
+    },
+    {
+      "ticker": "MCHP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000827054.json"
+    },
+    {
+      "ticker": "MCK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000927653.json"
+    },
+    {
+      "ticker": "MCO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001059556.json"
+    },
+    {
+      "ticker": "MDLZ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001103982.json"
+    },
+    {
+      "ticker": "MET",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001099219.json"
+    },
+    {
+      "ticker": "MDT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001613103.json"
+    },
+    {
+      "ticker": "META",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001326801.json"
+    },
+    {
+      "ticker": "MGM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000789570.json"
+    },
+    {
+      "ticker": "MLM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000916076.json"
+    },
+    {
+      "ticker": "MKC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000063754.json"
+    },
+    {
+      "ticker": "MMM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000066740.json"
+    },
+    {
+      "ticker": "MNST",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000865752.json"
+    },
+    {
+      "ticker": "MO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000764180.json"
+    },
+    {
+      "ticker": "MOH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001179929.json"
+    },
+    {
+      "ticker": "MOS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001285785.json"
+    },
+    {
+      "ticker": "MPC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001510295.json"
+    },
+    {
+      "ticker": "MPWR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001280452.json"
+    },
+    {
+      "ticker": "MRK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000310158.json"
+    },
+    {
+      "ticker": "MRNA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001682852.json"
+    },
+    {
+      "ticker": "MRSH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000062709.json"
+    },
+    {
+      "ticker": "MS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000895421.json"
+    },
+    {
+      "ticker": "MSCI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001408198.json"
+    },
+    {
+      "ticker": "MSFT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000789019.json"
+    },
+    {
+      "ticker": "MSI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000068505.json"
+    },
+    {
+      "ticker": "MTB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000036270.json"
+    },
+    {
+      "ticker": "MTCH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000891103.json"
+    },
+    {
+      "ticker": "MTD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001037646.json"
+    },
+    {
+      "ticker": "MU",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000723125.json"
+    },
+    {
+      "ticker": "NCLH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001513761.json"
+    },
+    {
+      "ticker": "NDAQ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001120193.json"
+    },
+    {
+      "ticker": "NDSN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000072331.json"
+    },
+    {
+      "ticker": "NEE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000753308.json"
+    },
+    {
+      "ticker": "NEM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001164727.json"
+    },
+    {
+      "ticker": "NFLX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001065280.json"
+    },
+    {
+      "ticker": "NI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001111711.json"
+    },
+    {
+      "ticker": "NKE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000320187.json"
+    },
+    {
+      "ticker": "NOC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001133421.json"
+    },
+    {
+      "ticker": "NOW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001373715.json"
+    },
+    {
+      "ticker": "NRG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001013871.json"
+    },
+    {
+      "ticker": "NSC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000702165.json"
+    },
+    {
+      "ticker": "NTAP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001002047.json"
+    },
+    {
+      "ticker": "NTRS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000073124.json"
+    },
+    {
+      "ticker": "NUE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000073309.json"
+    },
+    {
+      "ticker": "NVDA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001045810.json"
+    },
+    {
+      "ticker": "NVR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000906163.json"
+    },
+    {
+      "ticker": "NWS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001564708.json"
+    },
+    {
+      "ticker": "NWSA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001564708.json"
+    },
+    {
+      "ticker": "NXPI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001413447.json"
+    },
+    {
+      "ticker": "O",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000726728.json"
+    },
+    {
+      "ticker": "ODFL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000878927.json"
+    },
+    {
+      "ticker": "OKE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001039684.json"
+    },
+    {
+      "ticker": "OMC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000029989.json"
+    },
+    {
+      "ticker": "ON",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001097864.json"
+    },
+    {
+      "ticker": "ORCL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001341439.json"
+    },
+    {
+      "ticker": "ORLY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000898173.json"
+    },
+    {
+      "ticker": "OTIS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001781335.json"
+    },
+    {
+      "ticker": "OXY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000797468.json"
+    },
+    {
+      "ticker": "PANW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001327567.json"
+    },
+    {
+      "ticker": "PAYC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001590955.json"
+    },
+    {
+      "ticker": "PAYX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000723531.json"
+    },
+    {
+      "ticker": "PCAR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000075362.json"
+    },
+    {
+      "ticker": "PCG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001004980.json"
+    },
+    {
+      "ticker": "PEG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000788784.json"
+    },
+    {
+      "ticker": "PEP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000077476.json"
+    },
+    {
+      "ticker": "PFE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000078003.json"
+    },
+    {
+      "ticker": "PFG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001126328.json"
+    },
+    {
+      "ticker": "PG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000080424.json"
+    },
+    {
+      "ticker": "PH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000076334.json"
+    },
+    {
+      "ticker": "PGR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000080661.json"
+    },
+    {
+      "ticker": "PHM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000822416.json"
+    },
+    {
+      "ticker": "PKG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000075677.json"
+    },
+    {
+      "ticker": "PLD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001045609.json"
+    },
+    {
+      "ticker": "PLTR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001321655.json"
+    },
+    {
+      "ticker": "PM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001413329.json"
+    },
+    {
+      "ticker": "PNC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000713676.json"
+    },
+    {
+      "ticker": "PNR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000077360.json"
+    },
+    {
+      "ticker": "PNW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000764622.json"
+    },
+    {
+      "ticker": "PODD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001145197.json"
+    },
+    {
+      "ticker": "POOL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000945841.json"
+    },
+    {
+      "ticker": "PPG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000079879.json"
+    },
+    {
+      "ticker": "PPL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000922224.json"
+    },
+    {
+      "ticker": "PRU",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001137774.json"
+    },
+    {
+      "ticker": "PSA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001393311.json"
+    },
+    {
+      "ticker": "PSKY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0002041610.json"
+    },
+    {
+      "ticker": "PSX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001534701.json"
+    },
+    {
+      "ticker": "PTC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000857005.json"
+    },
+    {
+      "ticker": "PWR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001050915.json"
+    },
+    {
+      "ticker": "PYPL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001633917.json"
+    },
+    {
+      "ticker": "QCOM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000804328.json"
+    },
+    {
+      "ticker": "RCL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000884887.json"
+    },
+    {
+      "ticker": "REG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000910606.json"
+    },
+    {
+      "ticker": "REGN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000872589.json"
+    },
+    {
+      "ticker": "RF",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001281761.json"
+    },
+    {
+      "ticker": "RJF",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000720005.json"
+    },
+    {
+      "ticker": "RL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001037038.json"
+    },
+    {
+      "ticker": "RMD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000943819.json"
+    },
+    {
+      "ticker": "ROK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001024478.json"
+    },
+    {
+      "ticker": "ROL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000084839.json"
+    },
+    {
+      "ticker": "ROP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000882835.json"
+    },
+    {
+      "ticker": "ROST",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000745732.json"
+    },
+    {
+      "ticker": "RSG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001060391.json"
+    },
+    {
+      "ticker": "RTX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000101829.json"
+    },
+    {
+      "ticker": "RVTY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000031791.json"
+    },
+    {
+      "ticker": "SBAC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001034054.json"
+    },
+    {
+      "ticker": "SBUX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000829224.json"
+    },
+    {
+      "ticker": "SCHW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000316709.json"
+    },
+    {
+      "ticker": "SHW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000089800.json"
+    },
+    {
+      "ticker": "SJM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000091419.json"
+    },
+    {
+      "ticker": "SLB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000087347.json"
+    },
+    {
+      "ticker": "SMCI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001375365.json"
+    },
+    {
+      "ticker": "SNA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000091440.json"
+    },
+    {
+      "ticker": "SNDK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0002023554.json"
+    },
+    {
+      "ticker": "SNPS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000883241.json"
+    },
+    {
+      "ticker": "SO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000092122.json"
+    },
+    {
+      "ticker": "SOLV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001964738.json"
+    },
+    {
+      "ticker": "SPG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001063761.json"
+    },
+    {
+      "ticker": "SPGI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000064040.json"
+    },
+    {
+      "ticker": "SRE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001032208.json"
+    },
+    {
+      "ticker": "STE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001757898.json"
+    },
+    {
+      "ticker": "STLD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001022671.json"
+    },
+    {
+      "ticker": "STT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000093751.json"
+    },
+    {
+      "ticker": "STX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001137789.json"
+    },
+    {
+      "ticker": "STZ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000016918.json"
+    },
+    {
+      "ticker": "SW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0002005951.json"
+    },
+    {
+      "ticker": "SWK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000093556.json"
+    },
+    {
+      "ticker": "SWKS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000004127.json"
+    },
+    {
+      "ticker": "SYF",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001601712.json"
+    },
+    {
+      "ticker": "SYK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000310764.json"
+    },
+    {
+      "ticker": "SYY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000096021.json"
+    },
+    {
+      "ticker": "T",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000732717.json"
+    },
+    {
+      "ticker": "TAP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000024545.json"
+    },
+    {
+      "ticker": "TDG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001260221.json"
+    },
+    {
+      "ticker": "TDY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001094285.json"
+    },
+    {
+      "ticker": "TECH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000842023.json"
+    },
+    {
+      "ticker": "TEL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001385157.json"
+    },
+    {
+      "ticker": "TER",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000097210.json"
+    },
+    {
+      "ticker": "TFC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000092230.json"
+    },
+    {
+      "ticker": "TGT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000027419.json"
+    },
+    {
+      "ticker": "TJX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000109198.json"
+    },
+    {
+      "ticker": "TKO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001973266.json"
+    },
+    {
+      "ticker": "TMO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000097745.json"
+    },
+    {
+      "ticker": "TMUS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001283699.json"
+    },
+    {
+      "ticker": "TPL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001811074.json"
+    },
+    {
+      "ticker": "TPR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001116132.json"
+    },
+    {
+      "ticker": "TRGP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001389170.json"
+    },
+    {
+      "ticker": "TRMB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000864749.json"
+    },
+    {
+      "ticker": "TROW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001113169.json"
+    },
+    {
+      "ticker": "TRV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000086312.json"
+    },
+    {
+      "ticker": "TSCO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000916365.json"
+    },
+    {
+      "ticker": "TSLA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001318605.json"
+    },
+    {
+      "ticker": "TSN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000100493.json"
+    },
+    {
+      "ticker": "TT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001466258.json"
+    },
+    {
+      "ticker": "TTD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001671933.json"
+    },
+    {
+      "ticker": "TTWO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000946581.json"
+    },
+    {
+      "ticker": "TXN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000097476.json"
+    },
+    {
+      "ticker": "TXT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000217346.json"
+    },
+    {
+      "ticker": "TYL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000860731.json"
+    },
+    {
+      "ticker": "UAL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000100517.json"
+    },
+    {
+      "ticker": "UBER",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001543151.json"
+    },
+    {
+      "ticker": "UDR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000074208.json"
+    },
+    {
+      "ticker": "UHS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000352915.json"
+    },
+    {
+      "ticker": "ULTA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001403568.json"
+    },
+    {
+      "ticker": "UNH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000731766.json"
+    },
+    {
+      "ticker": "UNP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000100885.json"
+    },
+    {
+      "ticker": "UPS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001090727.json"
+    },
+    {
+      "ticker": "URI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001067701.json"
+    },
+    {
+      "ticker": "USB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000036104.json"
+    },
+    {
+      "ticker": "V",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001403161.json"
+    },
+    {
+      "ticker": "VICI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001705696.json"
+    },
+    {
+      "ticker": "VLO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001035002.json"
+    },
+    {
+      "ticker": "VLTO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001967680.json"
+    },
+    {
+      "ticker": "VMC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001396009.json"
+    },
+    {
+      "ticker": "VRSK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001442145.json"
+    },
+    {
+      "ticker": "VRSN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001014473.json"
+    },
+    {
+      "ticker": "VRTX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000875320.json"
+    },
+    {
+      "ticker": "VST",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001692819.json"
+    },
+    {
+      "ticker": "VTR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000740260.json"
+    },
+    {
+      "ticker": "VTRS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001792044.json"
+    },
+    {
+      "ticker": "VZ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000732712.json"
+    },
+    {
+      "ticker": "WAB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000943452.json"
+    },
+    {
+      "ticker": "WAT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001000697.json"
+    },
+    {
+      "ticker": "WBD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001437107.json"
+    },
+    {
+      "ticker": "WDAY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001327811.json"
+    },
+    {
+      "ticker": "WDC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000106040.json"
+    },
+    {
+      "ticker": "WELL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000766704.json"
+    },
+    {
+      "ticker": "WEC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000783325.json"
+    },
+    {
+      "ticker": "WFC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000072971.json"
+    },
+    {
+      "ticker": "WM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000823768.json"
+    },
+    {
+      "ticker": "WMB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000107263.json"
+    },
+    {
+      "ticker": "WMT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000104169.json"
+    },
+    {
+      "ticker": "WRB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000011544.json"
+    },
+    {
+      "ticker": "WSM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000719955.json"
+    },
+    {
+      "ticker": "WST",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000105770.json"
+    },
+    {
+      "ticker": "WTW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001140536.json"
+    },
+    {
+      "ticker": "WY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000106535.json"
+    },
+    {
+      "ticker": "WYNN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001174922.json"
+    },
+    {
+      "ticker": "XEL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000072903.json"
+    },
+    {
+      "ticker": "XOM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000034088.json"
+    },
+    {
+      "ticker": "XYL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001524472.json"
+    },
+    {
+      "ticker": "XYZ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001512673.json"
+    },
+    {
+      "ticker": "YUM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001041061.json"
+    },
+    {
+      "ticker": "ZBH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001136869.json"
+    },
+    {
+      "ticker": "ZBRA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000877212.json"
+    },
+    {
+      "ticker": "ZTS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001555280.json"
+    }
+  ],
+  "suspicious": [],
+  "checks": [
+    {
+      "ticker": "ABBV",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 23,
+      "imputedCount": 2,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001551152",
+      "latestRevenue": 16618000000,
+      "latestNetIncome": 1816000000,
+      "latestEbit": 15075000000,
+      "ttmRevenue": 61160000000,
+      "ttmEbit": 25606000000,
+      "ttmFCF": 38427000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ABNB",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "TWELVEDATA",
+      "warningsCount": 5,
+      "imputedCount": 11,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001559720",
+      "latestRevenue": 2778000000,
+      "latestNetIncome": 341000000,
+      "latestEbit": 269000000,
+      "ttmRevenue": 12241000000,
+      "ttmEbit": 2544000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AAPL",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 3,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-27",
+      "cik": "0000320193",
+      "latestRevenue": 143756000000,
+      "latestNetIncome": 42097000000,
+      "latestEbit": 50852000000,
+      "ttmRevenue": 435617000000,
+      "ttmEbit": 141070000000,
+      "ttmFCF": 111906000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "A",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 3,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2026-01-31",
+      "cik": "0001090872",
+      "latestRevenue": 1798000000,
+      "latestNetIncome": 305000000,
+      "latestEbit": 353000000,
+      "ttmRevenue": 7065000000,
+      "ttmEbit": 1456000000,
+      "ttmFCF": 563000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ABT",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 9,
+      "imputedCount": 1,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000001800",
+      "latestRevenue": 11459000000,
+      "latestNetIncome": 1776000000,
+      "latestEbit": 2251000000,
+      "ttmRevenue": 44328000000,
+      "ttmEbit": 8053000000,
+      "ttmFCF": 5833000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ACN",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 21,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-11-30",
+      "cik": "0001467373",
+      "latestRevenue": 18742125000,
+      "latestNetIncome": 2211561000,
+      "latestEbit": 2873698000,
+      "ttmRevenue": 70725557000,
+      "ttmEbit": 10150885000,
+      "ttmFCF": 23002872000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ACGL",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 24,
+      "imputedCount": 34,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000947484",
+      "latestRevenue": 4934000000,
+      "latestNetIncome": 1238000000,
+      "latestEbit": 1486000000,
+      "ttmRevenue": 19929000000,
+      "ttmEbit": 5307000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ADBE",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 2,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-11-28",
+      "cik": "0000796343",
+      "latestRevenue": 6194000000,
+      "latestNetIncome": 1856000000,
+      "latestEbit": 2261000000,
+      "ttmRevenue": 23769000000,
+      "ttmEbit": 8706000000,
+      "ttmFCF": 9722000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ADI",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 2,
+      "imputedCount": 1,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2026-01-31",
+      "cik": "0000006281",
+      "latestRevenue": 3160263000,
+      "latestNetIncome": 830826000,
+      "latestEbit": 997026000,
+      "ttmRevenue": 11756796000,
+      "ttmEbit": 3438209000,
+      "ttmFCF": 4213879000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ADM",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 32,
+      "imputedCount": 13,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000007084",
+      "latestRevenue": 18556000000,
+      "latestNetIncome": 456000000,
+      "latestEbit": 618000000,
+      "ttmRevenue": 80269000000,
+      "ttmEbit": 1867000000,
+      "ttmFCF": 3142000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ADSK",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 14,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2026-01-31",
+      "cik": "0000769397",
+      "latestRevenue": 1957000000,
+      "latestNetIncome": 316000000,
+      "latestEbit": 431000000,
+      "ttmRevenue": 7206000000,
+      "ttmEbit": 1578000000,
+      "ttmFCF": 2393000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ADP",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 16,
+      "imputedCount": 24,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000008670",
+      "latestRevenue": 5359300000,
+      "latestNetIncome": 1062000000,
+      "latestEbit": 1410500000,
+      "ttmRevenue": 21214300000,
+      "ttmEbit": 5609100000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AEP",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 15,
+      "imputedCount": 15,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000004904",
+      "latestRevenue": 5315300000,
+      "latestNetIncome": 582000000,
+      "latestEbit": 1114300000,
+      "ttmRevenue": 21876000000,
+      "ttmEbit": 5319000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AEE",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 3,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001002910",
+      "latestRevenue": 1782000000,
+      "latestNetIncome": 252000000,
+      "latestEbit": 360000000,
+      "ttmRevenue": 8799000000,
+      "ttmEbit": 2026000000,
+      "ttmFCF": -5143000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AFL",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 23,
+      "imputedCount": 23,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000004977",
+      "latestRevenue": 4866000000,
+      "latestNetIncome": 1379000000,
+      "latestEbit": 1633000000,
+      "ttmRevenue": 17164000000,
+      "ttmEbit": 4750000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AES",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 38,
+      "imputedCount": 20,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000874761",
+      "latestRevenue": 3101000000,
+      "latestNetIncome": 320000000,
+      "latestEbit": 24000000,
+      "ttmRevenue": 12233000000,
+      "ttmEbit": 1195000000,
+      "ttmFCF": -6233000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AIZ",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 19,
+      "imputedCount": 12,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001267238",
+      "latestRevenue": 3350400000,
+      "latestNetIncome": 225200000,
+      "latestEbit": 311800000,
+      "ttmRevenue": 12814300000,
+      "ttmEbit": 1197100000,
+      "ttmFCF": 1383600000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AJG",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 16,
+      "imputedCount": 12,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000354190",
+      "latestRevenue": 3628200000,
+      "latestNetIncome": 151100000,
+      "latestEbit": 341200000,
+      "ttmRevenue": 13942000000,
+      "ttmEbit": 2510000000,
+      "ttmFCF": 1672600000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AIG",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 51,
+      "imputedCount": 25,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000005272",
+      "latestRevenue": 6550000000,
+      "latestNetIncome": 735000000,
+      "latestEbit": 766000000,
+      "ttmRevenue": 26775000000,
+      "ttmEbit": 4275000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AKAM",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 4,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001086222",
+      "latestRevenue": 1094912000,
+      "latestNetIncome": 85072000,
+      "latestEbit": 94876000,
+      "ttmRevenue": 4208175000,
+      "ttmEbit": 566944000,
+      "ttmFCF": 512191000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ALGN",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 8,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001097149",
+      "latestRevenue": 28800000,
+      "latestNetIncome": 410351000,
+      "latestEbit": 545755000,
+      "ttmRevenue": 3016203000,
+      "ttmEbit": 936186000,
+      "ttmFCF": 956240000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ALLE",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 3,
+      "imputedCount": 10,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001579241",
+      "latestRevenue": 1033200000,
+      "latestNetIncome": 147500000,
+      "latestEbit": 209600000,
+      "ttmRevenue": 4067300000,
+      "ttmEbit": 859500000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ALL",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 18,
+      "imputedCount": 22,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000899051",
+      "latestRevenue": 17345000000,
+      "latestNetIncome": 10282000000,
+      "latestEbit": 9409000000,
+      "ttmRevenue": 67685000000,
+      "ttmEbit": 17661000000,
+      "ttmFCF": 22482000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ALB",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 12,
+      "imputedCount": 10,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000915913",
+      "latestRevenue": 1428031000,
+      "latestNetIncome": -414179000,
+      "latestEbit": -217386000,
+      "ttmRevenue": 5142733000,
+      "ttmEbit": -367084000,
+      "ttmFCF": 33484000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AMAT",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 12,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2026-01-25",
+      "cik": "0000006951",
+      "latestRevenue": 7012000000,
+      "latestNetIncome": 2026000000,
+      "latestEbit": 1831000000,
+      "ttmRevenue": 28214000000,
+      "ttmEbit": 7945000000,
+      "ttmFCF": 5220000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AMCR",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 31,
+      "imputedCount": 12,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001748790",
+      "latestRevenue": 5449000000,
+      "latestNetIncome": 177000000,
+      "latestEbit": 331000000,
+      "ttmRevenue": 19609000000,
+      "ttmEbit": 2114000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AMD",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 10,
+      "imputedCount": 8,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-27",
+      "cik": "0000002488",
+      "latestRevenue": 10270000000,
+      "latestNetIncome": 1511000000,
+      "latestEbit": 1752000000,
+      "ttmRevenue": 34639000000,
+      "ttmEbit": 3694000000,
+      "ttmFCF": 5767000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AME",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 14,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001037868",
+      "latestRevenue": 1998448000,
+      "latestNetIncome": 398601000,
+      "latestEbit": 505482000,
+      "ttmRevenue": 7401116000,
+      "ttmEbit": 1910317000,
+      "ttmFCF": 1634695000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AMGN",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 6,
+      "imputedCount": 1,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000318154",
+      "latestRevenue": 9866000000,
+      "latestNetIncome": 1333000000,
+      "latestEbit": 2720000000,
+      "ttmRevenue": 36751000000,
+      "ttmEbit": 9080000000,
+      "ttmFCF": 7002000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AMP",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 33,
+      "imputedCount": 24,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000820027",
+      "latestRevenue": 5047000000,
+      "latestNetIncome": 1008000000,
+      "latestEbit": 1292000000,
+      "ttmRevenue": 18911000000,
+      "ttmEbit": 4504000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AMZN",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 3,
+      "imputedCount": 12,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001018724",
+      "latestRevenue": 213386000000,
+      "latestNetIncome": 21192000000,
+      "latestEbit": 24977000000,
+      "ttmRevenue": 716924000000,
+      "ttmEbit": 79975000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AMT",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 62,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001053507",
+      "latestRevenue": 2737500000,
+      "latestNetIncome": 820700000,
+      "latestEbit": 1160700000,
+      "ttmRevenue": 10644600000,
+      "ttmEbit": 4845800000,
+      "ttmFCF": 3008400000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ANET",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 21,
+      "imputedCount": 3,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001596532",
+      "latestRevenue": 2487800000,
+      "latestNetIncome": 955800000,
+      "latestEbit": 1032900000,
+      "ttmRevenue": 9005700000,
+      "ttmEbit": 3856100000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AON",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 15,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000315293",
+      "latestRevenue": 4300000000,
+      "latestNetIncome": 1693000000,
+      "latestEbit": 1208000000,
+      "ttmRevenue": 17181000000,
+      "ttmEbit": 4344000000,
+      "ttmFCF": 3014000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AOS",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 24,
+      "imputedCount": 12,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000091142",
+      "latestRevenue": 912500000,
+      "latestNetIncome": 125400000,
+      "latestEbit": 163000000,
+      "ttmRevenue": 3830200000,
+      "ttmEbit": 728600000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "APA",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 14,
+      "imputedCount": 11,
+      "incomeQuarters": 6,
+      "latestPeriodEnd": "2024-12-31",
+      "cik": "0001841666",
+      "latestRevenue": 10300000000,
+      "latestNetIncome": 804000000,
+      "latestEbit": 2444000000,
+      "ttmRevenue": 25610000000,
+      "ttmEbit": 6976000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "APO",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 31,
+      "imputedCount": 25,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001858681",
+      "latestRevenue": 9864000000,
+      "latestNetIncome": 684000000,
+      "latestEbit": 1926000000,
+      "ttmRevenue": 32049000000,
+      "ttmEbit": 7295000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "APP",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 39,
+      "imputedCount": 8,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001751008",
+      "latestRevenue": 1332897000,
+      "latestNetIncome": 1102256000,
+      "latestEbit": 1451754000,
+      "ttmRevenue": 5480717000,
+      "ttmEbit": 4151914000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "APH",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 35,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000820313",
+      "latestRevenue": 6439000000,
+      "latestNetIncome": 1195500000,
+      "latestEbit": 1722700000,
+      "ttmRevenue": 23094700000,
+      "ttmEbit": 5868600000,
+      "ttmFCF": 3536900000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "APD",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 25,
+      "imputedCount": 2,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000002969",
+      "latestRevenue": 3102500000,
+      "latestNetIncome": 678200000,
+      "latestEbit": 734500000,
+      "ttmRevenue": 12208300000,
+      "ttmEbit": -786100000,
+      "ttmFCF": -12028400000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ARE",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 36,
+      "imputedCount": 36,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001035443",
+      "latestRevenue": 712722000,
+      "latestNetIncome": -1080875000,
+      "latestEbit": -1015201000,
+      "ttmRevenue": 2889721000,
+      "ttmEbit": -1202872000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ARES",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 31,
+      "imputedCount": 24,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001176948",
+      "latestRevenue": 1557749000,
+      "latestNetIncome": 54248000,
+      "latestEbit": 206646000,
+      "ttmRevenue": 4755618000,
+      "ttmEbit": 1286893000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "ATO",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 4,
+      "imputedCount": 12,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000731802",
+      "latestRevenue": 1342585000,
+      "latestNetIncome": 402964000,
+      "latestEbit": 514764000,
+      "ttmRevenue": 4869341000,
+      "ttmEbit": 1615255000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "APTV",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 11,
+      "imputedCount": 17,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001521332",
+      "latestRevenue": 5153000000,
+      "latestNetIncome": 138000000,
+      "latestEbit": 425000000,
+      "ttmRevenue": 20398000000,
+      "ttmEbit": 1184000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AVGO",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 25,
+      "imputedCount": 4,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-11-02",
+      "cik": "0001730168",
+      "latestRevenue": 18015000000,
+      "latestNetIncome": 8518000000,
+      "latestEbit": 7508000000,
+      "ttmRevenue": 63887000000,
+      "ttmEbit": 25484000000,
+      "ttmFCF": 26700000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AVB",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 10,
+      "imputedCount": 7,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000915912",
+      "latestRevenue": 767854000,
+      "latestNetIncome": 164733000,
+      "latestEbit": 492931000,
+      "ttmRevenue": 3040725000,
+      "ttmEbit": 2020949000,
+      "ttmFCF": 1250438000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AWK",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 25,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001410636",
+      "latestRevenue": 1261000000,
+      "latestNetIncome": 238000000,
+      "latestEbit": 405000000,
+      "ttmRevenue": 5121000000,
+      "ttmEbit": 1879000000,
+      "ttmFCF": -2629000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AVY",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 16,
+      "imputedCount": 12,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000008818",
+      "latestRevenue": 2271200000,
+      "latestNetIncome": 166400000,
+      "latestEbit": 207800000,
+      "ttmRevenue": 8855500000,
+      "ttmEbit": 925100000,
+      "ttmFCF": 642600000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AZO",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 17,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-11-22",
+      "cik": "0000866787",
+      "latestRevenue": 4628630000,
+      "latestNetIncome": 530823000,
+      "latestEbit": 784205000,
+      "ttmRevenue": 19287706000,
+      "ttmEbit": 3553212000,
+      "ttmFCF": 1165034000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AXP",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 15,
+      "imputedCount": 12,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000004962",
+      "latestRevenue": 10942000000,
+      "latestNetIncome": 2462000000,
+      "latestEbit": -3492000000,
+      "ttmRevenue": 41304000000,
+      "ttmEbit": -11803000000,
+      "ttmFCF": 14489000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "AXON",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 51,
+      "imputedCount": 6,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001069183",
+      "latestRevenue": 796724000,
+      "latestNetIncome": 2745000,
+      "latestEbit": -50118000,
+      "ttmRevenue": 2779536000,
+      "ttmEbit": -62076000,
+      "ttmFCF": 53343000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BA",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 14,
+      "imputedCount": 11,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000012927",
+      "latestRevenue": 23948000000,
+      "latestNetIncome": 8220000000,
+      "latestEbit": 8777000000,
+      "ttmRevenue": 89463000000,
+      "ttmEbit": 4281000000,
+      "ttmFCF": -3515000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BBY",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 1,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-11-01",
+      "cik": "0000764478",
+      "latestRevenue": 9672000000,
+      "latestNetIncome": 140000000,
+      "latestEbit": 198000000,
+      "ttmRevenue": 69405000000,
+      "ttmEbit": 1930000000,
+      "ttmFCF": 1857000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BAC",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 5,
+      "imputedCount": 8,
+      "incomeQuarters": 4,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000070858",
+      "latestRevenue": 31180000000,
+      "latestNetIncome": 7528000000,
+      "latestEbit": -21826000000,
+      "ttmRevenue": 113097000000,
+      "ttmEbit": -100871000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BALL",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 55,
+      "imputedCount": 7,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000009389",
+      "latestRevenue": 3347000000,
+      "latestNetIncome": 200000000,
+      "latestEbit": 327000000,
+      "ttmRevenue": 13161000000,
+      "ttmEbit": 1431000000,
+      "ttmFCF": 612000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BAX",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 91,
+      "imputedCount": 19,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000010456",
+      "latestRevenue": 86000000,
+      "latestNetIncome": -1128000000,
+      "latestEbit": -729000000,
+      "ttmRevenue": 350000000,
+      "ttmEbit": -308000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BEN",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 27,
+      "imputedCount": 2,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000038777",
+      "latestRevenue": 2327100000,
+      "latestNetIncome": 255500000,
+      "latestEbit": 281000000,
+      "ttmRevenue": 8846200000,
+      "ttmEbit": 666100000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BDX",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 6,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000010795",
+      "latestRevenue": 5252000000,
+      "latestNetIncome": 382000000,
+      "latestEbit": 552000000,
+      "ttmRevenue": 21924000000,
+      "ttmEbit": 2678000000,
+      "ttmFCF": 2631000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BF.B",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 13,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2026-01-31",
+      "cik": "0000014693",
+      "latestRevenue": 1056000000,
+      "latestNetIncome": 267000000,
+      "latestEbit": 340000000,
+      "ttmRevenue": 3910000000,
+      "ttmEbit": 1110000000,
+      "ttmFCF": 936000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BG",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 34,
+      "imputedCount": 9,
+      "incomeQuarters": 9,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001996862",
+      "latestRevenue": 23762000000,
+      "latestNetIncome": 95000000,
+      "latestEbit": 1762000000,
+      "ttmRevenue": 70329000000,
+      "ttmEbit": 3222000000,
+      "ttmFCF": -5235000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BIIB",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 30,
+      "imputedCount": 13,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000875045",
+      "latestRevenue": 2279400000,
+      "latestNetIncome": -48900000,
+      "latestEbit": -25700000,
+      "ttmRevenue": 9890600000,
+      "ttmEbit": 1699000000,
+      "ttmFCF": 1937000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BK",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 42,
+      "imputedCount": 24,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001390777",
+      "latestRevenue": 16482000000,
+      "latestNetIncome": 1461000000,
+      "latestEbit": 1837000000,
+      "ttmRevenue": 20080000000,
+      "ttmEbit": 7024000000,
+      "ttmFCF": 4051000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BKNG",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 20,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001075531",
+      "latestRevenue": 6349000000,
+      "latestNetIncome": 1428000000,
+      "latestEbit": 2030000000,
+      "ttmRevenue": 26917000000,
+      "ttmEbit": 8825000000,
+      "ttmFCF": 8621000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BKR",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 20,
+      "imputedCount": 16,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001701605",
+      "latestRevenue": 7386000000,
+      "latestNetIncome": 876000000,
+      "latestEbit": 528000000,
+      "ttmRevenue": 27733000000,
+      "ttmEbit": 2877000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BLK",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 3,
+      "imputedCount": 0,
+      "incomeQuarters": 4,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0002012383",
+      "latestRevenue": 7008000000,
+      "latestNetIncome": 1127000000,
+      "latestEbit": 1661000000,
+      "ttmRevenue": 24216000000,
+      "ttmEbit": 7045000000,
+      "ttmFCF": 3322000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BLDR",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 9,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001316835",
+      "latestRevenue": 3357888000,
+      "latestNetIncome": 31480000,
+      "latestEbit": 61780000,
+      "ttmRevenue": 15190638000,
+      "ttmEbit": 786276000,
+      "ttmFCF": 452052000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BMY",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 27,
+      "imputedCount": 16,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000014272",
+      "latestRevenue": 12502000000,
+      "latestNetIncome": 1087000000,
+      "latestEbit": 1322000000,
+      "ttmRevenue": 48194000000,
+      "ttmEbit": 8742000000,
+      "ttmFCF": 11823000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BR",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 4,
+      "imputedCount": 12,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001383312",
+      "latestRevenue": 1713900000,
+      "latestNetIncome": 284600000,
+      "latestEbit": 206000000,
+      "ttmRevenue": 7180300000,
+      "ttmEbit": 1238300000,
+      "ttmFCF": 1521100000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BRO",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 30,
+      "imputedCount": 12,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000079282",
+      "latestRevenue": 5902000000,
+      "latestNetIncome": 1054000000,
+      "latestEbit": 1371000000,
+      "ttmRevenue": 10197000000,
+      "ttmEbit": 2420000000,
+      "ttmFCF": 3042000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BRK.B",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 30,
+      "imputedCount": 13,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001067983",
+      "latestRevenue": 94232000000,
+      "latestNetIncome": 19199000000,
+      "latestEbit": 25754000000,
+      "ttmRevenue": 371444000000,
+      "ttmEbit": 87528000000,
+      "ttmFCF": 10606000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BSX",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 15,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000885725",
+      "latestRevenue": 5285000000,
+      "latestNetIncome": 672000000,
+      "latestEbit": 825000000,
+      "ttmRevenue": 20074000000,
+      "ttmEbit": 3613000000,
+      "ttmFCF": 3298000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BXP",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 30,
+      "imputedCount": 24,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001037540",
+      "latestRevenue": 877097000,
+      "latestNetIncome": 248358000,
+      "latestEbit": 410970000,
+      "ttmRevenue": 3482279000,
+      "ttmEbit": 929938000,
+      "ttmFCF": 745672000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "BX",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 27,
+      "imputedCount": 12,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001393818",
+      "latestRevenue": 4360272000,
+      "latestNetIncome": 1015201000,
+      "latestEbit": 2484925000,
+      "ttmRevenue": 14450265000,
+      "ttmEbit": 7679960000,
+      "ttmFCF": 4394754000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "C",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 9,
+      "imputedCount": 4,
+      "incomeQuarters": 4,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000831001",
+      "latestRevenue": 19871000000,
+      "latestNetIncome": 2471000000,
+      "latestEbit": -32838000000,
+      "ttmRevenue": 85225000000,
+      "ttmEbit": -123036000000,
+      "ttmFCF": -80468000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CAG",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 23,
+      "imputedCount": 2,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-11-23",
+      "cik": "0000023217",
+      "latestRevenue": 2979100000,
+      "latestNetIncome": -663600000,
+      "latestEbit": -597600000,
+      "ttmRevenue": 11234500000,
+      "ttmEbit": 310200000,
+      "ttmFCF": 188000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CARR",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 64,
+      "imputedCount": 13,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001783180",
+      "latestRevenue": 4837000000,
+      "latestNetIncome": 53000000,
+      "latestEbit": 101000000,
+      "ttmRevenue": 21747000000,
+      "ttmEbit": 2172000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CAT",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 3,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000018230",
+      "latestRevenue": 19133000000,
+      "latestNetIncome": 2402000000,
+      "latestEbit": 2660000000,
+      "ttmRevenue": 67589000000,
+      "ttmEbit": 11151000000,
+      "ttmFCF": 6764000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CAH",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 53,
+      "imputedCount": 2,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000721371",
+      "latestRevenue": 65627000000,
+      "latestNetIncome": 467000000,
+      "latestEbit": 707000000,
+      "ttmRevenue": 244673000000,
+      "ttmEbit": 2533000000,
+      "ttmFCF": 8010000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CB",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 19,
+      "imputedCount": 24,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000896159",
+      "latestRevenue": 15065000000,
+      "latestNetIncome": 3210000000,
+      "latestEbit": 3975000000,
+      "ttmRevenue": 59402000000,
+      "ttmEbit": 13808000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CBOE",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 3,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001374310",
+      "latestRevenue": 1204000000,
+      "latestNetIncome": 313500000,
+      "latestEbit": 403800000,
+      "ttmRevenue": 4714200000,
+      "ttmEbit": 1467100000,
+      "ttmFCF": 1622200000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CBRE",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 16,
+      "imputedCount": 11,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001138118",
+      "latestRevenue": 11628000000,
+      "latestNetIncome": 416000000,
+      "latestEbit": 622000000,
+      "ttmRevenue": 40550000000,
+      "ttmEbit": 1753000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CCL",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 15,
+      "imputedCount": 7,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-11-30",
+      "cik": "0000815097",
+      "latestRevenue": 6331000000,
+      "latestNetIncome": 421000000,
+      "latestEbit": 735000000,
+      "ttmRevenue": 26622000000,
+      "ttmEbit": 4483000000,
+      "ttmFCF": 1489000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CCI",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 50,
+      "imputedCount": 12,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001051470",
+      "latestRevenue": 1071000000,
+      "latestNetIncome": 294000000,
+      "latestEbit": 523000000,
+      "ttmRevenue": 4264000000,
+      "ttmEbit": 2075000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CEG",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 5,
+      "imputedCount": 1,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001868275",
+      "latestRevenue": 6074000000,
+      "latestNetIncome": 432000000,
+      "latestEbit": 598000000,
+      "ttmRevenue": 25533000000,
+      "ttmEbit": 3086000000,
+      "ttmFCF": -1498000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CDNS",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 13,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000813672",
+      "latestRevenue": 1440114000,
+      "latestNetIncome": 388136000,
+      "latestEbit": 463335000,
+      "ttmRevenue": 5296759000,
+      "ttmEbit": 1492042000,
+      "ttmFCF": 1488578000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CDW",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 3,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001402057",
+      "latestRevenue": 5511000000,
+      "latestNetIncome": 279500000,
+      "latestEbit": 430700000,
+      "ttmRevenue": 22424100000,
+      "ttmEbit": 1655600000,
+      "ttmFCF": 1011300000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CF",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 12,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001324404",
+      "latestRevenue": 1872000000,
+      "latestNetIncome": 404000000,
+      "latestEbit": 617000000,
+      "ttmRevenue": 7084000000,
+      "ttmEbit": 2300000000,
+      "ttmFCF": 1236000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CFG",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 18,
+      "imputedCount": 24,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000759944",
+      "latestRevenue": 2157000000,
+      "latestNetIncome": 528000000,
+      "latestEbit": -1769000000,
+      "ttmRevenue": 8247000000,
+      "ttmEbit": -7335000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CHRW",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 3,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001043277",
+      "latestRevenue": 3912634000,
+      "latestNetIncome": 136321000,
+      "latestEbit": 181353000,
+      "ttmRevenue": 16232763000,
+      "ttmEbit": 794961000,
+      "ttmFCF": 872941000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CHTR",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 15,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001091667",
+      "latestRevenue": 13601000000,
+      "latestNetIncome": 1332000000,
+      "latestEbit": 3261000000,
+      "ttmRevenue": 54774000000,
+      "ttmEbit": 12908000000,
+      "ttmFCF": -4256000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CHD",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 21,
+      "imputedCount": 1,
+      "incomeQuarters": 9,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000313927",
+      "latestRevenue": 6203200000,
+      "latestNetIncome": 736800000,
+      "latestEbit": 1077600000,
+      "ttmRevenue": 10807000000,
+      "ttmEbit": 1579700000,
+      "ttmFCF": 1716100000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CIEN",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 1,
+      "imputedCount": 3,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2026-01-31",
+      "cik": "0000936395",
+      "latestRevenue": 1427042000,
+      "latestNetIncome": 150283000,
+      "latestEbit": 189412000,
+      "ttmRevenue": 8541812000,
+      "ttmEbit": 493320000,
+      "ttmFCF": 1363742000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CI",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 15,
+      "imputedCount": 13,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001739940",
+      "latestRevenue": 72472000000,
+      "latestNetIncome": 1234000000,
+      "latestEbit": 2345000000,
+      "ttmRevenue": 274900000000,
+      "ttmEbit": 9200000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CINF",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 27,
+      "imputedCount": 14,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000020286",
+      "latestRevenue": 3091000000,
+      "latestNetIncome": 676000000,
+      "latestEbit": 629000000,
+      "ttmRevenue": 12631000000,
+      "ttmEbit": 2158000000,
+      "ttmFCF": 3088000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CL",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 25,
+      "imputedCount": 12,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000021665",
+      "latestRevenue": 5230000000,
+      "latestNetIncome": -36000000,
+      "latestEbit": 91000000,
+      "ttmRevenue": 20382000000,
+      "ttmEbit": 3306000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CME",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 17,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001156375",
+      "latestRevenue": 1648700000,
+      "latestNetIncome": 1219200000,
+      "latestEbit": 1019600000,
+      "ttmRevenue": 6520600000,
+      "ttmEbit": 4229500000,
+      "ttmFCF": 4165000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CLX",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 29,
+      "imputedCount": 14,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000021076",
+      "latestRevenue": 1673000000,
+      "latestNetIncome": 157000000,
+      "latestEbit": 240000000,
+      "ttmRevenue": 6758000000,
+      "ttmEbit": 1079000000,
+      "ttmFCF": 541000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CMCSA",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 15,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001166691",
+      "latestRevenue": 32309000000,
+      "latestNetIncome": 2168000000,
+      "latestEbit": 3488000000,
+      "ttmRevenue": 123707000000,
+      "ttmEbit": 20672000000,
+      "ttmFCF": 15027000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CMG",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 32,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001058090",
+      "latestRevenue": 2983511000,
+      "latestNetIncome": 330932000,
+      "latestEbit": 420319000,
+      "ttmRevenue": 11925601000,
+      "ttmEbit": 1935798000,
+      "ttmFCF": 942090000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CMS",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 3,
+      "imputedCount": 5,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000811156",
+      "latestRevenue": 2233000000,
+      "latestNetIncome": 289000000,
+      "latestEbit": 435000000,
+      "ttmRevenue": 8539000000,
+      "ttmEbit": 1727000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CNC",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 4,
+      "imputedCount": 3,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001071739",
+      "latestRevenue": 49725000000,
+      "latestNetIncome": -1101000000,
+      "latestEbit": -1745000000,
+      "ttmRevenue": 194777000000,
+      "ttmEbit": -7623000000,
+      "ttmFCF": 3791000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CMI",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 18,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000026172",
+      "latestRevenue": 8536000000,
+      "latestNetIncome": 593000000,
+      "latestEbit": 813000000,
+      "ttmRevenue": 33670000000,
+      "ttmEbit": 4025000000,
+      "ttmFCF": 2364000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CNP",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 3,
+      "imputedCount": 4,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001130310",
+      "latestRevenue": 2505000000,
+      "latestNetIncome": 264000000,
+      "latestEbit": 542000000,
+      "ttmRevenue": 9357000000,
+      "ttmEbit": 2110000000,
+      "ttmFCF": -5832000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "COIN",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 26,
+      "imputedCount": 15,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001679788",
+      "latestRevenue": 1781129000,
+      "latestNetIncome": -666733000,
+      "latestEbit": 273753000,
+      "ttmRevenue": 7181325000,
+      "ttmEbit": 1435441000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "COO",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 18,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2026-01-31",
+      "cik": "0000711404",
+      "latestRevenue": 1024100000,
+      "latestNetIncome": 130800000,
+      "latestEbit": 212800000,
+      "ttmRevenue": 4151800000,
+      "ttmEbit": 713700000,
+      "ttmFCF": 173400000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "COF",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 17,
+      "imputedCount": 13,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000927628",
+      "latestRevenue": 15583000000,
+      "latestNetIncome": 2134000000,
+      "latestEbit": -14588000000,
+      "ttmRevenue": 53434000000,
+      "ttmEbit": -56415000000,
+      "ttmFCF": 24838000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "COP",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 18,
+      "imputedCount": 24,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001163165",
+      "latestRevenue": 13392000000,
+      "latestNetIncome": 1442000000,
+      "latestEbit": 2334000000,
+      "ttmRevenue": 58944000000,
+      "ttmEbit": 13200000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "COST",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 1,
+      "imputedCount": 4,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-11-23",
+      "cik": "0000909832",
+      "latestRevenue": 67307000000,
+      "latestNetIncome": 2001000000,
+      "latestEbit": 2463000000,
+      "ttmRevenue": 280391000000,
+      "ttmEbit": 10650000000,
+      "ttmFCF": 5605000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CPAY",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 17,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001175454",
+      "latestRevenue": 1248226000,
+      "latestNetIncome": 264484000,
+      "latestEbit": 564474000,
+      "ttmRevenue": 4528403000,
+      "ttmEbit": 1994108000,
+      "ttmFCF": 1119671000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "COR",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 3,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001140859",
+      "latestRevenue": 85932016000,
+      "latestNetIncome": 559647000,
+      "latestEbit": 760449000,
+      "ttmRevenue": 325777775000,
+      "ttmEbit": 2682796000,
+      "ttmFCF": 3425201000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CPB",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 13,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-11-02",
+      "cik": "0000016732",
+      "latestRevenue": 2677000000,
+      "latestNetIncome": 194000000,
+      "latestEbit": 336000000,
+      "ttmRevenue": 18090000000,
+      "ttmEbit": 1948000000,
+      "ttmFCF": 1904000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CPRT",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 17,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2026-01-31",
+      "cik": "0000900075",
+      "latestRevenue": 1121674000,
+      "latestNetIncome": 350732000,
+      "latestEbit": 388710000,
+      "ttmRevenue": 2288004000,
+      "ttmEbit": 1683540000,
+      "ttmFCF": 585514000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CRH",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 9,
+      "imputedCount": 3,
+      "incomeQuarters": 9,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000849395",
+      "latestRevenue": 9416000000,
+      "latestNetIncome": 1025000000,
+      "latestEbit": 1406000000,
+      "ttmRevenue": 37447000000,
+      "ttmEbit": 5440000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CPT",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 15,
+      "imputedCount": 36,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000906345",
+      "latestRevenue": 390794000,
+      "latestNetIncome": 156036000,
+      "latestEbit": 194115000,
+      "ttmRevenue": 1573544000,
+      "ttmEbit": 526701000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CRWD",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 28,
+      "imputedCount": 7,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2026-01-31",
+      "cik": "0001535527",
+      "latestRevenue": 1305375000,
+      "latestNetIncome": 59377000,
+      "latestEbit": 13786000,
+      "ttmRevenue": 4812005000,
+      "ttmEbit": -293292000,
+      "ttmFCF": 1111173000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CRM",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 11,
+      "imputedCount": 0,
+      "incomeQuarters": 11,
+      "latestPeriodEnd": "2026-01-31",
+      "cik": "0001108524",
+      "latestRevenue": 11201000000,
+      "latestNetIncome": 1943000000,
+      "latestEbit": 1869000000,
+      "ttmRevenue": 41525000000,
+      "ttmEbit": 8331000000,
+      "ttmFCF": 14402000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CSCO",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 13,
+      "imputedCount": 1,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2026-01-24",
+      "cik": "0000858877",
+      "latestRevenue": 15349000000,
+      "latestNetIncome": 3175000000,
+      "latestEbit": 3781000000,
+      "ttmRevenue": 30249000000,
+      "ttmEbit": 13433000000,
+      "ttmFCF": 10832000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CRL",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 3,
+      "imputedCount": 23,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-27",
+      "cik": "0001100682",
+      "latestRevenue": 994227000,
+      "latestNetIncome": -276555000,
+      "latestEbit": -283440000,
+      "ttmRevenue": 4015382000,
+      "ttmEbit": 25162000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CSX",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 65,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000277948",
+      "latestRevenue": 3508000000,
+      "latestNetIncome": 720000000,
+      "latestEbit": 1110000000,
+      "ttmRevenue": 14092000000,
+      "ttmEbit": 4521000000,
+      "ttmFCF": -1363000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CSGP",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 27,
+      "imputedCount": 4,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001057352",
+      "latestRevenue": 3700000,
+      "latestNetIncome": 46500000,
+      "latestEbit": 49100000,
+      "ttmRevenue": 17000000,
+      "ttmEbit": -72000000,
+      "ttmFCF": -207800000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CTRA",
+      "ok": true,
+      "confidence": "medium",
+      "pricesSource": "ALPACA",
+      "warningsCount": 17,
+      "imputedCount": 10,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000858470",
+      "latestRevenue": 1959000000,
+      "latestNetIncome": 368000000,
+      "latestEbit": 571000000,
+      "ttmRevenue": 7645000000,
+      "ttmEbit": 2452000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CTSH",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 3,
+      "imputedCount": 1,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001058290",
+      "latestRevenue": 5333000000,
+      "latestNetIncome": 648000000,
+      "latestEbit": 853000000,
+      "ttmRevenue": 21108000000,
+      "ttmEbit": 3389000000,
+      "ttmFCF": 2307000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CTVA",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 22,
+      "imputedCount": 27,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001755672",
+      "latestRevenue": 3910000000,
+      "latestNetIncome": -552000000,
+      "latestEbit": -616000000,
+      "ttmRevenue": 17401000000,
+      "ttmEbit": 1732000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CTAS",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 33,
+      "imputedCount": 0,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-11-30",
+      "cik": "0000723254",
+      "latestRevenue": 2799992000,
+      "latestNetIncome": 495343000,
+      "latestEbit": 655714000,
+      "ttmRevenue": 10794925000,
+      "ttmEbit": 2480878000,
+      "ttmFCF": 1383582000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CVNA",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 23,
+      "imputedCount": 12,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0001690820",
+      "latestRevenue": 2000000,
+      "latestNetIncome": 857000000,
+      "latestEbit": 424000000,
+      "ttmRevenue": 9000000,
+      "ttmEbit": 1881000000,
+      "ttmFCF": 821000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CVX",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 18,
+      "imputedCount": 24,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000093410",
+      "latestRevenue": 46873000000,
+      "latestNetIncome": 2770000000,
+      "latestEbit": 4960000000,
+      "ttmRevenue": 189031000000,
+      "ttmEbit": 20960000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "CVS",
+      "ok": true,
+      "confidence": "high",
+      "pricesSource": "ALPACA",
+      "warningsCount": 6,
+      "imputedCount": 1,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000064803",
+      "latestRevenue": 105693000000,
+      "latestNetIncome": 2943000000,
+      "latestEbit": 2112000000,
+      "ttmRevenue": 402067000000,
+      "ttmEbit": 4660000000,
+      "ttmFCF": 5189000000,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "D",
+      "ok": true,
+      "confidence": "low",
+      "pricesSource": "ALPACA",
+      "warningsCount": 65,
+      "imputedCount": 12,
+      "incomeQuarters": 12,
+      "latestPeriodEnd": "2025-12-31",
+      "cik": "0000715957",
+      "latestRevenue": 4093000000,
+      "latestNetIncome": 567000000,
+      "latestEbit": 756000000,
+      "ttmRevenue": 16506000000,
+      "ttmEbit": 4414000000,
+      "ttmFCF": null,
+      "hasRevenueSourceTrace": true,
+      "hasCashFlowSourceTrace": true
+    },
+    {
+      "ticker": "DAL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000027904.json"
+    },
+    {
+      "ticker": "DASH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001792789.json"
+    },
+    {
+      "ticker": "DDOG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001561550.json"
+    },
+    {
+      "ticker": "DD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001666700.json"
+    },
+    {
+      "ticker": "DE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000315189.json"
+    },
+    {
+      "ticker": "DECK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000910521.json"
+    },
+    {
+      "ticker": "DELL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001571996.json"
+    },
+    {
+      "ticker": "DG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000029534.json"
+    },
+    {
+      "ticker": "DGX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001022079.json"
+    },
+    {
+      "ticker": "DHI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000882184.json"
+    },
+    {
+      "ticker": "DHR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000313616.json"
+    },
+    {
+      "ticker": "DIS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001744489.json"
+    },
+    {
+      "ticker": "DLR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001297996.json"
+    },
+    {
+      "ticker": "DLTR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000935703.json"
+    },
+    {
+      "ticker": "DOC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000765880.json"
+    },
+    {
+      "ticker": "DOV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000029905.json"
+    },
+    {
+      "ticker": "DOW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001751788.json"
+    },
+    {
+      "ticker": "DPZ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001286681.json"
+    },
+    {
+      "ticker": "DRI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000940944.json"
+    },
+    {
+      "ticker": "DTE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000936340.json"
+    },
+    {
+      "ticker": "DUK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001326160.json"
+    },
+    {
+      "ticker": "DVA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000927066.json"
+    },
+    {
+      "ticker": "DVN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001090012.json"
+    },
+    {
+      "ticker": "DXCM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001093557.json"
+    },
+    {
+      "ticker": "EA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000712515.json"
+    },
+    {
+      "ticker": "EBAY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001065088.json"
+    },
+    {
+      "ticker": "ECL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000031462.json"
+    },
+    {
+      "ticker": "ED",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001047862.json"
+    },
+    {
+      "ticker": "EFX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000033185.json"
+    },
+    {
+      "ticker": "EG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001095073.json"
+    },
+    {
+      "ticker": "EIX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000827052.json"
+    },
+    {
+      "ticker": "EL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001001250.json"
+    },
+    {
+      "ticker": "ELV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001156039.json"
+    },
+    {
+      "ticker": "EME",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000105634.json"
+    },
+    {
+      "ticker": "EMR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000032604.json"
+    },
+    {
+      "ticker": "EOG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000821189.json"
+    },
+    {
+      "ticker": "EPAM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001352010.json"
+    },
+    {
+      "ticker": "EQIX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001101239.json"
+    },
+    {
+      "ticker": "EQT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000033213.json"
+    },
+    {
+      "ticker": "EQR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000906107.json"
+    },
+    {
+      "ticker": "ERIE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000922621.json"
+    },
+    {
+      "ticker": "ES",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000072741.json"
+    },
+    {
+      "ticker": "ETN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001551182.json"
+    },
+    {
+      "ticker": "ESS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000920522.json"
+    },
+    {
+      "ticker": "ETR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000065984.json"
+    },
+    {
+      "ticker": "EVRG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001711269.json"
+    },
+    {
+      "ticker": "EW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001099800.json"
+    },
+    {
+      "ticker": "EXC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001109357.json"
+    },
+    {
+      "ticker": "EXE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000895126.json"
+    },
+    {
+      "ticker": "EXPD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000746515.json"
+    },
+    {
+      "ticker": "EXPE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001324424.json"
+    },
+    {
+      "ticker": "EXR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001289490.json"
+    },
+    {
+      "ticker": "F",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000037996.json"
+    },
+    {
+      "ticker": "FAST",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000815556.json"
+    },
+    {
+      "ticker": "FANG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001539838.json"
+    },
+    {
+      "ticker": "FCX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000831259.json"
+    },
+    {
+      "ticker": "FDS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001013237.json"
+    },
+    {
+      "ticker": "FDX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001048911.json"
+    },
+    {
+      "ticker": "FE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001031296.json"
+    },
+    {
+      "ticker": "FFIV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001048695.json"
+    },
+    {
+      "ticker": "FICO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000814547.json"
+    },
+    {
+      "ticker": "FIS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001136893.json"
+    },
+    {
+      "ticker": "FISV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000798354.json"
+    },
+    {
+      "ticker": "FITB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000035527.json"
+    },
+    {
+      "ticker": "FIX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001035983.json"
+    },
+    {
+      "ticker": "FOX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001754301.json"
+    },
+    {
+      "ticker": "FOXA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001754301.json"
+    },
+    {
+      "ticker": "FRT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000034903.json"
+    },
+    {
+      "ticker": "FSLR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001274494.json"
+    },
+    {
+      "ticker": "FTNT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001262039.json"
+    },
+    {
+      "ticker": "FTV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001659166.json"
+    },
+    {
+      "ticker": "GD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000040533.json"
+    },
+    {
+      "ticker": "GDDY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001609711.json"
+    },
+    {
+      "ticker": "GE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000040545.json"
+    },
+    {
+      "ticker": "GEHC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001932393.json"
+    },
+    {
+      "ticker": "GEN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000849399.json"
+    },
+    {
+      "ticker": "GEV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001996810.json"
+    },
+    {
+      "ticker": "GILD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000882095.json"
+    },
+    {
+      "ticker": "GIS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000040704.json"
+    },
+    {
+      "ticker": "GL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000320335.json"
+    },
+    {
+      "ticker": "GLW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000024741.json"
+    },
+    {
+      "ticker": "GM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001467858.json"
+    },
+    {
+      "ticker": "GNRC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001474735.json"
+    },
+    {
+      "ticker": "GOOG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001652044.json"
+    },
+    {
+      "ticker": "GPC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000040987.json"
+    },
+    {
+      "ticker": "GOOGL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001652044.json"
+    },
+    {
+      "ticker": "GPN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001123360.json"
+    },
+    {
+      "ticker": "GRMN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001121788.json"
+    },
+    {
+      "ticker": "GS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000886982.json"
+    },
+    {
+      "ticker": "GWW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000277135.json"
+    },
+    {
+      "ticker": "HAL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000045012.json"
+    },
+    {
+      "ticker": "HAS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000046080.json"
+    },
+    {
+      "ticker": "HBAN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000049196.json"
+    },
+    {
+      "ticker": "HCA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000860730.json"
+    },
+    {
+      "ticker": "HD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000354950.json"
+    },
+    {
+      "ticker": "HIG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000874766.json"
+    },
+    {
+      "ticker": "HII",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001501585.json"
+    },
+    {
+      "ticker": "HLT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001585689.json"
+    },
+    {
+      "ticker": "HOLX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000859737.json"
+    },
+    {
+      "ticker": "HON",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000773840.json"
+    },
+    {
+      "ticker": "HOOD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001783879.json"
+    },
+    {
+      "ticker": "HPE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001645590.json"
+    },
+    {
+      "ticker": "HPQ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000047217.json"
+    },
+    {
+      "ticker": "HRL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000048465.json"
+    },
+    {
+      "ticker": "HSIC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001000228.json"
+    },
+    {
+      "ticker": "HST",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001070750.json"
+    },
+    {
+      "ticker": "HSY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000047111.json"
+    },
+    {
+      "ticker": "HUBB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000048898.json"
+    },
+    {
+      "ticker": "HUM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000049071.json"
+    },
+    {
+      "ticker": "IBKR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001381197.json"
+    },
+    {
+      "ticker": "HWM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000004281.json"
+    },
+    {
+      "ticker": "IBM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000051143.json"
+    },
+    {
+      "ticker": "ICE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001571949.json"
+    },
+    {
+      "ticker": "IDXX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000874716.json"
+    },
+    {
+      "ticker": "IEX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000832101.json"
+    },
+    {
+      "ticker": "IFF",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000051253.json"
+    },
+    {
+      "ticker": "INCY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000879169.json"
+    },
+    {
+      "ticker": "INTC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000050863.json"
+    },
+    {
+      "ticker": "INTU",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000896878.json"
+    },
+    {
+      "ticker": "INVH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001687229.json"
+    },
+    {
+      "ticker": "IP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000051434.json"
+    },
+    {
+      "ticker": "IQV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001478242.json"
+    },
+    {
+      "ticker": "IR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001699150.json"
+    },
+    {
+      "ticker": "IRM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001020569.json"
+    },
+    {
+      "ticker": "ISRG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001035267.json"
+    },
+    {
+      "ticker": "IT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000749251.json"
+    },
+    {
+      "ticker": "ITW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000049826.json"
+    },
+    {
+      "ticker": "IVZ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000914208.json"
+    },
+    {
+      "ticker": "J",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000052988.json"
+    },
+    {
+      "ticker": "JBHT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000728535.json"
+    },
+    {
+      "ticker": "JBL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000898293.json"
+    },
+    {
+      "ticker": "JCI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000833444.json"
+    },
+    {
+      "ticker": "JKHY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000779152.json"
+    },
+    {
+      "ticker": "JNJ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000200406.json"
+    },
+    {
+      "ticker": "JPM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000019617.json"
+    },
+    {
+      "ticker": "KDP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001418135.json"
+    },
+    {
+      "ticker": "KEY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000091576.json"
+    },
+    {
+      "ticker": "KEYS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001601046.json"
+    },
+    {
+      "ticker": "KHC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001637459.json"
+    },
+    {
+      "ticker": "KIM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000879101.json"
+    },
+    {
+      "ticker": "KKR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001404912.json"
+    },
+    {
+      "ticker": "KLAC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000319201.json"
+    },
+    {
+      "ticker": "KMB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000055785.json"
+    },
+    {
+      "ticker": "KMI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001506307.json"
+    },
+    {
+      "ticker": "KO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000021344.json"
+    },
+    {
+      "ticker": "KR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000056873.json"
+    },
+    {
+      "ticker": "KVUE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001944048.json"
+    },
+    {
+      "ticker": "L",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000060086.json"
+    },
+    {
+      "ticker": "LDOS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001336920.json"
+    },
+    {
+      "ticker": "LEN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000920760.json"
+    },
+    {
+      "ticker": "LH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000920148.json"
+    },
+    {
+      "ticker": "LHX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000202058.json"
+    },
+    {
+      "ticker": "LII",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001069202.json"
+    },
+    {
+      "ticker": "LIN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001707925.json"
+    },
+    {
+      "ticker": "LLY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000059478.json"
+    },
+    {
+      "ticker": "LMT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000936468.json"
+    },
+    {
+      "ticker": "LNT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000352541.json"
+    },
+    {
+      "ticker": "LOW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000060667.json"
+    },
+    {
+      "ticker": "LRCX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000707549.json"
+    },
+    {
+      "ticker": "LULU",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001397187.json"
+    },
+    {
+      "ticker": "LUV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000092380.json"
+    },
+    {
+      "ticker": "LVS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001300514.json"
+    },
+    {
+      "ticker": "LW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001679273.json"
+    },
+    {
+      "ticker": "LYB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001489393.json"
+    },
+    {
+      "ticker": "LYV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001335258.json"
+    },
+    {
+      "ticker": "MA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001141391.json"
+    },
+    {
+      "ticker": "MAA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000912595.json"
+    },
+    {
+      "ticker": "MAR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001048286.json"
+    },
+    {
+      "ticker": "MAS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000062996.json"
+    },
+    {
+      "ticker": "MCD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000063908.json"
+    },
+    {
+      "ticker": "MCHP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000827054.json"
+    },
+    {
+      "ticker": "MCK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000927653.json"
+    },
+    {
+      "ticker": "MCO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001059556.json"
+    },
+    {
+      "ticker": "MDLZ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001103982.json"
+    },
+    {
+      "ticker": "MET",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001099219.json"
+    },
+    {
+      "ticker": "MDT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001613103.json"
+    },
+    {
+      "ticker": "META",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001326801.json"
+    },
+    {
+      "ticker": "MGM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000789570.json"
+    },
+    {
+      "ticker": "MLM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000916076.json"
+    },
+    {
+      "ticker": "MKC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000063754.json"
+    },
+    {
+      "ticker": "MMM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000066740.json"
+    },
+    {
+      "ticker": "MNST",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000865752.json"
+    },
+    {
+      "ticker": "MO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000764180.json"
+    },
+    {
+      "ticker": "MOH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001179929.json"
+    },
+    {
+      "ticker": "MOS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001285785.json"
+    },
+    {
+      "ticker": "MPC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001510295.json"
+    },
+    {
+      "ticker": "MPWR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001280452.json"
+    },
+    {
+      "ticker": "MRK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000310158.json"
+    },
+    {
+      "ticker": "MRNA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001682852.json"
+    },
+    {
+      "ticker": "MRSH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000062709.json"
+    },
+    {
+      "ticker": "MS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000895421.json"
+    },
+    {
+      "ticker": "MSCI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001408198.json"
+    },
+    {
+      "ticker": "MSFT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000789019.json"
+    },
+    {
+      "ticker": "MSI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000068505.json"
+    },
+    {
+      "ticker": "MTB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000036270.json"
+    },
+    {
+      "ticker": "MTCH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000891103.json"
+    },
+    {
+      "ticker": "MTD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001037646.json"
+    },
+    {
+      "ticker": "MU",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000723125.json"
+    },
+    {
+      "ticker": "NCLH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001513761.json"
+    },
+    {
+      "ticker": "NDAQ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001120193.json"
+    },
+    {
+      "ticker": "NDSN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000072331.json"
+    },
+    {
+      "ticker": "NEE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000753308.json"
+    },
+    {
+      "ticker": "NEM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001164727.json"
+    },
+    {
+      "ticker": "NFLX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001065280.json"
+    },
+    {
+      "ticker": "NI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001111711.json"
+    },
+    {
+      "ticker": "NKE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000320187.json"
+    },
+    {
+      "ticker": "NOC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001133421.json"
+    },
+    {
+      "ticker": "NOW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001373715.json"
+    },
+    {
+      "ticker": "NRG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001013871.json"
+    },
+    {
+      "ticker": "NSC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000702165.json"
+    },
+    {
+      "ticker": "NTAP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001002047.json"
+    },
+    {
+      "ticker": "NTRS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000073124.json"
+    },
+    {
+      "ticker": "NUE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000073309.json"
+    },
+    {
+      "ticker": "NVDA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001045810.json"
+    },
+    {
+      "ticker": "NVR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000906163.json"
+    },
+    {
+      "ticker": "NWS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001564708.json"
+    },
+    {
+      "ticker": "NWSA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001564708.json"
+    },
+    {
+      "ticker": "NXPI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001413447.json"
+    },
+    {
+      "ticker": "O",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000726728.json"
+    },
+    {
+      "ticker": "ODFL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000878927.json"
+    },
+    {
+      "ticker": "OKE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001039684.json"
+    },
+    {
+      "ticker": "OMC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000029989.json"
+    },
+    {
+      "ticker": "ON",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001097864.json"
+    },
+    {
+      "ticker": "ORCL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001341439.json"
+    },
+    {
+      "ticker": "ORLY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000898173.json"
+    },
+    {
+      "ticker": "OTIS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001781335.json"
+    },
+    {
+      "ticker": "OXY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000797468.json"
+    },
+    {
+      "ticker": "PANW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001327567.json"
+    },
+    {
+      "ticker": "PAYC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001590955.json"
+    },
+    {
+      "ticker": "PAYX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000723531.json"
+    },
+    {
+      "ticker": "PCAR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000075362.json"
+    },
+    {
+      "ticker": "PCG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001004980.json"
+    },
+    {
+      "ticker": "PEG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000788784.json"
+    },
+    {
+      "ticker": "PEP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000077476.json"
+    },
+    {
+      "ticker": "PFE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000078003.json"
+    },
+    {
+      "ticker": "PFG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001126328.json"
+    },
+    {
+      "ticker": "PG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000080424.json"
+    },
+    {
+      "ticker": "PH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000076334.json"
+    },
+    {
+      "ticker": "PGR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000080661.json"
+    },
+    {
+      "ticker": "PHM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000822416.json"
+    },
+    {
+      "ticker": "PKG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000075677.json"
+    },
+    {
+      "ticker": "PLD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001045609.json"
+    },
+    {
+      "ticker": "PLTR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001321655.json"
+    },
+    {
+      "ticker": "PM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001413329.json"
+    },
+    {
+      "ticker": "PNC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000713676.json"
+    },
+    {
+      "ticker": "PNR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000077360.json"
+    },
+    {
+      "ticker": "PNW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000764622.json"
+    },
+    {
+      "ticker": "PODD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001145197.json"
+    },
+    {
+      "ticker": "POOL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000945841.json"
+    },
+    {
+      "ticker": "PPG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000079879.json"
+    },
+    {
+      "ticker": "PPL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000922224.json"
+    },
+    {
+      "ticker": "PRU",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001137774.json"
+    },
+    {
+      "ticker": "PSA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001393311.json"
+    },
+    {
+      "ticker": "PSKY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0002041610.json"
+    },
+    {
+      "ticker": "PSX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001534701.json"
+    },
+    {
+      "ticker": "PTC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000857005.json"
+    },
+    {
+      "ticker": "PWR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001050915.json"
+    },
+    {
+      "ticker": "PYPL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001633917.json"
+    },
+    {
+      "ticker": "QCOM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000804328.json"
+    },
+    {
+      "ticker": "RCL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000884887.json"
+    },
+    {
+      "ticker": "REG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000910606.json"
+    },
+    {
+      "ticker": "REGN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000872589.json"
+    },
+    {
+      "ticker": "RF",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001281761.json"
+    },
+    {
+      "ticker": "RJF",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000720005.json"
+    },
+    {
+      "ticker": "RL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001037038.json"
+    },
+    {
+      "ticker": "RMD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000943819.json"
+    },
+    {
+      "ticker": "ROK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001024478.json"
+    },
+    {
+      "ticker": "ROL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000084839.json"
+    },
+    {
+      "ticker": "ROP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000882835.json"
+    },
+    {
+      "ticker": "ROST",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000745732.json"
+    },
+    {
+      "ticker": "RSG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001060391.json"
+    },
+    {
+      "ticker": "RTX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000101829.json"
+    },
+    {
+      "ticker": "RVTY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000031791.json"
+    },
+    {
+      "ticker": "SBAC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001034054.json"
+    },
+    {
+      "ticker": "SBUX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000829224.json"
+    },
+    {
+      "ticker": "SCHW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000316709.json"
+    },
+    {
+      "ticker": "SHW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000089800.json"
+    },
+    {
+      "ticker": "SJM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000091419.json"
+    },
+    {
+      "ticker": "SLB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000087347.json"
+    },
+    {
+      "ticker": "SMCI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001375365.json"
+    },
+    {
+      "ticker": "SNA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000091440.json"
+    },
+    {
+      "ticker": "SNDK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0002023554.json"
+    },
+    {
+      "ticker": "SNPS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000883241.json"
+    },
+    {
+      "ticker": "SO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000092122.json"
+    },
+    {
+      "ticker": "SOLV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001964738.json"
+    },
+    {
+      "ticker": "SPG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001063761.json"
+    },
+    {
+      "ticker": "SPGI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000064040.json"
+    },
+    {
+      "ticker": "SRE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001032208.json"
+    },
+    {
+      "ticker": "STE",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001757898.json"
+    },
+    {
+      "ticker": "STLD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001022671.json"
+    },
+    {
+      "ticker": "STT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000093751.json"
+    },
+    {
+      "ticker": "STX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001137789.json"
+    },
+    {
+      "ticker": "STZ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000016918.json"
+    },
+    {
+      "ticker": "SW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0002005951.json"
+    },
+    {
+      "ticker": "SWK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000093556.json"
+    },
+    {
+      "ticker": "SWKS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000004127.json"
+    },
+    {
+      "ticker": "SYF",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001601712.json"
+    },
+    {
+      "ticker": "SYK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000310764.json"
+    },
+    {
+      "ticker": "SYY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000096021.json"
+    },
+    {
+      "ticker": "T",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000732717.json"
+    },
+    {
+      "ticker": "TAP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000024545.json"
+    },
+    {
+      "ticker": "TDG",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001260221.json"
+    },
+    {
+      "ticker": "TDY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001094285.json"
+    },
+    {
+      "ticker": "TECH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000842023.json"
+    },
+    {
+      "ticker": "TEL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001385157.json"
+    },
+    {
+      "ticker": "TER",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000097210.json"
+    },
+    {
+      "ticker": "TFC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000092230.json"
+    },
+    {
+      "ticker": "TGT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000027419.json"
+    },
+    {
+      "ticker": "TJX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000109198.json"
+    },
+    {
+      "ticker": "TKO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001973266.json"
+    },
+    {
+      "ticker": "TMO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000097745.json"
+    },
+    {
+      "ticker": "TMUS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001283699.json"
+    },
+    {
+      "ticker": "TPL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001811074.json"
+    },
+    {
+      "ticker": "TPR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001116132.json"
+    },
+    {
+      "ticker": "TRGP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001389170.json"
+    },
+    {
+      "ticker": "TRMB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000864749.json"
+    },
+    {
+      "ticker": "TROW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001113169.json"
+    },
+    {
+      "ticker": "TRV",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000086312.json"
+    },
+    {
+      "ticker": "TSCO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000916365.json"
+    },
+    {
+      "ticker": "TSLA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001318605.json"
+    },
+    {
+      "ticker": "TSN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000100493.json"
+    },
+    {
+      "ticker": "TT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001466258.json"
+    },
+    {
+      "ticker": "TTD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001671933.json"
+    },
+    {
+      "ticker": "TTWO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000946581.json"
+    },
+    {
+      "ticker": "TXN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000097476.json"
+    },
+    {
+      "ticker": "TXT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000217346.json"
+    },
+    {
+      "ticker": "TYL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000860731.json"
+    },
+    {
+      "ticker": "UAL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000100517.json"
+    },
+    {
+      "ticker": "UBER",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001543151.json"
+    },
+    {
+      "ticker": "UDR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000074208.json"
+    },
+    {
+      "ticker": "UHS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000352915.json"
+    },
+    {
+      "ticker": "ULTA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001403568.json"
+    },
+    {
+      "ticker": "UNH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000731766.json"
+    },
+    {
+      "ticker": "UNP",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000100885.json"
+    },
+    {
+      "ticker": "UPS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001090727.json"
+    },
+    {
+      "ticker": "URI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001067701.json"
+    },
+    {
+      "ticker": "USB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000036104.json"
+    },
+    {
+      "ticker": "V",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001403161.json"
+    },
+    {
+      "ticker": "VICI",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001705696.json"
+    },
+    {
+      "ticker": "VLO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001035002.json"
+    },
+    {
+      "ticker": "VLTO",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001967680.json"
+    },
+    {
+      "ticker": "VMC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001396009.json"
+    },
+    {
+      "ticker": "VRSK",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001442145.json"
+    },
+    {
+      "ticker": "VRSN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001014473.json"
+    },
+    {
+      "ticker": "VRTX",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000875320.json"
+    },
+    {
+      "ticker": "VST",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001692819.json"
+    },
+    {
+      "ticker": "VTR",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000740260.json"
+    },
+    {
+      "ticker": "VTRS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001792044.json"
+    },
+    {
+      "ticker": "VZ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000732712.json"
+    },
+    {
+      "ticker": "WAB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000943452.json"
+    },
+    {
+      "ticker": "WAT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001000697.json"
+    },
+    {
+      "ticker": "WBD",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001437107.json"
+    },
+    {
+      "ticker": "WDAY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001327811.json"
+    },
+    {
+      "ticker": "WDC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000106040.json"
+    },
+    {
+      "ticker": "WELL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000766704.json"
+    },
+    {
+      "ticker": "WEC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000783325.json"
+    },
+    {
+      "ticker": "WFC",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000072971.json"
+    },
+    {
+      "ticker": "WM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000823768.json"
+    },
+    {
+      "ticker": "WMB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000107263.json"
+    },
+    {
+      "ticker": "WMT",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0000104169.json"
+    },
+    {
+      "ticker": "WRB",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000011544.json"
+    },
+    {
+      "ticker": "WSM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000719955.json"
+    },
+    {
+      "ticker": "WST",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000105770.json"
+    },
+    {
+      "ticker": "WTW",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001140536.json"
+    },
+    {
+      "ticker": "WY",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000106535.json"
+    },
+    {
+      "ticker": "WYNN",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001174922.json"
+    },
+    {
+      "ticker": "XEL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000072903.json"
+    },
+    {
+      "ticker": "XOM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000034088.json"
+    },
+    {
+      "ticker": "XYL",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001524472.json"
+    },
+    {
+      "ticker": "XYZ",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001512673.json"
+    },
+    {
+      "ticker": "YUM",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001041061.json"
+    },
+    {
+      "ticker": "ZBH",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/api/xbrl/companyfacts/CIK0001136869.json"
+    },
+    {
+      "ticker": "ZBRA",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0000877212.json"
+    },
+    {
+      "ticker": "ZTS",
+      "ok": false,
+      "error": "SEC request failed (429) https://data.sec.gov/submissions/CIK0001555280.json"
+    }
+  ]
+}

@@ -85,7 +85,7 @@ function RegimeNeedle({
   }, []);
 
   return (
-    <div className="bg-[#0F0F0F] border border-[#2A2A2A] p-6 w-full">
+    <div className="eldar-page-section w-full p-6">
       <div className="mb-6 flex items-center justify-between gap-4">
         <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#666]">
           Macro Regime
@@ -223,7 +223,7 @@ function PillarCard({
   const result = regime.pillars[pillarKey];
 
   return (
-    <div className="bg-[#0F0F0F] border border-[#2A2A2A] p-4">
+    <div className="eldar-dashboard-surface p-4">
       <div className="mb-3 flex items-center justify-between">
         <div>
           <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#666]">
@@ -261,7 +261,7 @@ export function MacroGateStatusRow({ gatesFired }: { gatesFired: MacroRegime["ga
   const firedKeys = new Set(gatesFired.map((gate) => gate.gate));
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="eldar-page-section flex flex-wrap gap-2 px-3 py-2.5">
       <span className="mr-1 self-center font-mono text-[9px] uppercase tracking-[0.16em] text-[#444]">
         Gates
       </span>
@@ -295,14 +295,14 @@ export function MacroGateExplanationList({
 }): JSX.Element {
   if (gatesFired.length === 0 && warnings.length === 0) {
     return (
-      <div className="rounded-2xl border border-[#2A2A2A] bg-[#0F0F0F] px-4 py-4 font-mono text-[10px] uppercase tracking-[0.14em] text-[#555]">
+      <div className="eldar-page-section px-4 py-4 font-mono text-[10px] uppercase tracking-[0.14em] text-[#555]">
         No gate overrides are active.
       </div>
     );
   }
 
   return (
-    <div className="space-y-3 rounded-2xl border border-[#2A2A2A] bg-[#0F0F0F] p-4">
+    <div className="eldar-page-section space-y-3 p-4">
       {gatesFired.map((gate) => (
         <div key={gate.gate} className="border-b border-[#1E1E1E] pb-3 last:border-b-0 last:pb-0">
           <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#EF4444]">{gateLabel(gate.gate)}</div>
@@ -341,7 +341,7 @@ export function RawDataSection({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="border border-[#2A2A2A]">
+    <div className="eldar-page-section">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -351,7 +351,7 @@ export function RawDataSection({
         <span>{open ? "↑" : "↓"}</span>
       </button>
 
-      {open ? <div className="border-t border-[#2A2A2A]">{children}</div> : null}
+      {open ? <div className="border-t border-white/10">{children}</div> : null}
     </div>
   );
 }

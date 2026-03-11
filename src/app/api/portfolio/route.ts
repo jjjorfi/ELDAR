@@ -9,7 +9,8 @@ import {
   unauthorized
 } from "@/lib/api/responses";
 import { runRouteGuards } from "@/lib/api/route-security";
-import { isTop100Sp500Symbol } from "@/lib/market/top100";
+import { fetchSP500Directory } from "@/lib/market/sp500";
+import { resolveSp500DirectorySymbol } from "@/lib/market/sp500-universe";
 import { scorePortfolio } from "@/lib/scoring/portfolio-engine";
 import type { PortfolioInputHolding } from "@/lib/scoring/portfolio-types";
 import { getLatestPortfolioSnapshot, savePortfolioSnapshot } from "@/lib/storage";
@@ -102,15 +103,19 @@ export async function POST(request: Request): Promise<NextResponse> {
       return badRequest("Portfolio holdings are empty.");
     }
 
-    const hasUnsupported = holdings.some((holding) => !isTop100Sp500Symbol(holding.ticker));
-    if (hasUnsupported) {
-      return badRequest("Portfolio supports Top 100 S&P 500 symbols only.");
-    }
+    const sp500Directory = await fetchSP500Directory();
+    const canonicalHoldings = holdings.map((holding) => ({
+      ...holding,
+      ticker: resolveSp500DirectorySymbol(holding.ticker, sp500Directory)
+    }));
+    const hasUnsupported = canonicalHoldings.some((holding) => !holding.ticker);
+    if (hasUnsupported) return badRequest("Portfolio supports S&P 500 symbols only.");
+    const supportedHoldings = canonicalHoldings as PortfolioInputHolding[];
 
     const rating = scorePortfolio({
       portfolioId,
       asOfDate,
-      holdings,
+      holdings: supportedHoldings,
       benchmarkPoints: parsed.data.benchmarkPoints,
       monthsOfHistory: parsed.data.monthsOfHistory
     });
@@ -119,7 +124,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       userId,
       portfolioId,
       asOfDate,
-      holdings: holdings.map((holding) => ({
+      holdings: supportedHoldings.map((holding) => ({
         symbol: holding.ticker,
         shares: holding.shares
       })),

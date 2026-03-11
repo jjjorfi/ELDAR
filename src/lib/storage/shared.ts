@@ -157,6 +157,7 @@ export async function ensureAnalysesStore(): Promise<void> {
   await sql`CREATE INDEX IF NOT EXISTS analyses_symbol_created_idx ON analyses(symbol, created_at DESC)`;
   await sql`ALTER TABLE analyses ADD COLUMN IF NOT EXISTS user_id TEXT`;
   await sql`CREATE INDEX IF NOT EXISTS analyses_user_created_idx ON analyses(user_id, created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS analyses_user_symbol_created_idx ON analyses(user_id, symbol, created_at DESC)`;
 
   ensuredStores.analyses = true;
 }

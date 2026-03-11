@@ -46,24 +46,40 @@ fi
 while IFS= read -r route; do
   [[ -z "$route" ]] && continue
   if [[ "$HAS_RG" -eq 1 ]]; then
-    HAS_IMPORT=0
-    rg -q "from [\"']@/lib/security/guard[\"']" "$route" && HAS_IMPORT=1
-    HAS_AWAIT=0
-    rg -q "await guard\\(request\\)" "$route" && HAS_AWAIT=1
+    HAS_DIRECT_IMPORT=0
+    rg -q "from [\"']@/lib/security/guard[\"']" "$route" && HAS_DIRECT_IMPORT=1
+    HAS_DIRECT_AWAIT=0
+    rg -q "await guard\\(request\\)" "$route" && HAS_DIRECT_AWAIT=1
+    HAS_WRAPPER_IMPORT=0
+    rg -q "from [\"']@/lib/api/route-security[\"']" "$route" && HAS_WRAPPER_IMPORT=1
+    HAS_WRAPPER_AWAIT=0
+    rg -q "await runRouteGuards\\(request" "$route" && HAS_WRAPPER_AWAIT=1
   else
-    HAS_IMPORT=0
-    grep -Eq "from [\"']@/lib/security/guard[\"']" "$route" && HAS_IMPORT=1
-    HAS_AWAIT=0
-    grep -Eq "await guard\\(request\\)" "$route" && HAS_AWAIT=1
+    HAS_DIRECT_IMPORT=0
+    grep -Eq "from [\"']@/lib/security/guard[\"']" "$route" && HAS_DIRECT_IMPORT=1
+    HAS_DIRECT_AWAIT=0
+    grep -Eq "await guard\\(request\\)" "$route" && HAS_DIRECT_AWAIT=1
+    HAS_WRAPPER_IMPORT=0
+    grep -Eq "from [\"']@/lib/api/route-security[\"']" "$route" && HAS_WRAPPER_IMPORT=1
+    HAS_WRAPPER_AWAIT=0
+    grep -Eq "await runRouteGuards\\(request" "$route" && HAS_WRAPPER_AWAIT=1
   fi
 
-  if [[ "$HAS_IMPORT" -ne 1 ]]; then
-    MISSING_GUARD+=("$route (missing guard import)")
+  if [[ "$HAS_DIRECT_IMPORT" -eq 1 ]]; then
+    if [[ "$HAS_DIRECT_AWAIT" -ne 1 ]]; then
+      MISSING_GUARD+=("$route (missing await guard(request))")
+    fi
     continue
   fi
-  if [[ "$HAS_AWAIT" -ne 1 ]]; then
-    MISSING_GUARD+=("$route (missing await guard(request))")
+
+  if [[ "$HAS_WRAPPER_IMPORT" -eq 1 ]]; then
+    if [[ "$HAS_WRAPPER_AWAIT" -ne 1 ]]; then
+      MISSING_GUARD+=("$route (missing await runRouteGuards(request,...))")
+    fi
+    continue
   fi
+
+  MISSING_GUARD+=("$route (missing recognized guard import)")
 done < <("${ROUTE_LIST_CMD[@]}" | sort)
 
 if (( ${#MISSING_GUARD[@]} > 0 )); then

@@ -9,7 +9,15 @@ const YAHOO_QUOTE_URL = "https://query1.finance.yahoo.com/v7/finance/quote";
 const LOG_TTL_MS = 60_000;
 const recentWarnings = new Map<string, number>();
 const YAHOO_BATCH_DISABLE_TTL_MS = 10 * 60_000;
+const PROVIDER_QUOTE_TIMEOUT_MS = 900;
+const YAHOO_BATCH_TIMEOUT_MS = 1_200;
+const YAHOO_CHART_TIMEOUT_MS = 1_200;
+const SPECIAL_FEED_TIMEOUT_MS = 1_400;
+const QUOTE_MAP_CACHE_TTL_MS = 3_000;
+const ENABLE_STOOQ_FALLBACK = false;
 let yahooBatchDisabledUntil = 0;
+const quoteMapCache = new Map<string, { expiresAt: number; map: Map<string, QuoteRow> }>();
+const quoteMapInFlight = new Map<string, Promise<Map<string, QuoteRow>>>();
 
 export interface QuoteRow {
   symbol: string;
@@ -63,6 +71,31 @@ function asIsoDateFromMdy(raw: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function withProviderTimeout<T>(promise: Promise<T>, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(fallback);
+    }, PROVIDER_QUOTE_TIMEOUT_MS);
+
+    promise
+      .then((value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch(() => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(fallback);
+      });
+  });
+}
+
 async function fetchQuotes(symbols: string[]): Promise<Map<string, QuoteRow>> {
   if (Date.now() < yahooBatchDisabledUntil) {
     return new Map();
@@ -85,7 +118,7 @@ async function fetchQuotes(symbols: string[]): Promise<Map<string, QuoteRow>> {
       try {
         const response = await fetch(url.toString(), {
           cache: "no-store",
-          signal: getFetchSignal(3500),
+          signal: getFetchSignal(YAHOO_BATCH_TIMEOUT_MS),
           headers: {
             Accept: "application/json",
             "User-Agent": "Mozilla/5.0"
@@ -133,17 +166,40 @@ async function fetchQuotes(symbols: string[]): Promise<Map<string, QuoteRow>> {
 async function fetchProviderFallbackQuote(symbol: string): Promise<QuoteRow | null> {
   // Temporary patch: free-tier quote bridges keep the dashboard responsive until
   // premium provider quotas/entitlements are upgraded.
-  const [finnhub, fmp, eodhd, alpha, temporary] = await Promise.all([
-    fetchFinnhubQuoteSnapshot(symbol),
-    fetchFmpQuoteSnapshot(symbol),
-    fetchEodhdQuoteSnapshot(symbol),
-    fetchAlphaVantageQuoteSnapshot(symbol),
-    fetchTemporaryQuoteFallback(symbol)
+  // Keep this staged to avoid redundant provider calls and excessive latency:
+  // - Stage 1: Finnhub + temporary bridge (which already ranks Alpaca/Twelve/Google/Marketstack/Alpha).
+  // - Stage 2: legacy direct adapters only when stage 1 is still empty.
+  const [finnhub, bridge] = await Promise.all([
+    withProviderTimeout(fetchFinnhubQuoteSnapshot(symbol), { price: null, changePercent: null, asOfMs: null }),
+    withProviderTimeout(fetchTemporaryQuoteFallback(symbol), {
+      price: null,
+      changePercent: null,
+      asOfMs: null,
+      source: null
+    })
   ]);
 
-  const price = finnhub.price ?? fmp.price ?? eodhd.price ?? alpha.price ?? temporary.price ?? null;
-  const asOfMs = finnhub.asOfMs ?? fmp.asOfMs ?? eodhd.asOfMs ?? alpha.asOfMs ?? temporary.asOfMs ?? null;
-  const changePercent = finnhub.changePercent ?? temporary.changePercent ?? null;
+  const stageOnePrice = finnhub.price ?? bridge.price ?? null;
+  const stageOneAsOfMs = finnhub.asOfMs ?? bridge.asOfMs ?? null;
+  const stageOneChangePercent = finnhub.changePercent ?? bridge.changePercent ?? null;
+  if (stageOnePrice !== null || stageOneChangePercent !== null) {
+    return {
+      symbol: symbol.toUpperCase(),
+      regularMarketPrice: stageOnePrice,
+      regularMarketChangePercent: stageOneChangePercent,
+      asOfMs: stageOneAsOfMs
+    };
+  }
+
+  const [fmp, eodhd, alpha] = await Promise.all([
+    withProviderTimeout(fetchFmpQuoteSnapshot(symbol), { price: null, asOfMs: null }),
+    withProviderTimeout(fetchEodhdQuoteSnapshot(symbol), { price: null, asOfMs: null }),
+    withProviderTimeout(fetchAlphaVantageQuoteSnapshot(symbol), { price: null, asOfMs: null })
+  ]);
+
+  const price = fmp.price ?? eodhd.price ?? alpha.price ?? null;
+  const asOfMs = fmp.asOfMs ?? eodhd.asOfMs ?? alpha.asOfMs ?? null;
+  const changePercent = null;
 
   if (price === null && changePercent === null) return null;
 
@@ -163,7 +219,7 @@ async function fetchYahooChartQuote(symbol: string): Promise<QuoteRow | null> {
 
     const response = await fetch(url.toString(), {
       cache: "no-store",
-      signal: getFetchSignal(3_500),
+      signal: getFetchSignal(YAHOO_CHART_TIMEOUT_MS),
       headers: {
         Accept: "application/json",
         "User-Agent": "Mozilla/5.0"
@@ -358,7 +414,7 @@ async function fetchFredTenYearYieldQuote(): Promise<QuoteRow | null> {
   try {
     const response = await fetch("https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10", {
       cache: "no-store",
-      signal: getFetchSignal(3500),
+      signal: getFetchSignal(SPECIAL_FEED_TIMEOUT_MS),
       headers: {
         Accept: "text/csv",
         "User-Agent": "Mozilla/5.0"
@@ -407,7 +463,7 @@ async function fetchCboeVixQuote(): Promise<QuoteRow | null> {
   try {
     const response = await fetch("https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv", {
       cache: "no-store",
-      signal: getFetchSignal(3500),
+      signal: getFetchSignal(SPECIAL_FEED_TIMEOUT_MS),
       headers: {
         Accept: "text/csv",
         "User-Agent": "Mozilla/5.0"
@@ -501,19 +557,17 @@ async function enrichMissingQuotes(quoteMap: Map<string, QuoteRow>, symbols: str
         return;
       }
 
-      const [stooqMerged, providerMerged] = await Promise.all([
-        fetchStooqQuote(symbol),
-        (
-          (fredMerged?.regularMarketPrice == null || fredMerged?.regularMarketChangePercent == null) &&
-          (vixMerged?.regularMarketPrice == null || vixMerged?.regularMarketChangePercent == null)
-        )
-          ? fetchProviderFallbackQuote(symbol)
-          : Promise.resolve<QuoteRow | null>(null)
-      ]);
+      const providerMerged = (
+        (fredMerged?.regularMarketPrice == null || fredMerged?.regularMarketChangePercent == null) &&
+        (vixMerged?.regularMarketPrice == null || vixMerged?.regularMarketChangePercent == null)
+      )
+        ? await fetchProviderFallbackQuote(symbol)
+        : null;
 
-      const afterStooq = mergeQuoteRows(afterSpecialized, stooqMerged, symbol);
-      const merged = mergeQuoteRows(afterStooq, mergeQuoteRows(fredMerged, vixMerged, symbol), symbol);
-      const finalQuote = mergeQuoteRows(merged, providerMerged, symbol);
+      const stooqMerged = ENABLE_STOOQ_FALLBACK ? await fetchStooqQuote(symbol) : null;
+      const merged = mergeQuoteRows(afterSpecialized, mergeQuoteRows(fredMerged, vixMerged, symbol), symbol);
+      const withProvider = mergeQuoteRows(merged, providerMerged, symbol);
+      const finalQuote = mergeQuoteRows(withProvider, stooqMerged, symbol);
       if (!finalQuote) {
         warnOnce("fallback-exhausted", `${symbol} has no usable quote from fallback chain`);
         return;
@@ -530,6 +584,20 @@ export function toYahooSymbol(symbol: string): string {
   return symbol.replace(/\./g, "-").toUpperCase();
 }
 
+function normalizeSymbolList(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.trim().toUpperCase()).filter(Boolean)));
+}
+
+function quoteMapCacheKey(coreSymbols: string[], moverSymbols: string[]): string {
+  const core = normalizeSymbolList(coreSymbols).sort().join(",");
+  const movers = normalizeSymbolList(moverSymbols).sort().join(",");
+  return `${core}|${movers}`;
+}
+
+function cloneQuoteMap(source: Map<string, QuoteRow>): Map<string, QuoteRow> {
+  return new Map(source);
+}
+
 export function quoteValue(
   map: Map<string, QuoteRow>,
   primary: string,
@@ -544,33 +612,69 @@ export function quoteValue(
 }
 
 export async function fetchDashboardQuoteMap(coreSymbols: string[], moverSymbols: string[]): Promise<Map<string, QuoteRow>> {
-  const moverYahooSymbols = moverSymbols.map((symbol) => toYahooSymbol(symbol));
-  const symbols = Array.from(new Set([...coreSymbols, ...moverYahooSymbols]));
-
-  const rawQuoteMap = await fetchQuotes(symbols);
-  const coreQuoteMap = await enrichMissingQuotes(rawQuoteMap, coreSymbols);
-  const quoteMap = await enrichMissingQuotes(coreQuoteMap, moverSymbols);
-
-  const [fredTenYear, cboeVix] = await Promise.all([
-    fetchFredTenYearYieldQuote(),
-    fetchCboeVixQuote()
-  ]);
-
-  if (fredTenYear) {
-    const existing = quoteValue(quoteMap, "^TNX");
-    const merged = mergeQuoteRows(existing ?? null, fredTenYear, "^TNX");
-    if (merged) {
-      quoteMap.set("^TNX", merged);
-    }
+  const normalizedCore = normalizeSymbolList(coreSymbols);
+  const normalizedMovers = normalizeSymbolList(moverSymbols);
+  const cacheKey = quoteMapCacheKey(normalizedCore, normalizedMovers);
+  const cached = quoteMapCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cloneQuoteMap(cached.map);
   }
 
-  if (cboeVix) {
-    const existing = quoteValue(quoteMap, "^VIX");
-    const merged = mergeQuoteRows(existing ?? null, cboeVix, "^VIX");
-    if (merged) {
-      quoteMap.set("^VIX", merged);
-    }
+  let inFlight = quoteMapInFlight.get(cacheKey);
+  if (!inFlight) {
+    inFlight = (async () => {
+      const moverYahooSymbols = normalizedMovers.map((symbol) => toYahooSymbol(symbol));
+      const symbols = Array.from(new Set([...normalizedCore, ...moverYahooSymbols]));
+
+      const rawQuoteMap = await fetchQuotes(symbols);
+      const coreQuoteMap = await enrichMissingQuotes(rawQuoteMap, normalizedCore);
+      const quoteMap = normalizedMovers.length > 0
+        ? await enrichMissingQuotes(coreQuoteMap, normalizedMovers)
+        : coreQuoteMap;
+
+      const needsTenYear = (() => {
+        const row = quoteValue(quoteMap, "^TNX");
+        return row?.regularMarketPrice == null || row?.regularMarketChangePercent == null;
+      })();
+      const needsVix = (() => {
+        const row = quoteValue(quoteMap, "^VIX");
+        return row?.regularMarketPrice == null || row?.regularMarketChangePercent == null;
+      })();
+
+      const [fredTenYear, cboeVix] = await Promise.all([
+        needsTenYear ? fetchFredTenYearYieldQuote() : Promise.resolve<QuoteRow | null>(null),
+        needsVix ? fetchCboeVixQuote() : Promise.resolve<QuoteRow | null>(null)
+      ]);
+
+      if (fredTenYear) {
+        const existing = quoteValue(quoteMap, "^TNX");
+        const merged = mergeQuoteRows(existing ?? null, fredTenYear, "^TNX");
+        if (merged) {
+          quoteMap.set("^TNX", merged);
+        }
+      }
+
+      if (cboeVix) {
+        const existing = quoteValue(quoteMap, "^VIX");
+        const merged = mergeQuoteRows(existing ?? null, cboeVix, "^VIX");
+        if (merged) {
+          quoteMap.set("^VIX", merged);
+        }
+      }
+
+      quoteMapCache.set(cacheKey, {
+        expiresAt: Date.now() + QUOTE_MAP_CACHE_TTL_MS,
+        map: cloneQuoteMap(quoteMap)
+      });
+
+      return quoteMap;
+    })().finally(() => {
+      quoteMapInFlight.delete(cacheKey);
+    });
+
+    quoteMapInFlight.set(cacheKey, inFlight);
   }
 
-  return quoteMap;
+  const resolved = await inFlight;
+  return cloneQuoteMap(resolved);
 }

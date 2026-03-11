@@ -18,8 +18,8 @@ import {
 const MACRO_CACHE_TTL_MS = 5 * 60_000;
 const MACRO_REDIS_TTL_SECONDS = 300;
 const MACRO_LAST_GOOD_REDIS_TTL_SECONDS = 7 * 24 * 60 * 60;
-const YAHOO_CHART_TIMEOUT_MS = 3_500;
-const FRED_TIMEOUT_MS = 8_000;
+const YAHOO_CHART_TIMEOUT_MS = 1_600;
+const FRED_TIMEOUT_MS = 2_400;
 const LOG_TTL_MS = 60_000;
 
 type HomeRegimePayload = HomeDashboardPayload["regime"];
@@ -363,6 +363,47 @@ function mergeInput(
   return merged as MacroInputV2;
 }
 
+function synthesizeMacroInput(partial: Partial<MacroInputV2>): MacroInputV2 {
+  const defaults: Omit<MacroInputV2, "date"> = {
+    move: 95,
+    moveDelta1M: 0,
+    hygOAS: 320,
+    hygOASDelta1M: 0,
+    realYield10Y: 1.5,
+    realYieldChange3M: 0,
+    yieldCurve: 25,
+    oilWTI: 75,
+    oilChange1M: 0,
+    unemploymentRate: 4.1,
+    unemployment3MAvg: 4.1,
+    unemployment3MMin12: 3.9,
+    vix: 18,
+    dxy: 103,
+    dxyChange1M: 0,
+    cpiYoY: 2.8,
+    cuAuRatio: 0.0022,
+    cuAuMa20: 0.0022
+  };
+
+  const asDate = typeof partial.date === "string" && partial.date.length > 0
+    ? partial.date
+    : new Date().toISOString().slice(0, 10);
+
+  const input: MacroInputV2 = {
+    date: asDate,
+    ...defaults
+  };
+
+  for (const [rawKey, rawValue] of Object.entries(partial) as Array<[keyof MacroInputV2, unknown]>) {
+    if (rawKey === "date") continue;
+    if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+      input[rawKey] = rawValue as MacroInputV2[typeof rawKey];
+    }
+  }
+
+  return input;
+}
+
 function findMissingInputKeys(candidate: Partial<MacroInputV2>): string[] {
   const requiredKeys: Array<keyof MacroInputV2> = [
     "date",
@@ -487,42 +528,39 @@ async function buildMacroPayload(previous: HomeRegimePayload | null): Promise<Ho
   };
 
   const mergedInput = mergeInput(partialInput, previous?.inputSnapshot ?? null);
+  const effectiveInput = mergedInput ?? synthesizeMacroInput(partialInput);
   if (!mergedInput) {
     const missingKeys = findMissingInputKeys({
       ...(previous?.inputSnapshot ?? {}),
       ...partialInput
     });
-    warnOnce("builder", `incomplete fresh macro inputs (${missingKeys.join(", ") || "unknown"})`);
-    if (previous) {
-      return previous;
-    }
-    throw new Error(`Macro regime inputs are incomplete: ${missingKeys.join(", ")}`);
+    warnOnce("builder", `incomplete fresh macro inputs (${missingKeys.join(", ") || "unknown"}); synthesizing neutral fallback input`);
   }
 
-  const score = scoreMacroV2(mergedInput);
+  const score = scoreMacroV2(effectiveInput);
   const metrics: HomeRegimeMetric[] = [
     formatRegimeMetric(
       "vix",
       "VIX",
-      mergedInput.vix,
-      mergedInput.vix.toFixed(1),
+      effectiveInput.vix,
+      effectiveInput.vix.toFixed(1),
       latestValue(vixSeries) !== null ? "Volatility gauge" : "Feed unavailable",
       score.pillars.sentiment.indicators[0]
     ),
     formatRegimeMetric(
       "dxy",
       "DXY",
-      mergedInput.dxy,
-      mergedInput.dxy.toFixed(1),
-      formatMetricDetail(mergedInput.dxyChange1M, "% vs 1M", 1),
+      effectiveInput.dxy,
+      effectiveInput.dxy.toFixed(1),
+      formatMetricDetail(effectiveInput.dxyChange1M, "% vs 1M", 1),
       score.pillars.sentiment.indicators[1]
     ),
     formatRegimeMetric(
       "oilWTI",
       "WTI Oil",
-      mergedInput.oilWTI,
-      `$${mergedInput.oilWTI.toFixed(0)}`,
-      formatMetricDetail(mergedInput.oilChange1M, "% vs 1M", 1),
+      effectiveInput.oilWTI,
+      `$${effectiveInput.oilWTI.toFixed(0)}`,
+      formatMetricDetail(effectiveInput.oilChange1M, "% vs 1M", 1),
       score.pillars.cycle.indicators[2]
     ),
     formatRegimeMetric(
@@ -545,7 +583,7 @@ async function buildMacroPayload(previous: HomeRegimePayload | null): Promise<Ho
     warnings: score.warnings,
     gatesFired: score.gatesFired,
     pillars: score.pillars,
-    inputSnapshot: mergedInput,
+    inputSnapshot: effectiveInput,
     metrics
   };
 }

@@ -87,15 +87,29 @@ export async function getCachedAnalysis(
     await ensureAnalysesStore();
 
     const cutoff = new Date(Date.now() - minutes * 60 * 1000).toISOString();
-    const { rows } = await sql<{ payload: PersistedAnalysis }>`
-      SELECT payload
-      FROM analyses
-      WHERE symbol = ${normalized}
-        AND (${userId}::text IS NOT NULL AND user_id = ${userId} OR ${userId}::text IS NULL AND user_id IS NULL)
-        AND created_at >= ${cutoff}
-      ORDER BY created_at DESC
-      LIMIT 1
-    `;
+    const rows = userId
+      ? (
+          await sql<{ payload: PersistedAnalysis }>`
+            SELECT payload
+            FROM analyses
+            WHERE symbol = ${normalized}
+              AND user_id = ${userId}
+              AND created_at >= ${cutoff}
+            ORDER BY created_at DESC
+            LIMIT 1
+          `
+        ).rows
+      : (
+          await sql<{ payload: PersistedAnalysis }>`
+            SELECT payload
+            FROM analyses
+            WHERE symbol = ${normalized}
+              AND user_id IS NULL
+              AND created_at >= ${cutoff}
+            ORDER BY created_at DESC
+            LIMIT 1
+          `
+        ).rows;
 
     if (rows.length === 0) return null;
     const parsed = normalizePersistedAnalysis(rows[0].payload);

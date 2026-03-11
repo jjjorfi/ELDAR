@@ -20,6 +20,11 @@ import { runRouteGuards } from "@/lib/api/route-security";
 
 export const runtime = "nodejs";
 
+const REALTIME_HEALTH_TIMEOUT_MS = 700;
+const REALTIME_HEALTH_CACHE_TTL_MS = 15_000;
+
+let realtimeHealthCache: { checkedAt: number; available: boolean } | null = null;
+
 interface SocketTokenClaims {
   sub: string;
   userId: string;
@@ -28,6 +33,66 @@ interface SocketTokenClaims {
   isAnonymous: boolean;
   iss: "eldar-nextjs";
   aud: "eldar-realtime";
+}
+
+function socketUrlToHealthUrl(socketUrl: string): string | null {
+  try {
+    const parsed = new URL(socketUrl);
+    if (parsed.protocol === "ws:") {
+      parsed.protocol = "http:";
+    } else if (parsed.protocol === "wss:") {
+      parsed.protocol = "https:";
+    }
+    return `${parsed.origin.replace(/\/$/, "")}/health`;
+  } catch {
+    return null;
+  }
+}
+
+async function isRealtimeReachable(socketUrl: string): Promise<boolean> {
+  if (
+    realtimeHealthCache &&
+    Date.now() - realtimeHealthCache.checkedAt < REALTIME_HEALTH_CACHE_TTL_MS
+  ) {
+    return realtimeHealthCache.available;
+  }
+
+  const healthUrl = socketUrlToHealthUrl(socketUrl);
+  if (!healthUrl) {
+    realtimeHealthCache = {
+      checkedAt: Date.now(),
+      available: false
+    };
+    return false;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REALTIME_HEALTH_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(healthUrl, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json"
+      }
+    });
+    const available = response.ok;
+    realtimeHealthCache = {
+      checkedAt: Date.now(),
+      available
+    };
+    return available;
+  } catch {
+    realtimeHealthCache = {
+      checkedAt: Date.now(),
+      available: false
+    };
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -71,6 +136,19 @@ export async function GET(request: Request): Promise<NextResponse> {
   });
 
   const socketUrl = process.env.NEXT_PUBLIC_REALTIME_URL ?? "http://localhost:4100";
+  const realtimeAvailable = await isRealtimeReachable(socketUrl);
+
+  if (!realtimeAvailable) {
+    return NextResponse.json(
+      {
+        disabled: true,
+        reason: "Realtime socket server is unavailable. Falling back to HTTP polling."
+      },
+      {
+        headers: { "Cache-Control": "no-store" }
+      }
+    );
+  }
 
   console.log(
     isAnonymous

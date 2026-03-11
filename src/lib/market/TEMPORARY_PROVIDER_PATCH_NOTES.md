@@ -11,11 +11,19 @@ Purpose: make the app degrade more gracefully while ELDAR is still building on f
 ## What is temporary
 
 - `twelvedata.ts`
+- `alpaca.ts`
 - `google-finance.ts`
 - `marketstack.ts`
 - `temporary-fallbacks.ts`
 
 These files are stopgap quote/history fallbacks only. They are **not** intended to become the permanent premium data architecture.
+
+Additional temporary behavior now in place (latency-only patch):
+- Soft per-provider time budgets in `temporary-fallbacks.ts` so a single slow API does not freeze UI reads.
+- Short TTL + in-flight dedupe cache in `temporary-fallbacks.ts` to prevent duplicate burst calls during page load.
+- Staged quote fallback in `dashboard-quotes.ts` to avoid duplicated provider fan-out.
+
+These are intentionally defensive speed patches for build-phase free tiers and should be re-evaluated once paid feeds are enabled.
 
 The same rule now applies to `sec-companyfacts.ts`: it is a temporary
 free-tier fundamentals bridge for U.S. issuers so the product can show real
@@ -26,15 +34,17 @@ reviewed and likely demoted to a tertiary rescue path.
 ## Current temporary ranking
 
 Quote fallback:
-1. Twelve Data
-2. Google Finance
-3. marketstack
-4. Alpha Vantage
+1. Alpaca
+2. Twelve Data
+3. Google Finance
+4. marketstack
+5. Alpha Vantage
 
 History fallback:
-1. Twelve Data
-2. marketstack
-3. Alpha Vantage
+1. Alpaca
+2. Twelve Data
+3. marketstack
+4. Alpha Vantage
 
 ## What they are allowed to cover
 

@@ -4,27 +4,30 @@ import {
   fetchSectorPerformance
 } from "@/lib/market/sector-performance";
 import { GICS_SECTORS, GICS_SECTOR_ETFS } from "@/lib/market/gics-sectors";
-import { getTop100Sp500Symbols } from "@/lib/market/top100";
 import { buildDashboardNewsFocusSymbols, getDashboardMarketNews } from "@/lib/home/dashboard-news";
 import { getDashboardMacroRegime } from "@/lib/home/dashboard-macro";
+import { fetchTopSp500Movers } from "@/lib/home/sp500-movers";
 import { normalizeSectorName } from "@/lib/scoring/sector-config";
 import { getRecentAnalyses } from "@/lib/storage";
 import type { PersistedAnalysis } from "@/lib/types";
 
-import { fetchDashboardQuoteMap, type QuoteRow, quoteValue, toYahooSymbol } from "@/lib/home/dashboard-quotes";
+import { fetchDashboardQuoteMap, type QuoteRow, quoteValue } from "@/lib/home/dashboard-quotes";
 import type {
   HomeDashboardPayload,
-  HomeMarketMoverItem as MarketMoverItem,
   HomeSectorRotationItem as SectorRotationItem,
   HomeSnapshotItem as SnapshotItem,
   SectorRotationWindow
 } from "@/lib/home/dashboard-types";
 
-const CACHE_TTL_MS = 90_000;
-const REDIS_TTL_SECONDS = 90;
-const FALLBACK_MOVER_SYMBOLS = getTop100Sp500Symbols();
+const CACHE_TTL_MS = 180_000;
+const REDIS_TTL_SECONDS = 180;
 
 export type Tone = "positive" | "neutral" | "negative";
+export type HomeDashboardCacheLayer = "memory" | "redis" | "in-flight" | "computed";
+export interface HomeDashboardPayloadResult {
+  payload: HomeDashboardPayload;
+  cacheLayer: HomeDashboardCacheLayer;
+}
 
 let payloadCacheByWindow = new Map<SectorRotationWindow, { expiresAt: number; payload: HomeDashboardPayload }>();
 let payloadInFlightByWindow = new Map<SectorRotationWindow, Promise<HomeDashboardPayload>>();
@@ -91,37 +94,9 @@ function buildSectorRotation(
       name: sector.displayName,
       performancePercent: periodPerformance ?? quote?.regularMarketChangePercent ?? null,
       signalScore: signalScore !== null ? Math.round(signalScore * 10) / 10 : null,
-      signalStrength: (signalScore === null ? "UNAVAILABLE" : ratingBandFromScore(signalScore)) as SectorRotationItem["signalStrength"]
+      signalStrength: (signalScore === null ? "NEUTRAL" : ratingBandFromScore(signalScore)) as SectorRotationItem["signalStrength"]
     };
   }).sort((left, right) => (right.performancePercent ?? -999) - (left.performancePercent ?? -999));
-}
-
-function buildMarketMovers(
-  symbols: string[],
-  quoteMap: Map<string, QuoteRow>,
-  companyNames: Map<string, string>
-): HomeDashboardPayload["marketMovers"] {
-  const uniqueSymbols = Array.from(new Set(symbols.map((value) => value.trim().toUpperCase()).filter(Boolean)));
-  const movers: MarketMoverItem[] = [];
-
-  for (const symbol of uniqueSymbols) {
-    const quote = quoteValue(quoteMap, symbol, toYahooSymbol(symbol));
-    const changePercent = quote?.regularMarketChangePercent ?? null;
-    if (changePercent === null) continue;
-
-    movers.push({
-      symbol,
-      companyName: companyNames.get(symbol) ?? symbol,
-      currentPrice: quote?.regularMarketPrice ?? null,
-      changePercent
-    });
-  }
-
-  return movers.sort((left, right) => {
-    const absDelta = Math.abs(right.changePercent) - Math.abs(left.changePercent);
-    if (absDelta !== 0) return absDelta;
-    return right.changePercent - left.changePercent || left.symbol.localeCompare(right.symbol);
-  });
 }
 
 async function fetchSectorWindowPerformance(window: SectorRotationWindow): Promise<Map<string, number | null>> {
@@ -132,15 +107,27 @@ async function buildPayload(
   sectorWindow: SectorRotationWindow,
   previous: HomeDashboardPayload | null
 ): Promise<HomeDashboardPayload> {
-  const analyses = await getRecentAnalyses(900, null);
-  const carriedSymbols = Array.from(new Set(analyses.map((row) => row.symbol.trim().toUpperCase()).filter(Boolean))).slice(0, 140);
-  const moverSymbols = Array.from(new Set([...carriedSymbols.slice(0, 60), ...FALLBACK_MOVER_SYMBOLS]));
+  const analysesPromise = getRecentAnalyses(900, null);
+  const topMoversPromise = fetchTopSp500Movers(3);
+  const sectorWindowPerformancePromise = fetchSectorWindowPerformance(sectorWindow);
+  const macroRegimePromise = getDashboardMacroRegime(previous?.regime ?? null);
+
+  const [analyses, topMovers, sectorWindowPerformance, macroRegime] = await Promise.all([
+    analysesPromise,
+    topMoversPromise,
+    sectorWindowPerformancePromise,
+    macroRegimePromise
+  ]);
+
+  const carriedSymbols = Array.from(
+    new Set(
+      analyses
+        .map((row) => row.symbol.trim().toUpperCase())
+        .filter((symbol) => symbol.length > 0 && symbol !== "SYMBOL")
+    )
+  ).slice(0, 140);
+  const moverSymbols = topMovers.map((item) => item.symbol);
   const newsFocusSymbols = buildDashboardNewsFocusSymbols(carriedSymbols, moverSymbols);
-  const latest = latestBySymbol(analyses);
-  const companyNames = new Map<string, string>();
-  for (const [symbol, analysis] of latest.entries()) {
-    companyNames.set(symbol, analysis.companyName || symbol);
-  }
 
   const coreSymbols = [
     "^GSPC",
@@ -150,15 +137,12 @@ async function buildPayload(
     "DX=F",
     "^VIX",
     "CL=F",
-    "^TNX",
-    ...GICS_SECTOR_ETFS
+    "^TNX"
   ];
 
-  const [quoteMap, sectorWindowPerformance, marketNews, macroRegime] = await Promise.all([
-    fetchDashboardQuoteMap(coreSymbols, moverSymbols),
-    fetchSectorWindowPerformance(sectorWindow),
+  const [quoteMap, marketNews] = await Promise.all([
+    fetchDashboardQuoteMap(coreSymbols, []),
     getDashboardMarketNews(newsFocusSymbols),
-    getDashboardMacroRegime(previous?.regime ?? null)
   ]);
   const dxy = quoteValue(quoteMap, "DX-Y.NYB", "DX=F");
   const vix = quoteValue(quoteMap, "^VIX");
@@ -173,7 +157,7 @@ async function buildPayload(
 
   let regime = macroRegime;
   let sectorRotation = buildSectorRotation(analyses, quoteMap, sectorWindowPerformance);
-  let marketMovers = buildMarketMovers(moverSymbols, quoteMap, companyNames);
+  let marketMovers = topMovers;
 
   if (previous) {
     snapshot = snapshot.map((item) => {
@@ -193,14 +177,14 @@ async function buildPayload(
         ...item,
         performancePercent,
         signalScore,
-        signalStrength: signalScore === null ? "UNAVAILABLE" : ratingBandFromScore(signalScore)
+        signalStrength: signalScore === null ? "NEUTRAL" : ratingBandFromScore(signalScore)
       };
     });
 
-    if (marketMovers.length < 12 && previous.marketMovers.length > 0) {
+    if (marketMovers.length < 3 && previous.marketMovers.length > 0) {
       const seen = new Set(marketMovers.map((item) => item.symbol));
       const carryForward = previous.marketMovers.filter((item) => !seen.has(item.symbol));
-      marketMovers = [...marketMovers, ...carryForward].slice(0, 18);
+      marketMovers = [...marketMovers, ...carryForward].slice(0, 3);
     }
 
     if (regime.metrics.length === 0) {
@@ -219,10 +203,13 @@ async function buildPayload(
   };
 }
 
-export async function getHomeDashboardPayload(window: SectorRotationWindow): Promise<HomeDashboardPayload> {
+export async function getHomeDashboardPayloadWithMeta(window: SectorRotationWindow): Promise<HomeDashboardPayloadResult> {
   const memoryCached = payloadCacheByWindow.get(window);
   if (memoryCached && Date.now() < memoryCached.expiresAt) {
-    return memoryCached.payload;
+    return {
+      payload: memoryCached.payload,
+      cacheLayer: "memory"
+    };
   }
 
   const redisCached = await cacheGetJson<HomeDashboardPayload>(dashboardRedisKey(window));
@@ -231,10 +218,14 @@ export async function getHomeDashboardPayload(window: SectorRotationWindow): Pro
       expiresAt: Date.now() + CACHE_TTL_MS,
       payload: redisCached
     });
-    return redisCached;
+    return {
+      payload: redisCached,
+      cacheLayer: "redis"
+    };
   }
 
   let inFlight = payloadInFlightByWindow.get(window);
+  const hadInFlight = Boolean(inFlight);
   if (!inFlight) {
     inFlight = buildPayload(window, memoryCached?.payload ?? redisCached ?? null)
       .then(async (payload) => {
@@ -251,5 +242,30 @@ export async function getHomeDashboardPayload(window: SectorRotationWindow): Pro
     payloadInFlightByWindow.set(window, inFlight);
   }
 
-  return inFlight;
+  return {
+    payload: await inFlight,
+    cacheLayer: hadInFlight ? "in-flight" : "computed"
+  };
+}
+
+export async function getHomeDashboardPayload(window: SectorRotationWindow): Promise<HomeDashboardPayload> {
+  return (await getHomeDashboardPayloadWithMeta(window)).payload;
+}
+
+export async function getHomeDashboardPayloadCached(window: SectorRotationWindow): Promise<HomeDashboardPayload | null> {
+  const memoryCached = payloadCacheByWindow.get(window);
+  if (memoryCached && Date.now() < memoryCached.expiresAt) {
+    return memoryCached.payload;
+  }
+
+  const redisCached = await cacheGetJson<HomeDashboardPayload>(dashboardRedisKey(window));
+  if (!redisCached) {
+    return null;
+  }
+
+  payloadCacheByWindow.set(window, {
+    expiresAt: Date.now() + CACHE_TTL_MS,
+    payload: redisCached
+  });
+  return redisCached;
 }

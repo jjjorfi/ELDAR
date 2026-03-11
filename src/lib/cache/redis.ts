@@ -109,3 +109,59 @@ export async function cacheDelete(key: string): Promise<void> {
 export function redisCacheMode(): "disabled" | "enabled" {
   return redisEnabledByConfig() && !hardDisabledReason ? "enabled" : "disabled";
 }
+
+export async function cacheSetIfAbsent(key: string, value: string, ttlMs: number): Promise<boolean> {
+  const client = await getClient();
+  if (!client) return false;
+
+  try {
+    const result = await client.set(keyName(key), value, {
+      NX: true,
+      PX: Math.max(1, Math.floor(ttlMs))
+    });
+    return result === "OK";
+  } catch (error) {
+    warnOperation("set-nx", key, error);
+    return false;
+  }
+}
+
+export async function cacheDeleteIfEquals(key: string, expectedValue: string): Promise<boolean> {
+  const client = await getClient();
+  if (!client) return false;
+
+  const script = `
+    if redis.call("GET", KEYS[1]) == ARGV[1] then
+      return redis.call("DEL", KEYS[1])
+    end
+    return 0
+  `;
+
+  try {
+    const result = await client.eval(script, {
+      keys: [keyName(key)],
+      arguments: [expectedValue]
+    });
+    return Number(result) > 0;
+  } catch (error) {
+    warnOperation("del-if-eq", key, error);
+    return false;
+  }
+}
+
+export async function cacheIncrementWindow(key: string, ttlSeconds: number): Promise<number | null> {
+  const client = await getClient();
+  if (!client) return null;
+
+  try {
+    const redisKey = keyName(key);
+    const value = await client.incr(redisKey);
+    if (value === 1) {
+      await client.expire(redisKey, Math.max(1, Math.floor(ttlSeconds)));
+    }
+    return value;
+  } catch (error) {
+    warnOperation("incr", key, error);
+    return null;
+  }
+}

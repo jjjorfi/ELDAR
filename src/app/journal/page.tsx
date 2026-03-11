@@ -944,7 +944,7 @@ export default function JournalPage(): JSX.Element {
     >
       <AppPageHeader
         title="Investment Journal"
-        subtitle="Capture one trade decision through six structured steps."
+        subtitle={undefined}
         actions={
           <button
             type="button"
@@ -958,7 +958,7 @@ export default function JournalPage(): JSX.Element {
       />
 
       {!isSignedIn ? (
-        <div className="rounded-2xl border border-white/15 bg-zinc-950/50 p-6">
+        <div className="eldar-page-section p-6">
           <p className="text-base text-white/85">Sign in to access your private investment journal.</p>
         </div>
       ) : (
@@ -970,7 +970,7 @@ export default function JournalPage(): JSX.Element {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search trades"
-                className="h-11 w-full rounded-xl border border-white/15 bg-zinc-950/50 pl-10 pr-3 text-sm text-white outline-none"
+                className="eldar-field-surface h-11 w-full pl-10 pr-3 text-sm text-white outline-none"
               />
             </div>
           </div>
@@ -978,7 +978,7 @@ export default function JournalPage(): JSX.Element {
           {renderTabs()}
           {error ? <p className="mb-4 text-sm text-red-300">{error}</p> : null}
           {loading ? (
-            <div className="rounded-2xl border border-white/15 bg-zinc-950/45 px-6 py-12 text-sm text-white/70">Loading journal...</div>
+            <div className="eldar-page-section px-6 py-12 text-sm text-white/70">Loading journal...</div>
           ) : tab === "active" ? (
             renderActiveTrades()
           ) : tab === "closed" ? (
@@ -991,7 +991,7 @@ export default function JournalPage(): JSX.Element {
 
       {newTradeOpen ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-white/15 bg-zinc-950 p-5">
+          <div className="eldar-page-section w-full max-w-md p-5">
             <h2 className="text-xl font-semibold text-white">New trade</h2>
             <div className="mt-4 space-y-3">
               <div className="relative">
@@ -999,10 +999,10 @@ export default function JournalPage(): JSX.Element {
                   value={newTradeTicker}
                   onChange={(event) => setNewTradeTicker(normalizeTicker(event.target.value))}
                   placeholder="Ticker"
-                  className="h-11 w-full rounded-xl border border-white/15 bg-zinc-950/60 px-3 text-sm text-white outline-none"
+                  className="eldar-field-surface h-11 w-full px-3 text-sm text-white outline-none"
                 />
                 {newTradeOpen && (newTradeSearchLoading || newTradeCandidates.length > 0) ? (
-                  <div onWheelCapture={handlePopupWheel} className="eldar-scrollbar absolute left-0 right-0 top-[calc(100%+6px)] z-10 max-h-52 overflow-y-auto overscroll-contain rounded-xl border border-white/15 bg-zinc-950/95 p-1">
+                  <div onWheelCapture={handlePopupWheel} className="eldar-scrollbar eldar-page-section absolute left-0 right-0 top-[calc(100%+6px)] z-10 max-h-52 overflow-y-auto overscroll-contain p-1">
                     {newTradeSearchLoading ? (
                       <p className="px-3 py-2 text-xs text-white/65">Searching stocks…</p>
                     ) : (
@@ -1028,7 +1028,7 @@ export default function JournalPage(): JSX.Element {
                 value={newTradeThesis}
                 onChange={(event) => setNewTradeThesis(event.target.value)}
                 placeholder="Why are you entering? (one sentence)"
-                className="min-h-[100px] w-full rounded-xl border border-white/15 bg-zinc-950/60 px-3 py-2 text-sm text-white outline-none"
+                className="eldar-field-surface min-h-[100px] w-full px-3 py-2 text-sm text-white outline-none"
               />
             </div>
             <p className="mt-3 text-xs text-white/60">ELDAR signal will be captured automatically.</p>

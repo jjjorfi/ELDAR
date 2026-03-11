@@ -3,7 +3,7 @@
 Purpose: quick refactor trail for future sessions. This maps each market adapter function to one responsibility.
 Scope: shared adapter utilities + Alpha Vantage, EODHD, FMP, Finnhub, Massive adapters.
 
-Temporary patch note: `twelvedata.ts`, `google-finance.ts`, `marketstack.ts`, and `temporary-fallbacks.ts`
+Temporary patch note: `alpaca.ts`, `twelvedata.ts`, `google-finance.ts`, `marketstack.ts`, and `temporary-fallbacks.ts`
 exist only to keep quote/history UX stable while premium data rates are still
 pending. They should stay easy to remove later.
 
@@ -109,6 +109,11 @@ pending. They should stay easy to remove later.
 - `fetchMassiveShortInterest(symbol)`: latest short-interest snapshot.
 - `fetchMassiveQuoteSnapshot(symbol)`: quote snapshot with fallback between endpoints.
 - `fetchMassiveQuotePrice(symbol)`: quote-price convenience wrapper.
+
+## `alpaca.ts`
+- `isAlpacaConfigured()`: provider-config check.
+- `fetchAlpacaQuoteSnapshot(symbol)`: temporary quote snapshot fallback from Alpaca snapshots.
+- `fetchAlpacaDailyHistory(symbol, lookbackDays)`: temporary daily history fallback from Alpaca bars.
 
 ## `twelvedata.ts`
 - `isTwelveDataConfigured()`: provider-config check.

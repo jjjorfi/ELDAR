@@ -1,5 +1,6 @@
 import { analyzeStock } from "@/lib/analyze";
 import { fetchAlphaVantageQuoteSnapshot } from "@/lib/market/alpha-vantage";
+import { fetchAlpacaQuoteSnapshot } from "@/lib/market/alpaca";
 import { fetchEodhdQuoteSnapshot } from "@/lib/market/eodhd";
 import { fetchFinnhubQuoteSnapshot } from "@/lib/market/finnhub";
 import { fetchFmpQuoteSnapshot } from "@/lib/market/fmp";
@@ -58,9 +59,10 @@ function sortCards(cards: Mag7ScoreCard[]): Mag7ScoreCard[] {
 }
 
 async function fetchLatestQuoteWithFallback(symbol: string): Promise<{ price: number | null; changePercent: number | null }> {
-  const [eodhd, yahoo, fmp, alpha, finnhub, massive] = await Promise.all([
+  const [eodhd, yahoo, alpaca, fmp, alpha, finnhub, massive] = await Promise.all([
     fetchEodhdQuoteSnapshot(symbol),
     fetchYahooQuoteSnapshot(symbol),
+    fetchAlpacaQuoteSnapshot(symbol),
     fetchFmpQuoteSnapshot(symbol),
     fetchAlphaVantageQuoteSnapshot(symbol),
     fetchFinnhubQuoteSnapshot(symbol),
@@ -72,6 +74,7 @@ async function fetchLatestQuoteWithFallback(symbol: string): Promise<{ price: nu
     observations: [
       { source: "EODHD", price: eodhd.price, timestampMs: eodhd.asOfMs, baseWeight: 1.0 },
       { source: "YAHOO", price: yahoo.price, timestampMs: yahoo.asOfMs, baseWeight: 0.9 },
+      { source: "ALPACA", price: alpaca.price, timestampMs: alpaca.asOfMs, baseWeight: 0.85 },
       { source: "FMP", price: fmp.price, timestampMs: fmp.asOfMs, baseWeight: 0.8 },
       { source: "ALPHA_VANTAGE", price: alpha.price, timestampMs: alpha.asOfMs, baseWeight: 0.7 },
       { source: "FINNHUB", price: finnhub.price, timestampMs: finnhub.asOfMs, baseWeight: 0.6 },
@@ -85,7 +88,7 @@ async function fetchLatestQuoteWithFallback(symbol: string): Promise<{ price: nu
 
   return {
     price: merged.value,
-    changePercent: finnhub.changePercent
+    changePercent: finnhub.changePercent ?? alpaca.changePercent
   };
 }
 

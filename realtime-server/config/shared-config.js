@@ -18,6 +18,7 @@ const path = require("node:path");
 const TOKEN_ISSUER = "eldar-nextjs";
 const TOKEN_AUDIENCE = "eldar-realtime";
 const STATUS_VERSION = "1.0.1";
+const DEFAULT_STREAM_SYMBOLS = "AAPL,MSFT,NVDA,AMZN,GOOGL,META,TSLA,AMD,AVGO,NFLX";
 
 function parseNumber(value, fallback) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
@@ -29,6 +30,16 @@ function parseCsv(value) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parseBoolean(value, fallback) {
+  if (value === undefined || value === null || String(value).trim().length === 0) {
+    return fallback;
+  }
+  const normalized = String(value).trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  return fallback;
 }
 
 function loadEnvFile(filePath) {
@@ -81,6 +92,21 @@ function getRealtimeConfig() {
   const publishSecret = String(process.env.REALTIME_PUBLISH_SECRET ?? "");
   const frontendSiteOrigin = normalizeOrigin(process.env.NEXT_PUBLIC_SITE_URL);
   const legacySocketJwtSecret = String(process.env.SOCKET_JWT_SECRET ?? "");
+  const alpacaKeyId = String(
+    process.env.ALPACA_API_KEY ??
+    process.env.ALPACA_API_KEY_ID ??
+    process.env.APCA_API_KEY_ID ??
+    ""
+  ).trim();
+  const alpacaSecret = String(
+    process.env.ALPACA_API_SECRET ??
+    process.env.ALPACA_SECRET_KEY ??
+    process.env.APCA_API_SECRET_KEY ??
+    ""
+  ).trim();
+  const quoteStreamSymbols = parseCsv(process.env.REALTIME_STREAM_SYMBOLS ?? DEFAULT_STREAM_SYMBOLS)
+    .map((symbol) => symbol.toUpperCase())
+    .filter((symbol) => /^[A-Z.\-]{1,12}$/.test(symbol));
 
   if (corsOrigins.length === 0) {
     architectAlert(
@@ -123,6 +149,13 @@ function getRealtimeConfig() {
     heartbeatTimeoutMs: parseNumber(process.env.REALTIME_HEARTBEAT_TIMEOUT_MS, 45_000),
     useRedis: String(process.env.USE_REDIS ?? "").toLowerCase() === "true",
     redisUrl: String(process.env.REDIS_URL ?? "").trim(),
+    quoteStreamEnabled: parseBoolean(process.env.REALTIME_ALPACA_STREAM, true),
+    quoteStreamUrl: String(process.env.REALTIME_ALPACA_STREAM_URL ?? "wss://stream.data.alpaca.markets/v2/iex").trim(),
+    quoteStreamFlushMs: parseNumber(process.env.REALTIME_QUOTE_FLUSH_MS, 250),
+    quoteStreamReconnectMs: parseNumber(process.env.REALTIME_QUOTE_RECONNECT_MS, 5_000),
+    quoteStreamSymbols,
+    alpacaKeyId,
+    alpacaSecret,
     tokenIssuer: TOKEN_ISSUER,
     tokenAudience: TOKEN_AUDIENCE,
     statusVersion: STATUS_VERSION

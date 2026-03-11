@@ -3,11 +3,8 @@ import { NextResponse } from "next/server";
 import { runRouteGuards } from "@/lib/api/route-security";
 import { cacheGetJson, cacheSetJson } from "@/lib/cache/redis";
 import { GICS_SECTOR_ETFS } from "@/lib/market/gics-sectors";
-import {
-  DEFAULT_SECTOR_WINDOW,
-  classifySectorSentiment,
-  fetchSectorPerformance
-} from "@/lib/market/sector-performance";
+import { AGGREGATE_SNAPSHOT_KEYS } from "@/lib/snapshots/contracts";
+import { getAggregateSnapshotForRead } from "@/lib/snapshots/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,26 +31,9 @@ let sectorsCache:
       payload: SectorSentimentPayload;
     }
   | null = null;
-let sectorsInFlight: Promise<SectorSentimentPayload> | null = null;
 
 function sectorsRedisKey(): string {
   return "sectors:sentiment:YTD";
-}
-
-async function fetchSectorSentimentPayload(): Promise<SectorSentimentPayload> {
-  const performanceMap = await fetchSectorPerformance(GICS_SECTOR_ETFS, DEFAULT_SECTOR_WINDOW);
-  return {
-    sectors: GICS_SECTOR_ETFS.map((etf) => {
-      const changePercent = performanceMap.get(etf) ?? null;
-      return {
-        etf,
-        changePercent,
-        sentiment: classifySectorSentiment(changePercent),
-        asOfMs: Date.now()
-      };
-    }),
-    stale: false
-  };
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -88,11 +68,31 @@ export async function GET(request: Request): Promise<NextResponse> {
       });
     }
 
-    if (!sectorsInFlight) {
-      sectorsInFlight = fetchSectorSentimentPayload();
-    }
+    const snapshotRead = await getAggregateSnapshotForRead<SectorSentimentPayload>({
+      key: AGGREGATE_SNAPSHOT_KEYS.SECTOR_SENTIMENT_YTD,
+      priority: "scheduled",
+      reason: "api-sectors-sentiment",
+      requestedBy: null
+    });
 
-    const payload = await sectorsInFlight;
+    const payload = snapshotRead.snapshot?.payload ?? null;
+    if (!payload) {
+      return NextResponse.json(
+        {
+          sectors: GICS_SECTOR_ETFS.map((etf) => ({ etf, changePercent: null, sentiment: "neutral", asOfMs: null })),
+          stale: true,
+          pending: true,
+          refreshQueued: snapshotRead.enqueued
+        },
+        {
+          status: 202,
+          headers: {
+            "Cache-Control": CACHE_HEADER,
+            "X-ELDAR-Data-State": "warming"
+          }
+        }
+      );
+    }
 
     sectorsCache = {
       expiresAt: Date.now() + CACHE_TTL_MS,
@@ -103,7 +103,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.json(payload, {
       headers: {
         "Cache-Control": CACHE_HEADER,
-        "X-ELDAR-Data-State": "fresh"
+        "X-ELDAR-Data-State": snapshotRead.state
       }
     });
   } catch (error) {
@@ -135,7 +135,5 @@ export async function GET(request: Request): Promise<NextResponse> {
         }
       }
     );
-  } finally {
-    sectorsInFlight = null;
   }
 }

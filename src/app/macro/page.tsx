@@ -142,7 +142,7 @@ export default function MacroPage(): JSX.Element {
       />
 
       {error ? (
-        <div className="mb-6 rounded-2xl border border-zinc-400/35 bg-zinc-300/10 px-4 py-3 text-sm text-zinc-100">{error}</div>
+        <div className="eldar-page-section mb-6 px-4 py-3 text-sm text-zinc-100">{error}</div>
       ) : null}
 
       <div className="space-y-4">
@@ -153,7 +153,7 @@ export default function MacroPage(): JSX.Element {
             <MacroGateStatusRow gatesFired={macroRegime.gatesFired} />
           </>
         ) : (
-          <div className="eldar-panel rounded-2xl p-6">
+          <div className="eldar-page-section p-6">
             <p className="text-sm text-white/62">{loading ? "Loading macro regime..." : "Macro regime is unavailable."}</p>
           </div>
         )}

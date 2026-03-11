@@ -25,6 +25,7 @@ const {
 
 const express = require("express");
 const { Server } = require("socket.io");
+const WebSocket = require("ws");
 const jwt = require("jsonwebtoken");
 
 const { getRealtimeConfig } = require("./config/shared-config");
@@ -36,6 +37,7 @@ const SOCKET_EVENTS = {
   INDICES_YTD_UPDATED: "indices-ytd:updated",
   EARNINGS_UPDATED: "earnings:updated",
   MAG7_UPDATED: "mag7:updated",
+  QUOTE_TICKS_UPDATED: "price-ticks:updated",
   HEARTBEAT_PING: "heartbeat:ping",
   HEARTBEAT_PONG: "heartbeat:pong"
 };
@@ -52,8 +54,22 @@ const INTERNAL_ALLOWED_EVENTS = new Set([
   SOCKET_EVENTS.MARKET_MOVERS_UPDATED,
   SOCKET_EVENTS.INDICES_YTD_UPDATED,
   SOCKET_EVENTS.EARNINGS_UPDATED,
-  SOCKET_EVENTS.MAG7_UPDATED
+  SOCKET_EVENTS.MAG7_UPDATED,
+  SOCKET_EVENTS.QUOTE_TICKS_UPDATED
 ]);
+
+function parseTimestampMs(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    if (value > 1e15) return Math.round(value / 1e6);
+    if (value > 1e12) return Math.round(value);
+    if (value > 1e9) return Math.round(value * 1000);
+  }
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return Date.now();
+}
 
 function normalizeBearerToken(value) {
   if (!value || !value.startsWith("Bearer ")) return null;
@@ -172,6 +188,167 @@ async function main() {
     scheduleTrailingFlush(key, waitMs);
   }
 
+  const quoteStreamState = {
+    enabled:
+      Boolean(config.quoteStreamEnabled) &&
+      typeof config.alpacaKeyId === "string" &&
+      config.alpacaKeyId.length > 0 &&
+      typeof config.alpacaSecret === "string" &&
+      config.alpacaSecret.length > 0 &&
+      Array.isArray(config.quoteStreamSymbols) &&
+      config.quoteStreamSymbols.length > 0,
+    connected: false,
+    lastMessageAt: null,
+    lastEmitAt: null,
+    reconnects: 0,
+    emittedUpdates: 0
+  };
+  let quoteStreamSocket = null;
+  let quoteStreamReconnectTimer = null;
+  let quoteStreamFlushTimer = null;
+  const pendingQuoteUpdates = new Map();
+
+  function queueQuoteUpdate(update) {
+    if (!update || !update.symbol || !Number.isFinite(update.price) || update.price <= 0) return;
+    pendingQuoteUpdates.set(update.symbol, update);
+  }
+
+  function scheduleQuoteStreamReconnect() {
+    if (!quoteStreamState.enabled) return;
+    if (quoteStreamReconnectTimer) return;
+    quoteStreamReconnectTimer = setTimeoutSafe(() => {
+      quoteStreamReconnectTimer = null;
+      startQuoteStream();
+    }, Math.max(1000, Number(config.quoteStreamReconnectMs) || 5000));
+  }
+
+  function closeQuoteStreamSocket() {
+    if (quoteStreamSocket) {
+      try {
+        quoteStreamSocket.removeAllListeners();
+        quoteStreamSocket.terminate();
+      } catch {
+        // no-op
+      }
+      quoteStreamSocket = null;
+    }
+    quoteStreamState.connected = false;
+  }
+
+  function startQuoteStream() {
+    if (!quoteStreamState.enabled) return;
+    if (quoteStreamSocket) return;
+
+    const wsUrl = config.quoteStreamUrl;
+    const symbols = config.quoteStreamSymbols;
+    quoteStreamSocket = new WebSocket(wsUrl);
+
+    quoteStreamSocket.on("open", () => {
+      try {
+        quoteStreamSocket.send(
+          JSON.stringify({
+            action: "auth",
+            key: config.alpacaKeyId,
+            secret: config.alpacaSecret
+          })
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown quote stream auth send error.";
+        console.error(`[Socket Server]: Quote stream auth send failed: ${message}`);
+      }
+    });
+
+    quoteStreamSocket.on("message", (raw) => {
+      quoteStreamState.lastMessageAt = Date.now();
+      let messages;
+      try {
+        messages = JSON.parse(String(raw));
+      } catch {
+        return;
+      }
+
+      const list = Array.isArray(messages) ? messages : [messages];
+      for (const message of list) {
+        if (!message || typeof message !== "object") continue;
+        const type = message.T;
+        if (type === "success" && message.msg === "authenticated") {
+          quoteStreamState.connected = true;
+          try {
+            quoteStreamSocket.send(
+              JSON.stringify({
+                action: "subscribe",
+                trades: symbols,
+                quotes: symbols
+              })
+            );
+            console.log(`[Socket Server]: Quote stream subscribed (${symbols.length} symbols, trades+quotes).`);
+          } catch (error) {
+            const errMsg = error instanceof Error ? error.message : "Unknown quote stream subscribe error.";
+            console.error(`[Socket Server]: Quote stream subscribe failed: ${errMsg}`);
+          }
+          continue;
+        }
+        if (type === "error") {
+          console.warn(`[Socket Server]: Quote stream error code=${message.code ?? "n/a"} msg=${message.msg ?? "unknown"}`);
+          continue;
+        }
+        if (type !== "t" && type !== "q") continue;
+
+        const symbol = typeof message.S === "string" ? message.S.toUpperCase() : null;
+        let price = null;
+        if (type === "t") {
+          price = typeof message.p === "number" && Number.isFinite(message.p) ? message.p : null;
+        } else if (type === "q") {
+          const bid = typeof message.bp === "number" && Number.isFinite(message.bp) ? message.bp : null;
+          const ask = typeof message.ap === "number" && Number.isFinite(message.ap) ? message.ap : null;
+          price = bid !== null && ask !== null ? (bid + ask) / 2 : ask ?? bid;
+        }
+        if (!symbol || price === null || price <= 0) continue;
+        queueQuoteUpdate({
+          symbol,
+          price,
+          asOfMs: parseTimestampMs(message.t)
+        });
+      }
+    });
+
+    quoteStreamSocket.on("close", () => {
+      quoteStreamState.connected = false;
+      quoteStreamState.reconnects += 1;
+      quoteStreamSocket = null;
+      scheduleQuoteStreamReconnect();
+    });
+
+    quoteStreamSocket.on("error", (error) => {
+      const message = error instanceof Error ? error.message : "Unknown quote stream socket error.";
+      console.error(`[Socket Server]: Quote stream error: ${message}`);
+      closeQuoteStreamSocket();
+      scheduleQuoteStreamReconnect();
+    });
+  }
+
+  if (quoteStreamState.enabled) {
+    startQuoteStream();
+    quoteStreamFlushTimer = setIntervalSafe(() => {
+      if (pendingQuoteUpdates.size === 0) return;
+      const updates = Array.from(pendingQuoteUpdates.values());
+      pendingQuoteUpdates.clear();
+      quoteStreamState.lastEmitAt = Date.now();
+      quoteStreamState.emittedUpdates += updates.length;
+      void emitThrottled({
+        room: PUBLIC_DASHBOARD_ROOM,
+        event: SOCKET_EVENTS.QUOTE_TICKS_UPDATED,
+        payload: {
+          source: "ALPACA_STREAM",
+          emittedAt: new Date().toISOString(),
+          updates
+        }
+      });
+    }, Math.max(120, Number(config.quoteStreamFlushMs) || 250));
+  } else {
+    console.log("[Socket Server]: Quote stream disabled (missing keys/symbols or flag disabled).");
+  }
+
   app.get("/health", async (_req, res) => {
     const adapterSize = await stateAdapter.size().catch(() => -1);
     res.status(200).json({
@@ -180,6 +357,13 @@ async function main() {
       connectedClients: io.engine.clientsCount,
       adapterMode: stateAdapter.mode,
       adapterEntries: adapterSize,
+      quoteStream: {
+        enabled: quoteStreamState.enabled,
+        connected: quoteStreamState.connected,
+        lastMessageAt: quoteStreamState.lastMessageAt,
+        lastEmitAt: quoteStreamState.lastEmitAt,
+        reconnects: quoteStreamState.reconnects
+      },
       timestamp: new Date().toISOString()
     });
   });
@@ -193,6 +377,13 @@ async function main() {
       ADAPTER: stateAdapter.mode,
       ADAPTER_ENTRIES: adapterSize,
       CONNECTED_CLIENTS: io.engine.clientsCount,
+      QUOTE_STREAM: {
+        enabled: quoteStreamState.enabled ? "YES" : "NO",
+        connected: quoteStreamState.connected ? "YES" : "NO",
+        symbols: config.quoteStreamSymbols.length,
+        reconnects: quoteStreamState.reconnects,
+        emittedUpdates: quoteStreamState.emittedUpdates
+      },
       HEARTBEAT: {
         intervalMs: config.heartbeatIntervalMs,
         timeoutMs: config.heartbeatTimeoutMs
@@ -333,6 +524,15 @@ async function main() {
   async function shutdown(signal) {
     console.log(`[Socket Server]: Received ${signal}. Closing gracefully...`);
     clearIntervalSafe(heartbeatTimer);
+    if (quoteStreamFlushTimer) {
+      clearIntervalSafe(quoteStreamFlushTimer);
+      quoteStreamFlushTimer = null;
+    }
+    if (quoteStreamReconnectTimer) {
+      clearTimeoutSafe(quoteStreamReconnectTimer);
+      quoteStreamReconnectTimer = null;
+    }
+    closeQuoteStreamSocket();
 
     for (const [, timer] of throttleTimers.entries()) {
       clearTimeoutSafe(timer);

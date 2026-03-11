@@ -6,13 +6,11 @@ import type { ReactNode } from "react";
 import {
   BookText,
   BriefcaseBusiness,
-  FileText,
   Grid2x2,
   LayoutDashboard,
   LineChart,
   Mail,
   Moon,
-  Search,
   Sun
 } from "lucide-react";
 
@@ -47,6 +45,17 @@ function TelegramBrandIcon(): JSX.Element {
   return (
     <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
       <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.62 8.17-1.95 9.19c-.15.65-.54.81-1.09.5l-3.02-2.23-1.46 1.41c-.16.16-.3.3-.62.3l.22-3.11 5.66-5.11c.25-.22-.05-.34-.38-.12l-7 4.41-3.02-.94c-.66-.2-.67-.66.14-.97l11.79-4.55c.55-.2 1.03.13.85.93z" />
+    </svg>
+  );
+}
+
+function SubstackBrandIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true">
+      <path d="M3 4h18v3H3z" fill="currentColor" opacity="0.96" />
+      <path d="M3 9h18v2H3z" fill="currentColor" opacity="0.82" />
+      <path d="M3 13h18v2H3z" fill="currentColor" opacity="0.74" />
+      <path d="M3 17h18v3l-9-3-9 3z" fill="currentColor" opacity="0.9" />
     </svg>
   );
 }
@@ -90,6 +99,10 @@ export function AppLeftSidebar({
   onOpenPortfolio,
   onToggleTheme
 }: AppLeftSidebarProps): JSX.Element {
+  void loading;
+  void defaultSearchValue;
+  void onQuickSearch;
+
   return (
     <aside
       className={clsx(
@@ -106,9 +119,6 @@ export function AppLeftSidebar({
           </button>
 
           <div className="flex flex-col items-center gap-2 pb-1">
-            <SidebarIconButton label="Search" onClick={() => onQuickSearch(defaultSearchValue)}>
-              <Search className="h-4 w-4" />
-            </SidebarIconButton>
             <SidebarIconButton label="Dashboard" active={activeView === "dashboard"} onClick={onOpenDashboard}>
               <LayoutDashboard className="h-4 w-4" />
             </SidebarIconButton>
@@ -125,12 +135,6 @@ export function AppLeftSidebar({
               <BriefcaseBusiness className="h-4 w-4" />
             </SidebarIconButton>
           </div>
-          {loading ? (
-            <div className="mt-1 flex flex-col items-center gap-1">
-              <span className="h-[2px] w-8 animate-pulse rounded-full bg-white/85" />
-              <span className="h-[2px] w-5 animate-pulse rounded-full bg-white/55" />
-            </div>
-          ) : null}
         </div>
 
         <div className="flex flex-col items-center gap-2">
@@ -167,7 +171,7 @@ export function AppLeftSidebar({
             className="eldar-menu-icon p-1.5 text-white/75 transition hover:text-white"
             aria-label="Substack"
           >
-            <FileText className="h-3.5 w-3.5" />
+            <SubstackBrandIcon />
           </a>
           <a
             href="https://eldar.beehiiv.com"

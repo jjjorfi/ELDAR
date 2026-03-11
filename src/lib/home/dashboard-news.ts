@@ -1,7 +1,7 @@
 // AI CONTEXT TRACE
 // Builds the dashboard's market-news module. This file keeps headline ranking
 // and provider fallback logic out of the dashboard route/service so the home
-// payload stays thin. Current default focus is US100 / mega-cap names, but the
+// payload stays thin. Current default focus is broad S&P 500 mega-cap names, but the
 // focus symbol builder is intentionally separate so we can extend to other
 // universes later without rewriting the module.
 
@@ -13,10 +13,10 @@ import { fetchGoogleNewsHeadlines } from "@/lib/market/google-news";
 
 import type { HomeNewsItem } from "@/lib/home/dashboard-types";
 
-const NEWS_CACHE_TTL_MS = 90_000;
-const NEWS_REDIS_TTL_SECONDS = 90;
-const DEFAULT_US100_FOCUS = ["NVDA", "MSFT", "AAPL", "AMZN", "META", "GOOGL", "AVGO", "TSLA", "AMD", "NFLX"];
-const MAX_FOCUS_SYMBOLS = 8;
+const NEWS_CACHE_TTL_MS = 180_000;
+const NEWS_REDIS_TTL_SECONDS = 180;
+const DEFAULT_SP500_FOCUS = ["NVDA", "MSFT", "AAPL", "AMZN", "META", "GOOGL", "BRK.B", "LLY", "JPM", "XOM"];
+const MAX_FOCUS_SYMBOLS = 6;
 const FINANCE_SOURCE_HINTS = ["Reuters", "Bloomberg", "CNBC", "Yahoo Finance", "MarketWatch", "Barron's", "The Wall Street Journal", "Nasdaq"];
 const MARKET_KEYWORDS = ["stock", "stocks", "nasdaq", "s&p", "earnings", "guidance", "shares", "market", "ai", "chip", "cloud", "revenue", "forecast", "tariff", "fed", "rates"];
 const OFF_TOPIC_KEYWORDS = ["game", "games", "movie", "movies", "tv", "show", "shows", "streaming catalog", "trailer"];
@@ -34,7 +34,7 @@ export function buildDashboardNewsFocusSymbols(carriedSymbols: string[], moverSy
       [
         ...moverSymbols.slice(0, 4),
         ...carriedSymbols.slice(0, 6),
-        ...DEFAULT_US100_FOCUS
+        ...DEFAULT_SP500_FOCUS
       ]
         .map((value) => value.trim().toUpperCase())
         .filter(Boolean)
@@ -72,7 +72,7 @@ function scoreHeadline(item: HomeNewsItem, focusSymbols: string[]): number {
 async function fetchFinnhubDashboardNews(symbols: string[]): Promise<HomeNewsItem[]> {
   const newsSets = await Promise.all(
     symbols.slice(0, 4).map((symbol) =>
-      withTimeoutFallback(fetchFinnhubCompanyNews(symbol, 10, 4), 1_400, [])
+      withTimeoutFallback(fetchFinnhubCompanyNews(symbol, 10, 4), 1_000, [])
         .then((items) =>
           items.map<HomeNewsItem>((item) => ({
             symbol,
@@ -91,9 +91,9 @@ async function fetchFinnhubDashboardNews(symbols: string[]): Promise<HomeNewsIte
 
 async function buildNewsPayload(focusSymbols: string[]): Promise<HomeNewsItem[]> {
   const [alphaNews, finnhubNews, googleNews] = await Promise.all([
-    withTimeoutFallback(fetchAlphaVantageNewsHeadlines(focusSymbols, 10), 2_200, []),
+    withTimeoutFallback(fetchAlphaVantageNewsHeadlines(focusSymbols, 10), 1_300, []),
     fetchFinnhubDashboardNews(focusSymbols),
-    withTimeoutFallback(fetchGoogleNewsHeadlines(focusSymbols, 10), 2_200, [])
+    withTimeoutFallback(fetchGoogleNewsHeadlines(focusSymbols, 10), 1_300, [])
   ]);
 
   const merged: HomeNewsItem[] = [];

@@ -55,6 +55,10 @@ const sharedState: SharedSocketState = {
 
 let activeConsumers = 0;
 let realtimeDisabledReason: string | null = null;
+let lastSoftConnectWarningAtMs = 0;
+
+const SOFT_CONNECT_WARNING_COOLDOWN_MS = 30_000;
+const SOFT_CONNECT_ERROR_MARKERS = ["websocket error", "xhr poll error", "timeout", "transport close"];
 
 class RealtimeDisabledError extends Error {
   constructor(message: string) {
@@ -229,6 +233,20 @@ export function useSocket(options: UseSocketOptions): UseSocketResult {
       const onConnectError = (connectError: Error): void => {
         if (cancelled) return;
         const message = connectError?.message ?? "Unknown connection error.";
+        const normalized = message.toLowerCase();
+        const isSoftError = SOFT_CONNECT_ERROR_MARKERS.some((marker) => normalized.includes(marker));
+
+        if (isSoftError) {
+          const nowMs = Date.now();
+          if (nowMs - lastSoftConnectWarningAtMs > SOFT_CONNECT_WARNING_COOLDOWN_MS) {
+            console.warn(`[useSocket]: Realtime temporarily unavailable (${message}). Using HTTP fallback.`);
+            lastSoftConnectWarningAtMs = nowMs;
+          }
+          setStatus("reconnecting");
+          setError(null);
+          return;
+        }
+
         console.error(`[useSocket]: Connection error: ${message}`);
         setStatus("error");
         setError(message);

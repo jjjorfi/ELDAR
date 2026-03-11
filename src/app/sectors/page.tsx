@@ -338,17 +338,16 @@ export default function SectorsPage(): JSX.Element {
       <AppPageHeader
         eyebrow="Market Structure"
         title="Sectors"
-        subtitle={sentimentLoading ? "Loading live sector ranking." : "All 11 GICS sectors with uniform ranking, heatmap, and drill-down context."}
+        subtitle={undefined}
         actions={
           <>
             <button
               type="button"
               onClick={() => setViewMode("heatmap")}
+              aria-pressed={viewMode === "heatmap"}
               className={clsx(
-                "h-9 rounded-xl border px-3 text-[10px] uppercase tracking-[0.12em] transition",
-                viewMode === "heatmap"
-                  ? "border-white/35 bg-white/10 text-white"
-                  : "border-white/20 bg-black/20 text-white/70 hover:text-white"
+                "eldar-page-toggle px-3 text-[10px] uppercase tracking-[0.12em]",
+                viewMode === "heatmap" && "border-white/28 bg-white/[0.09] text-white"
               )}
             >
               Heatmap
@@ -356,11 +355,10 @@ export default function SectorsPage(): JSX.Element {
             <button
               type="button"
               onClick={() => setViewMode("table")}
+              aria-pressed={viewMode === "table"}
               className={clsx(
-                "h-9 rounded-xl border px-3 text-[10px] uppercase tracking-[0.12em] transition",
-                viewMode === "table"
-                  ? "border-white/35 bg-white/10 text-white"
-                  : "border-white/20 bg-black/20 text-white/70 hover:text-white"
+                "eldar-page-toggle px-3 text-[10px] uppercase tracking-[0.12em]",
+                viewMode === "table" && "border-white/28 bg-white/[0.09] text-white"
               )}
             >
               Table
@@ -368,7 +366,7 @@ export default function SectorsPage(): JSX.Element {
             <button
               type="button"
               onClick={() => openDashboardView("home", "SPY", { autoAnalyze: true })}
-              className="primary-cta h-9 rounded-xl border px-3 text-[10px] uppercase tracking-[0.12em] text-white transition"
+              className="eldar-btn-silver primary-cta h-9 rounded-xl px-3 text-[10px] font-semibold uppercase tracking-[0.12em]"
             >
               Compare to SPY
             </button>
@@ -377,51 +375,53 @@ export default function SectorsPage(): JSX.Element {
       />
 
       {viewMode === "heatmap" ? (
-        <div className="grid gap-3 p-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {sortedRows.map((row, index) => {
-            const live = sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf];
-            const moveValue = typeof live.changePercent === "number" ? live.changePercent : 0;
-            const biasRank = biasRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
-            const moveRank = moveRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
+        <div className="eldar-page-section p-2">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {sortedRows.map((row, index) => {
+              const live = sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf];
+              const moveValue = typeof live.changePercent === "number" ? live.changePercent : 0;
+              const biasRank = biasRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
+              const moveRank = moveRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
 
-            return (
-              <button
-                key={`tile-${row.etf}`}
-                type="button"
-                className={clsx(
-                  "eldar-panel min-h-[148px] px-5 py-4 text-left transition hover:border-white/30",
-                  heatTileTone(live.sentiment)
-                )}
-                onClick={() => setActiveSectorEtf(row.etf)}
-                style={{ animation: `fadeUp 0.4s ease-out ${Math.min(index, 10) * 0.05}s both` }}
-              >
-                <div className="mb-2">
-                  <p className="text-[9px] uppercase tracking-[0.14em] text-white/45">
-                    #{biasRank} · {row.etf}
-                  </p>
-                  <p className="mt-2 text-base font-bold text-white">{row.displayName}</p>
-                </div>
-                <div className="mt-5">
-                  <p
-                    className={clsx(
-                      "text-2xl font-black",
-                      moveValue > 0 ? "text-emerald-300" : moveValue < 0 ? "text-red-300" : "text-white/75"
-                    )}
-                  >
-                    {moveValue > 0 ? "+" : ""}
-                    {moveValue.toFixed(2)}%
-                  </p>
-                  <p className={clsx("mt-1 text-[10px] font-semibold uppercase tracking-[0.12em]", sentimentClass(live.sentiment))}>
-                    {sentimentLabel(live.sentiment)}
-                    <span className="ml-2 text-white/50">#{moveRank}</span>
-                  </p>
-                </div>
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={`tile-${row.etf}`}
+                  type="button"
+                  className={clsx(
+                    "eldar-dashboard-surface min-h-[148px] px-5 py-4 text-left transition hover:border-white/30",
+                    heatTileTone(live.sentiment)
+                  )}
+                  onClick={() => setActiveSectorEtf(row.etf)}
+                  style={{ animation: `fadeUp 0.4s ease-out ${Math.min(index, 10) * 0.05}s both` }}
+                >
+                  <div className="mb-2">
+                    <p className="text-[9px] uppercase tracking-[0.14em] text-white/45">
+                      #{biasRank} · {row.etf}
+                    </p>
+                    <p className="mt-2 text-base font-bold text-white">{row.displayName}</p>
+                  </div>
+                  <div className="mt-5">
+                    <p
+                      className={clsx(
+                        "text-2xl font-black",
+                        moveValue > 0 ? "text-emerald-300" : moveValue < 0 ? "text-red-300" : "text-white/75"
+                      )}
+                    >
+                      {moveValue > 0 ? "+" : ""}
+                      {moveValue.toFixed(2)}%
+                    </p>
+                    <p className={clsx("mt-1 text-[10px] font-semibold uppercase tracking-[0.12em]", sentimentClass(live.sentiment))}>
+                      {sentimentLabel(live.sentiment)}
+                      <span className="ml-2 text-white/50">#{moveRank}</span>
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       ) : (
-        <div className="eldar-panel overflow-hidden rounded-3xl">
+        <div className="eldar-page-section overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead className="border-b border-white/15 bg-white/[0.04]">
