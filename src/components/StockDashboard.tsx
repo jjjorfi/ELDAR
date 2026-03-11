@@ -41,6 +41,48 @@ import {
 } from "@/components/dashboard/HomeDashboardModules";
 import { HeroLanding } from "@/components/landing/HeroLanding";
 import { NavigationSidebar } from "@/components/stock-dashboard/NavigationSidebar";
+import {
+  PortfolioHoldingDrawer,
+  PortfolioMainPanel
+} from "@/components/stock-dashboard/PortfolioPanels";
+import { ResultsChartsPanel } from "@/components/stock-dashboard/ResultsChartsPanel";
+import { ResultsSidebar } from "@/components/stock-dashboard/ResultsSidebar";
+import {
+  areMag7CardsEqual,
+  factorActionHint,
+  factorSignalToneClass,
+  findFactorMetric,
+  findFactorSignal,
+  formatSignedPercent,
+  isTypingTarget,
+  mergeIndexRows,
+  ratioToPercentPoints,
+  readCachedHomeDashboard,
+  sectorRelativeState,
+  writeCachedHomeDashboard
+} from "@/components/stock-dashboard/data-helpers";
+import {
+  AnalysisRadarOverlay,
+  HackingScore,
+  HackingValueText,
+  buildComparisonFactorTuple,
+  buildSparklinePath,
+  dedupeSearchResultsBySymbol,
+  describeDonutSlicePath,
+  formatChartDate,
+  formatEarningsDate,
+  formatOptionalDecimal,
+  percentWithSign,
+  ratingLabelFromKey,
+  ratingLabelToneClass,
+  ratingToneByLabel,
+  scoreBandColor,
+  scoreLabel,
+  sectorHeatFromScore,
+  sectorHeatLabel,
+  sortMag7Cards,
+  toConfidenceLevel
+} from "@/components/stock-dashboard/view-helpers";
 import { RATING_BANDS, toRating } from "@/lib/rating";
 import { scorePortfolio } from "@/lib/scoring/portfolio/engine";
 import type { PersistedPortfolioSnapshot, PortfolioEngineInput, PortfolioInputHolding } from "@/lib/scoring/portfolio/types";
@@ -206,508 +248,11 @@ const ELDAR_BRAND_LOGO = "/brand/eldar-logo.png";
 const ANALYSIS_CACHE_TTL_MS = 90_000;
 const LOCAL_WATCHLIST_STORAGE_KEY = "eldar:watchlist:local";
 const LOCAL_INDICES_STORAGE_KEY = "eldar:indices:ytd";
-const LOCAL_HOME_DASHBOARD_STORAGE_PREFIX = "eldar:home:dashboard";
 const QUOTE_STREAM_IDLE_THRESHOLD_MS = 8_000;
 const QUOTE_HTTP_POLL_INTERVAL_MS = 2_000;
 const QUOTE_HTTP_POLL_TICK_MS = 1_000;
 const QUOTE_HTTP_POLL_TIMEOUT_MS = 1_500;
 const QUOTE_HTTP_POLL_SYMBOL_LIMIT = 24;
-
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName.toLowerCase();
-  return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
-}
-
-function homeDashboardStorageKey(windowKey: SectorRotationWindow): string {
-  return `${LOCAL_HOME_DASHBOARD_STORAGE_PREFIX}:${windowKey}`;
-}
-
-function readCachedHomeDashboard(windowKey: SectorRotationWindow): HomeDashboardPayload | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.sessionStorage.getItem(homeDashboardStorageKey(windowKey));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { payload?: HomeDashboardPayload };
-    return parsed.payload ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function writeCachedHomeDashboard(payload: HomeDashboardPayload): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(
-      homeDashboardStorageKey(payload.sectorWindow),
-      JSON.stringify({ storedAt: Date.now(), payload })
-    );
-  } catch {
-    // Session storage writes are optional.
-  }
-}
-
-interface AnalysisRadarOverlayProps {
-  symbol: string | null;
-  phase: AnalysisPhase;
-}
-
-function AnalysisRadarOverlay({ symbol, phase }: AnalysisRadarOverlayProps): JSX.Element {
-  return (
-    <div className="eldar-radar-overlay fixed inset-0 z-[80] flex items-center justify-center px-6">
-      <div className="eldar-radar-panel rounded-3xl border border-white/20 px-8 py-7 text-center backdrop-blur-xl">
-        <div className="eldar-sci-loader mx-auto mb-5" aria-hidden="true">
-          <span className="eldar-sci-ring eldar-sci-ring-outer" />
-          <span className="eldar-sci-ring eldar-sci-ring-mid" />
-          <span className="eldar-sci-ring eldar-sci-ring-inner" />
-          <span className="eldar-sci-orbit eldar-sci-orbit-a" />
-          <span className="eldar-sci-orbit eldar-sci-orbit-b" />
-          <span className="eldar-sci-core" />
-          <span className="eldar-sci-grid" />
-        </div>
-        <p className="eldar-caption text-[10px] text-white/65">ANALYZING {symbol ? `$${symbol}` : "SYMBOL"}</p>
-        <p className="mt-2 text-sm text-white/82">
-          {phase === "fetching" ? "Pulling live market data..." : "Finalizing full analysis..."}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function scoreLabel(score: number): string {
-  const formatted = Number.isInteger(score) ? score.toFixed(0) : score.toFixed(1);
-  return score > 0 ? `+${formatted}` : formatted;
-}
-
-function ratingToneByLabel(rating: RatingLabel): "bullish" | "neutral" | "bearish" {
-  if (rating === "STRONG_BUY" || rating === "BUY") return "bullish";
-  if (rating === "STRONG_SELL" || rating === "SELL") return "bearish";
-  return "neutral";
-}
-
-function ratingLabelFromKey(rating: RatingLabel): string {
-  return RATING_BANDS[rating].label;
-}
-
-function ratingLabelToneClass(label: string): string {
-  const normalized = label.toLowerCase();
-  if (normalized.includes("strongly bullish") || normalized.includes("strong buy")) return "text-[#FFBF00]";
-  if (normalized.includes("bullish") || normalized.includes("buy")) return "text-emerald-300";
-  if (normalized.includes("bearish") || normalized.includes("sell")) return "text-red-300";
-  return "text-slate-300";
-}
-
-function percentWithSign(value: number): string {
-  return `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
-}
-
-function sectorHeatFromScore(score: number): "HOT" | "NEUTRAL" | "COLD" {
-  if (score >= 7) return "HOT";
-  if (score >= 5) return "NEUTRAL";
-  return "COLD";
-}
-
-function sectorHeatLabel(heat: "HOT" | "NEUTRAL" | "COLD"): string {
-  return heat;
-}
-
-function toConfidenceLevel(dataCompleteness: number): "HIGH" | "MEDIUM" | "LOW" {
-  if (dataCompleteness >= 0.9) return "HIGH";
-  if (dataCompleteness >= 0.7) return "MEDIUM";
-  return "LOW";
-}
-
-function scoreFactorBucket(
-  factors: PersistedAnalysis["factors"],
-  matcher: (factor: PersistedAnalysis["factors"][number]) => boolean
-): number {
-  const selected = factors.filter((factor) => factor.hasData && matcher(factor));
-  if (selected.length === 0) return 0;
-  const totalWeight = selected.reduce((sum, factor) => sum + factor.weight, 0);
-  if (totalWeight <= 0) return 0;
-  const totalPoints = selected.reduce((sum, factor) => sum + factor.points, 0);
-  return Math.max(0, Math.min(10, (totalPoints / totalWeight) * 10));
-}
-
-function buildComparisonFactorTuple(analysis: PersistedAnalysis): [number, number, number, number] {
-  const fundamentals = scoreFactorBucket(
-    analysis.factors,
-    (factor) => factor.category === "Fundamental" || factor.category === "Valuation"
-  );
-  const momentum = scoreFactorBucket(analysis.factors, (factor) => factor.category === "Technical");
-  const valuation = scoreFactorBucket(analysis.factors, (factor) => factor.category === "Valuation");
-  const sentiment = scoreFactorBucket(
-    analysis.factors,
-    (factor) => factor.category === "Sentiment" || factor.category === "Macro"
-  );
-  return [fundamentals, momentum, valuation, sentiment];
-}
-
-interface HackingScoreProps {
-  value: number;
-  triggerKey: string;
-  className?: string;
-  durationMs?: number;
-}
-
-function HackingScore({ value, triggerKey, className, durationMs = 200 }: HackingScoreProps): JSX.Element {
-  const [displayValue, setDisplayValue] = useState<number>(value);
-
-  useEffect(() => {
-    if (!Number.isFinite(value)) {
-      setDisplayValue(0);
-      return;
-    }
-
-    let rafId = 0;
-    const start = performance.now();
-
-    const animate = (now: number): void => {
-      const elapsed = now - start;
-      if (elapsed >= durationMs) {
-        setDisplayValue(value);
-        return;
-      }
-
-      const progress = elapsed / durationMs;
-      const jitter = (1 - progress) * 2.4;
-      const noise = (Math.random() - 0.5) * jitter;
-      const next = Math.max(0, Math.min(10, value + noise));
-      setDisplayValue(next);
-      rafId = window.requestAnimationFrame(animate);
-    };
-
-    rafId = window.requestAnimationFrame(animate);
-    return () => window.cancelAnimationFrame(rafId);
-  }, [value, triggerKey, durationMs]);
-
-  return <span className={className}>{displayValue.toFixed(1)}</span>;
-}
-
-interface HackingValueTextProps {
-  finalText: string;
-  loading: boolean;
-  triggerKey: string;
-  className?: string;
-  settleDurationMs?: number;
-}
-
-function hackerizeText(text: string): string {
-  if (!text || text === "N/A") {
-    return `${Math.random() > 0.5 ? "+" : "−"}${(Math.random() * 99).toFixed(1)}%`;
-  }
-
-  return text
-    .replace(/[0-9]/g, () => String(Math.floor(Math.random() * 10)))
-    .replace(/[+\-−]/g, () => (Math.random() > 0.5 ? "+" : "−"));
-}
-
-function HackingValueText({
-  finalText,
-  loading,
-  triggerKey,
-  className,
-  settleDurationMs = 300
-}: HackingValueTextProps): JSX.Element {
-  const [displayText, setDisplayText] = useState<string>(finalText);
-  const [isHacking, setIsHacking] = useState<boolean>(true);
-
-  useEffect(() => {
-    let timeoutId: number | null = null;
-
-    setIsHacking(true);
-    if (!loading) {
-      timeoutId = window.setTimeout(() => {
-        setIsHacking(false);
-      }, settleDurationMs);
-    }
-
-    return () => {
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [loading, triggerKey, settleDurationMs]);
-
-  useEffect(() => {
-    if (!isHacking) {
-      setDisplayText(finalText);
-      return;
-    }
-
-    const tick = (): void => {
-      setDisplayText(hackerizeText(finalText));
-    };
-
-    tick();
-    const intervalId = window.setInterval(tick, 65);
-    return () => window.clearInterval(intervalId);
-  }, [isHacking, finalText]);
-
-  return <span className={className}>{displayText}</span>;
-}
-
-function formatOptionalDecimal(value: number | null | undefined, digits = 2): string | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return null;
-  }
-  return value.toFixed(digits);
-}
-
-function formatEarningsDate(value: string | null): string {
-  if (!value) return "TBD";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "TBD";
-  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-function formatChartDate(value: string): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "N/A";
-  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-function dedupeSearchResultsBySymbol(results: SearchResultItem[]): SearchResultItem[] {
-  const seen = new Set<string>();
-  const deduped: SearchResultItem[] = [];
-
-  for (const item of results) {
-    if (seen.has(item.symbol)) {
-      continue;
-    }
-
-    seen.add(item.symbol);
-    deduped.push(item);
-  }
-
-  return deduped;
-}
-
-function sortMag7Cards(cards: Mag7ScoreCard[]): Mag7ScoreCard[] {
-  const rank = (value: number | null): number => (typeof value === "number" && Number.isFinite(value) ? value : -Infinity);
-  return [...cards].sort(
-    (a, b) => rank(b.changePercent) - rank(a.changePercent) || b.score - a.score || a.symbol.localeCompare(b.symbol)
-  );
-}
-
-function buildSparklinePath(points: number[], width: number, height: number): string {
-  if (points.length === 0) {
-    return "";
-  }
-  if (points.length === 1) {
-    return `M0 ${height / 2} L${width} ${height / 2}`;
-  }
-
-  const min = Math.min(...points);
-  const max = Math.max(...points);
-  const span = Math.max(max - min, 0.000001);
-
-  return points
-    .map((value, index) => {
-      const x = (index / (points.length - 1)) * width;
-      const y = height - ((value - min) / span) * height;
-      return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
-    .join(" ");
-}
-
-function polarToCartesian(cx: number, cy: number, radius: number, angleDeg: number): { x: number; y: number } {
-  const angle = ((angleDeg - 90) * Math.PI) / 180;
-  return {
-    x: cx + radius * Math.cos(angle),
-    y: cy + radius * Math.sin(angle)
-  };
-}
-
-function describeDonutSlicePath(
-  cx: number,
-  cy: number,
-  innerRadius: number,
-  outerRadius: number,
-  startAngle: number,
-  endAngle: number
-): string {
-  const outerStart = polarToCartesian(cx, cy, outerRadius, startAngle);
-  const outerEnd = polarToCartesian(cx, cy, outerRadius, endAngle);
-  const innerEnd = polarToCartesian(cx, cy, innerRadius, endAngle);
-  const innerStart = polarToCartesian(cx, cy, innerRadius, startAngle);
-  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-
-  return [
-    `M ${outerStart.x.toFixed(2)} ${outerStart.y.toFixed(2)}`,
-    `A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${outerEnd.x.toFixed(2)} ${outerEnd.y.toFixed(2)}`,
-    `L ${innerEnd.x.toFixed(2)} ${innerEnd.y.toFixed(2)}`,
-    `A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${innerStart.x.toFixed(2)} ${innerStart.y.toFixed(2)}`,
-    "Z"
-  ].join(" ");
-}
-
-function scoreBandColor(score: number | null): string {
-  if (typeof score !== "number" || !Number.isFinite(score)) return "#6B7280";
-  if (score >= 7.9) return "#FFBF00";
-  if (score >= 6.3) return "#10B981";
-  if (score >= 4.1) return "#6B7280";
-  if (score >= 2.8) return "#EF4444";
-  return "#B91C1C";
-}
-
-function mergeIndexRows(primary: IndexYtdItem[], fallback: IndexYtdItem[]): IndexYtdItem[] {
-  const fallbackByCode = new Map(fallback.map((item) => [item.code, item]));
-  const primaryByCode = new Map(primary.map((item) => [item.code, item]));
-
-  return ["US30", "US100", "US500"].map((code) => {
-    const typedCode = code as IndexYtdItem["code"];
-    const next = primaryByCode.get(typedCode);
-    const previous = fallbackByCode.get(typedCode);
-    if (!next && previous) return previous;
-    if (!next) {
-      return FALLBACK_INDICES_YTD.find((row) => row.code === typedCode) as IndexYtdItem;
-    }
-
-    return {
-      ...next,
-      current: next.current ?? previous?.current ?? null,
-      ytdChangePercent: next.ytdChangePercent ?? previous?.ytdChangePercent ?? null,
-      asOf: next.asOf ?? previous?.asOf ?? null,
-      points: next.points.length > 0 ? next.points : previous?.points ?? []
-    };
-  });
-}
-
-function extractFirstNumeric(text: string | null | undefined): number | null {
-  if (!text) return null;
-  const match = text.match(/-?\d+(?:\.\d+)?/);
-  if (!match) return null;
-  const parsed = Number(match[0]);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function findFactorMatch(
-  factors: PersistedAnalysis["factors"],
-  factorNames: string[]
-): PersistedAnalysis["factors"][number] | null {
-  for (const factorName of factorNames) {
-    const match = factors.find((factor) => factor.factor === factorName);
-    if (match) {
-      return match;
-    }
-  }
-  return null;
-}
-
-function findFactorMetric(
-  factors: PersistedAnalysis["factors"],
-  factorName: string,
-  fallbackFactorNames: string[] = []
-): number | null {
-  const match = findFactorMatch(factors, [factorName, ...fallbackFactorNames]);
-  return extractFirstNumeric(match?.metricValue ?? null);
-}
-
-function findFactorSignal(
-  factors: PersistedAnalysis["factors"],
-  factorName: string,
-  fallbackFactorNames: string[] = []
-): FactorResult["signal"] | null {
-  const match = findFactorMatch(factors, [factorName, ...fallbackFactorNames]);
-  return match?.signal ?? null;
-}
-
-function factorSignalToneClass(signal: FactorResult["signal"] | null): string {
-  if (signal === "BULLISH") return "text-emerald-300";
-  if (signal === "BEARISH") return "text-red-300";
-  return "text-white/75";
-}
-
-function formatSignedPercent(value: number | null, digits = 1): string {
-  if (value === null || !Number.isFinite(value)) return "N/A";
-  return `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(digits)}%`;
-}
-
-function ratioToPercentPoints(value: number | null): number | null {
-  if (value === null || !Number.isFinite(value)) return null;
-  return value * 100;
-}
-
-function factorActionHint(factorName: string): string {
-  if (factorName.includes("EPS Estimate Revision")) return "EPS revision needs to turn positive";
-  if (factorName.includes("Price vs 200SMA")) return "Momentum needs to recover above 200SMA";
-  if (factorName.includes("52w Relative Strength")) return "Relative strength vs sector needs to improve";
-  if (factorName.includes("EV/EBITDA")) return "Valuation needs to normalize versus sector peers";
-  if (factorName.includes("Debt/Equity")) return "Leverage profile needs to improve";
-  if (factorName.includes("Short Interest")) return "Short-interest pressure needs to cool";
-  return `${factorName} needs to improve`;
-}
-
-function sectorRelativeState(vsSectorPercent: number | null): {
-  arrow: string;
-  value: string;
-  label: "LEADING" | "LAGGING" | "IN LINE";
-  toneClass: string;
-} {
-  if (typeof vsSectorPercent !== "number" || !Number.isFinite(vsSectorPercent)) {
-    return {
-      arrow: "•",
-      value: "N/A",
-      label: "IN LINE",
-      toneClass: "text-white/55"
-    };
-  }
-
-  if (vsSectorPercent >= 1) {
-    return {
-      arrow: "▲",
-      value: formatSignedPercent(vsSectorPercent, 1),
-      label: "LEADING",
-      toneClass: "text-emerald-300"
-    };
-  }
-
-  if (vsSectorPercent <= -1) {
-    return {
-      arrow: "▼",
-      value: formatSignedPercent(vsSectorPercent, 1),
-      label: "LAGGING",
-      toneClass: "text-red-300"
-    };
-  }
-
-  return {
-    arrow: "•",
-    value: formatSignedPercent(vsSectorPercent, 1),
-    label: "IN LINE",
-    toneClass: "text-white/55"
-  };
-}
-
-function areMag7CardsEqual(a: Mag7ScoreCard[], b: Mag7ScoreCard[]): boolean {
-  if (a.length !== b.length) return false;
-
-  for (let index = 0; index < a.length; index += 1) {
-    const left = a[index];
-    const right = b[index];
-
-    if (left.symbol !== right.symbol || left.rating !== right.rating || Math.abs(left.score - right.score) > 0.001) {
-      return false;
-    }
-
-    if (Math.abs(left.currentPrice - right.currentPrice) > 0.001) {
-      return false;
-    }
-
-    const leftChange = left.changePercent ?? null;
-    const rightChange = right.changePercent ?? null;
-    if (leftChange === null && rightChange === null) {
-      continue;
-    }
-
-    if (leftChange === null || rightChange === null || Math.abs(leftChange - rightChange) > 0.001) {
-      return false;
-    }
-  }
-
-  return true;
-}
 
 export function StockDashboard({
   initialHistory,
@@ -1361,7 +906,7 @@ export function StockDashboard({
     const handleIndicesDelta = (payload: IndicesYtdPayload): void => {
       try {
         if (!payload || !Array.isArray(payload.indices)) return;
-        setIndicesYtd((prev) => mergeIndexRows(payload.indices, prev));
+        setIndicesYtd((prev) => mergeIndexRows(payload.indices, prev, FALLBACK_INDICES_YTD));
       } catch (error) {
         const message = error instanceof Error ? error.message : "Malformed indices realtime payload.";
         console.error(`[Stock Dashboard]: Indices delta error: ${message}`);
@@ -2037,7 +1582,7 @@ export function StockDashboard({
 
         const nextIndices = Array.isArray(payload.indices) ? payload.indices : [];
         if (nextIndices.length > 0) {
-          setIndicesYtd((prev) => mergeIndexRows(nextIndices, prev));
+          setIndicesYtd((prev) => mergeIndexRows(nextIndices, prev, FALLBACK_INDICES_YTD));
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to load indices.";
@@ -3046,9 +2591,9 @@ export function StockDashboard({
           signal: null as FactorResult["signal"] | null,
           format: "multiple" as "multiple" | "percent"
         },
-        revenueGrowth: { value: null as number | null, signal: null as FactorResult["signal"] | null },
-        epsGrowth: { value: null as number | null, signal: null as FactorResult["signal"] | null },
-        fcfYield: { value: null as number | null, signal: null as FactorResult["signal"] | null }
+        revenueGrowth: { label: "Revenue Growth", value: null as number | null, signal: null as FactorResult["signal"] | null },
+        epsGrowth: { label: "EPS Growth", value: null as number | null, signal: null as FactorResult["signal"] | null },
+        fcfYield: { label: "FCF Yield", value: null as number | null, signal: null as FactorResult["signal"] | null }
       };
     }
 
@@ -3070,15 +2615,18 @@ export function StockDashboard({
         format: isReitValuation ? ("percent" as const) : ("multiple" as const)
       },
       revenueGrowth: {
+        label: "Revenue Growth",
         value: ratioToPercentPoints(fundamentals?.revenueGrowth ?? null) ?? findFactorMetric(currentRating.factors, "Revenue Growth"),
         signal: findFactorSignal(currentRating.factors, "Revenue Growth")
       },
       epsGrowth: {
+        label: "EPS Growth",
         value:
           ratioToPercentPoints(fundamentals?.earningsQuarterlyGrowth ?? null) ?? findFactorMetric(currentRating.factors, "EPS Growth"),
         signal: findFactorSignal(currentRating.factors, "EPS Growth")
       },
       fcfYield: {
+        label: "FCF Yield",
         value: ratioToPercentPoints(fundamentals?.fcfYield ?? null) ?? findFactorMetric(currentRating.factors, "FCF Yield"),
         signal: findFactorSignal(currentRating.factors, "FCF Yield")
       }
@@ -3347,7 +2895,7 @@ export function StockDashboard({
       return null;
     }
 
-    const normalizedIndices = mergeIndexRows(indicesYtd, FALLBACK_INDICES_YTD);
+    const normalizedIndices = mergeIndexRows(indicesYtd, FALLBACK_INDICES_YTD, FALLBACK_INDICES_YTD);
     const us500 = normalizedIndices.find((item) => item.code === "US500");
     const benchmarkPoints = us500?.points ?? [];
     const monthsOfHistory =
@@ -4507,174 +4055,27 @@ export function StockDashboard({
                   }
                 />
 
-                <div className="eldar-panel reveal-block rounded-3xl p-6" style={{ transitionDelay: "60ms" }}>
-                  <h2 className="mb-4 text-lg font-semibold text-white">PRICE CHART</h2>
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      {PRICE_RANGE_OPTIONS.map((windowSize) => (
-                        <button
-                          key={`price-window-${windowSize}`}
-                          type="button"
-                          onClick={() => setPriceRange(windowSize)}
-                          className={clsx(
-                            "min-h-[36px] rounded-lg border px-3 text-[10px] font-semibold uppercase tracking-[0.12em] transition",
-                            priceRange === windowSize
-                              ? "border-amber-300/40 bg-amber-200/10 text-amber-100"
-                              : "border-white/20 bg-white/[0.03] text-white/70"
-                          )}
-                        >
-                          {windowSize}
-                        </button>
-                      ))}
-                    </div>
-                    <p
-                      className={clsx(
-                        "text-sm font-semibold",
-                        (priceHistoryChangePercent ?? 0) > 0 && "text-emerald-300",
-                        (priceHistoryChangePercent ?? 0) < 0 && "text-red-300",
-                        priceHistoryChangePercent === null && "text-white/65"
-                      )}
-                    >
-                      <HackingValueText
-                        finalText={formatSignedPercent(priceHistoryChangePercent, 2)}
-                        loading={priceHistoryLoading}
-                        triggerKey={`${currentRating.symbol}:${priceRange}:${priceHistory.length}:${priceHistoryChangePercent ?? "na"}`}
-                      />
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/15 bg-zinc-950/45 p-4">
-                    {priceHistoryLoading ? (
-                      <LinesSkeleton rows={4} />
-                    ) : priceHistory.length >= 2 ? (
-                      <div className="space-y-2">
-                        <svg
-                          viewBox="0 0 720 220"
-                          className="h-44 w-full"
-                          preserveAspectRatio="none"
-                          aria-label="Price history chart"
-                          role="img"
-                          onMouseMove={(event) => {
-                            const rect = event.currentTarget.getBoundingClientRect();
-                            if (rect.width <= 0 || priceHistory.length <= 1) return;
-                            const ratio = (event.clientX - rect.left) / rect.width;
-                            const index = Math.round(Math.max(0, Math.min(1, ratio)) * (priceHistory.length - 1));
-                            setPriceChartHoverIndex(index);
-                          }}
-                        >
-                          <path d={buildSparklinePath(priceHistory.map((row) => row.price), 720, 220)} fill="none" stroke="rgba(255,191,0,0.88)" strokeWidth="2.4" strokeLinecap="round" />
-                          {priceChartOverlay ? (
-                            <>
-                              <line x1={priceChartOverlay.x} y1="0" x2={priceChartOverlay.x} y2="220" stroke="rgba(255,255,255,0.28)" strokeDasharray="4 3" />
-                              <line x1="0" y1={priceChartOverlay.y} x2="720" y2={priceChartOverlay.y} stroke="rgba(255,255,255,0.14)" strokeDasharray="3 4" />
-                              <circle cx={priceChartOverlay.x} cy={priceChartOverlay.y} r="4.2" fill="#FFBF00" stroke="rgba(0,0,0,0.6)" strokeWidth="1.2" />
-                            </>
-                          ) : null}
-                        </svg>
-                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-white/72">
-                          <p className="font-mono">X: {priceChartOverlay?.xLabel ?? "N/A"}</p>
-                          <p className="font-mono">Y: {priceChartOverlay?.yLabel ?? "N/A"}</p>
-                          <p className="font-mono text-white/52">
-                            Axis: X=time • Y=price
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-white/60">{priceHistoryError || "Price history is not available yet."}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="eldar-panel reveal-block rounded-3xl p-6" style={{ transitionDelay: "70ms" }}>
-                    <h2 className="mb-4 text-lg font-semibold text-white">KEY FUNDAMENTALS</h2>
-                    <div className="grid grid-cols-2 gap-3 text-center">
-                      <div className="rounded-xl border border-white/15 bg-zinc-950/45 px-3 py-3">
-                        <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">{fundamentalsSnapshot.primaryValuation.label}</p>
-                        <p className={clsx("mt-1 text-xl font-bold", factorSignalToneClass(fundamentalsSnapshot.primaryValuation.signal))}>
-                          <HackingValueText
-                            finalText={
-                              fundamentalsSnapshot.primaryValuation.value !== null
-                                ? fundamentalsSnapshot.primaryValuation.format === "percent"
-                                  ? formatSignedPercent(fundamentalsSnapshot.primaryValuation.value, 1)
-                                  : `${fundamentalsSnapshot.primaryValuation.value.toFixed(1)}x`
-                                : "N/A"
-                            }
-                            loading={fundamentalsNumbersLoading}
-                            triggerKey={`pe:${fundamentalsHackTrigger}`}
-                          />
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-white/15 bg-zinc-950/45 px-3 py-3">
-                        <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Revenue Growth</p>
-                        <p className={clsx("mt-1 text-xl font-bold", factorSignalToneClass(fundamentalsSnapshot.revenueGrowth.signal))}>
-                          <HackingValueText
-                            finalText={formatSignedPercent(fundamentalsSnapshot.revenueGrowth.value, 1)}
-                            loading={fundamentalsNumbersLoading}
-                            triggerKey={`rev:${fundamentalsHackTrigger}`}
-                          />
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-white/15 bg-zinc-950/45 px-3 py-3">
-                        <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">EPS Growth</p>
-                        <p className={clsx("mt-1 text-xl font-bold", factorSignalToneClass(fundamentalsSnapshot.epsGrowth.signal))}>
-                          <HackingValueText
-                            finalText={formatSignedPercent(fundamentalsSnapshot.epsGrowth.value, 1)}
-                            loading={fundamentalsNumbersLoading}
-                            triggerKey={`eps:${fundamentalsHackTrigger}`}
-                          />
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-white/15 bg-zinc-950/45 px-3 py-3">
-                        <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">FCF Yield</p>
-                        <p className={clsx("mt-1 text-xl font-bold", factorSignalToneClass(fundamentalsSnapshot.fcfYield.signal))}>
-                          <HackingValueText
-                            finalText={formatSignedPercent(fundamentalsSnapshot.fcfYield.value, 1)}
-                            loading={fundamentalsNumbersLoading}
-                            triggerKey={`fcf:${fundamentalsHackTrigger}`}
-                          />
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="eldar-panel reveal-block rounded-3xl p-6" style={{ transitionDelay: "75ms" }}>
-                    <h2 className="mb-4 text-lg font-semibold text-white">SCORE HISTORY</h2>
-                    <div className="rounded-xl border border-white/15 bg-zinc-950/45 px-4 py-4">
-                      <svg
-                        viewBox="0 0 320 60"
-                        className="h-16 w-full"
-                        preserveAspectRatio="none"
-                        aria-label="Score history chart"
-                        role="img"
-                        onMouseMove={(event) => {
-                          const rect = event.currentTarget.getBoundingClientRect();
-                          if (rect.width <= 0 || scoreHistorySeries.length <= 1) return;
-                          const ratio = (event.clientX - rect.left) / rect.width;
-                          const index = Math.round(Math.max(0, Math.min(1, ratio)) * (scoreHistorySeries.length - 1));
-                          setScoreChartHoverIndex(index);
-                        }}
-                      >
-                        <path d={buildSparklinePath(scoreHistoryPoints, 320, 60)} fill="none" stroke="rgba(245,245,245,0.88)" strokeWidth="2" strokeLinecap="round" />
-                        {scoreChartOverlay ? (
-                          <>
-                            <line x1={scoreChartOverlay.x} y1="0" x2={scoreChartOverlay.x} y2="60" stroke="rgba(255,255,255,0.28)" strokeDasharray="3 3" />
-                            <line x1="0" y1={scoreChartOverlay.y} x2="320" y2={scoreChartOverlay.y} stroke="rgba(255,255,255,0.16)" strokeDasharray="3 4" />
-                            <circle cx={scoreChartOverlay.x} cy={scoreChartOverlay.y} r="3.6" fill="#F5F5F5" stroke="rgba(0,0,0,0.55)" strokeWidth="1" />
-                          </>
-                        ) : null}
-                      </svg>
-                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-white/70">
-                        <p className="font-mono">X: {scoreChartOverlay?.xLabel ?? "N/A"}</p>
-                        <p className="font-mono">Y: {scoreChartOverlay?.yLabel ?? "N/A"}</p>
-                        <p className="font-mono text-white/52">Axis: X=timestamp • Y=score</p>
-                      </div>
-                      <p className="mt-3 text-xs text-white/65">
-                        {scoreHistoryPoints[scoreHistoryPoints.length - 1] >= scoreHistoryPoints[0] ? "Improving trend" : "Deteriorating trend"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <ResultsChartsPanel
+                  priceRange={priceRange}
+                  priceRangeOptions={PRICE_RANGE_OPTIONS}
+                  onPriceRangeChange={setPriceRange}
+                  priceHistoryChangePercent={priceHistoryChangePercent}
+                  priceHistoryLoading={priceHistoryLoading}
+                  priceHistory={priceHistory}
+                  priceHistoryError={priceHistoryError}
+                  priceSparklinePath={buildSparklinePath(priceHistory.map((row) => row.price), 720, 220)}
+                  priceChartOverlay={priceChartOverlay}
+                  onPriceChartHoverIndex={setPriceChartHoverIndex}
+                  fundamentalsSnapshot={fundamentalsSnapshot}
+                  fundamentalsNumbersLoading={fundamentalsNumbersLoading}
+                  fundamentalsHackTrigger={fundamentalsHackTrigger}
+                  factorSignalToneClass={factorSignalToneClass}
+                  scoreHistorySeries={scoreHistorySeries}
+                  scoreHistoryPoints={scoreHistoryPoints}
+                  scoreSparklinePath={buildSparklinePath(scoreHistoryPoints, 320, 60)}
+                  scoreChartOverlay={scoreChartOverlay}
+                  onScoreChartHoverIndex={setScoreChartHoverIndex}
+                />
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <DriversList title="Top Drivers" items={driverBullets} maxCollapsed={3} />
@@ -4682,289 +4083,39 @@ export function StockDashboard({
                 </div>
               </div>
 
-              <aside className="space-y-6">
-                <div className="eldar-panel reveal-block rounded-3xl p-5" style={{ transitionDelay: "120ms" }}>
-                  <h3 className="eldar-caption mb-3 text-xs text-white/60">SECTOR CONTEXT</h3>
-                  {stockContextLoading ? (
-                    <LinesSkeleton rows={4} />
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="rounded-2xl border border-white/15 bg-zinc-950/45 px-4 py-3">
-                        <p className="text-xs uppercase tracking-[0.14em] text-white/55">
-                          {stockContext?.sector ?? currentRating.sector}
-                        </p>
-                        <p className="mt-2 text-sm text-white/80">
-                          ELDAR Sector avg:{" "}
-                          {typeof stockContext?.sectorAverageScore === "number"
-                            ? stockContext.sectorAverageScore.toFixed(1)
-                            : currentRating.score.toFixed(1)}
-                        </p>
-                        <p className="mt-1 text-sm text-white/80">
-                          <span>{currentRating.symbol} vs sector</span>
-                          <span className="mx-2 font-mono">{sectorRelative.arrow} {sectorRelative.value}</span>
-                          <span className={clsx("font-semibold", sectorRelative.toneClass)}>{sectorRelative.label}</span>
-                        </p>
-                      </div>
-                      {stockContextError ? <p className="text-xs text-zinc-200/80">{stockContextError}</p> : null}
-                    </div>
-                  )}
-                </div>
-
-                <div className="eldar-panel reveal-block rounded-3xl p-5" style={{ transitionDelay: "180ms" }}>
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <h3 className="eldar-caption text-xs text-white/60">RELATED NEWS</h3>
-                    <button
-                      type="button"
-                      onClick={() => setIsNewsExpanded((prev) => !prev)}
-                      className="eldar-btn-ghost min-h-[44px] rounded-xl px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] md:hidden"
-                    >
-                      {isNewsExpanded ? "Collapse" : "Expand"}
-                    </button>
-                  </div>
-                  <div
-                    className={clsx(
-                      "space-y-2.5",
-                      !isNewsExpanded && "md:max-h-none md:overflow-visible md:pr-0"
-                    )}
-                  >
-                    {stockContextLoading ? (
-                      <LinesSkeleton rows={4} />
-                    ) : (
-                      relatedNewsItems.map((item, index) => (
-                        <a
-                          key={`${item.headline}-${index}`}
-                          href={item.url ?? `https://finance.yahoo.com/quote/${encodeURIComponent(currentRating.symbol)}/news`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block rounded-xl border border-white/15 bg-zinc-950/45 px-3 py-2 text-xs text-white/80 transition hover:border-white/30 hover:bg-zinc-900/60 hover:text-white"
-                        >
-                          <span className="text-white/95">- {item.headline}</span>
-                        </a>
-                      ))
-                    )}
-                    <a
-                      href={`https://finance.yahoo.com/quote/${encodeURIComponent(currentRating.symbol)}/news`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block w-full rounded-xl border border-white/20 bg-white/[0.04] px-3 py-2 text-left text-xs text-white/80 transition hover:border-white/35 hover:bg-white/[0.08]"
-                    >
-                      View all →
-                    </a>
-                  </div>
-                </div>
-
-                <div className="eldar-panel reveal-block rounded-3xl p-5" style={{ transitionDelay: "240ms" }}>
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <h3 className="eldar-caption text-xs text-white/60">JOURNAL</h3>
-                    <button
-                      type="button"
-                      onClick={() => openJournalPage({ symbol: currentRating.symbol, type: "thesis" })}
-                      className="eldar-btn-ghost min-h-[36px] rounded-xl px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
-                    >
-                      New entry for {currentRating.symbol}
-                    </button>
-                  </div>
-
-                  {!currentUserId ? (
-                    <p className="text-xs text-white/70">Sign in to access private journal entries.</p>
-                  ) : journalRelatedLoading ? (
-                    <LinesSkeleton rows={3} />
-                  ) : journalRelatedEntries.length === 0 ? (
-                    <EmptyState
-                      icon="📓"
-                      message={`No journal entries for ${currentRating.symbol}`}
-                      action={{ label: "Write first entry", onClick: () => openJournalPage({ symbol: currentRating.symbol, type: "thesis" }) }}
-                    />
-                  ) : (
-                    <div className="space-y-2">
-                      {visibleJournalEntries.map((entry) => (
-                        <button
-                          key={`journal-${entry.id}`}
-                          type="button"
-                          onClick={() => openJournalPage({ symbol: currentRating.symbol, entryId: entry.id })}
-                          className="w-full rounded-xl border border-white/15 bg-zinc-950/45 px-3 py-2 text-left transition hover:border-white/30"
-                        >
-                          <p className="truncate text-xs font-semibold text-white">{entry.ticker}</p>
-                          <p className="mt-1 text-[10px] text-white/60">
-                            {entry.status} • {new Date(entry.createdAt).toLocaleDateString()} • {entry.thesis}
-                          </p>
-                        </button>
-                      ))}
-                      {hiddenJournalLinksCount > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => setShowAllJournalLinks((value) => !value)}
-                          className="text-[9px] uppercase tracking-[0.12em] text-[#FFBF00]"
-                        >
-                          {showAllJournalLinks ? "Less" : "More"}
-                        </button>
-                      ) : null}
-                    </div>
-                  )}
-                  {journalRelatedError ? <p className="mt-2 text-[10px] text-zinc-200/80">{journalRelatedError}</p> : null}
-                </div>
-
-                <div className="eldar-panel reveal-block rounded-3xl p-5" style={{ transitionDelay: "300ms" }}>
-                  <div className="mb-3 flex items-center">
-                    <h3 className="eldar-caption text-xs text-white/60">SIMILAR STOCKS</h3>
-                  </div>
-
-                  <div
-                    className={clsx(
-                      "gap-2.5",
-                      "flex overflow-x-auto pb-1 md:block md:space-y-2.5 md:overflow-visible"
-                    )}
-                  >
-                    {stockContextLoading ? (
-                      <LinesSkeleton rows={3} />
-                    ) : (stockContext?.similarStocks?.length ?? 0) === 0 ? (
-                      <EmptyState
-                        icon="📊"
-                        message="No same-sector stocks available"
-                        action={{ label: "Back to search", onClick: () => openCommandPalette(currentRating.symbol) }}
-                      />
-                    ) : (
-                      (stockContext?.similarStocks ?? []).slice(0, 3).map((item) => (
-                        <div
-                          key={item.symbol}
-                          className="flex min-h-[44px] min-w-[240px] items-center gap-2 rounded-2xl border border-white/20 bg-zinc-950/50 px-3 py-2.5 md:min-w-0"
-                        >
-                          <button
-                            onClick={() => {
-                              setTicker(item.symbol);
-                              void analyzeSymbol(item.symbol);
-                            }}
-                            className="min-w-0 flex-1 text-left"
-                          >
-                            <p className="truncate font-mono text-sm font-bold text-white">{item.symbol}</p>
-                            <p className="truncate text-[11px] text-white/55">{item.companyName}</p>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void addComparisonSymbol(item.symbol);
-                            }}
-                            className="eldar-btn-ghost min-h-[36px] rounded-xl px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
-                          >
-                            Compare
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  {comparisonOpen ? (
-                    <div className="mt-4 rounded-2xl border border-white/15 bg-zinc-950/45 p-4">
-                      <div className="mb-3 flex items-center justify-between gap-2">
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.14em] text-white/60">Compare Stocks</p>
-                          <p className="mt-1 font-mono text-xs text-white/75">{comparisonEntries.map((entry) => entry.symbol).join(" vs ")}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setComparisonOpen(false)}
-                            className="eldar-btn-ghost min-h-[36px] rounded-xl px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
-                          >
-                            Close
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div>
-                          <p className="mb-2 text-[11px] uppercase tracking-[0.12em] text-white/60">ELDAR Rating</p>
-                          <div className="space-y-2">
-                            {comparisonEntries.map((entry, index) => {
-                              const winnerScore = Math.max(...comparisonEntries.map((item) => item.score));
-                              const isWinner = entry.score >= winnerScore;
-                              return (
-                                <div key={`cmp-rating-${entry.symbol}`} className="rounded-xl border border-white/10 bg-black/10 px-3 py-2">
-                                  <div className="mb-1 flex items-center justify-between text-xs text-white/80">
-                                    <span className={clsx("font-mono", isWinner && "text-zinc-100")}>{entry.symbol}</span>
-                                    <span>{entry.loading ? "Loading..." : entry.score.toFixed(1)}</span>
-                                  </div>
-                                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                                    <div
-                                      className={clsx(
-                                        "h-full rounded-full transition-all duration-[500ms] ease-[cubic-bezier(0.4,0,0.2,1)]",
-                                        isWinner ? "bg-zinc-100/80" : "bg-zinc-300/45"
-                                      )}
-                                      style={{
-                                        width: `${Math.max(4, Math.min(100, (entry.score / 10) * 100))}%`,
-                                        transitionDelay: `${index * 100}ms`
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className="mb-2 text-[11px] uppercase tracking-[0.12em] text-white/60">Sector Performance</p>
-                          <div className="space-y-2">
-                            {comparisonEntries.map((entry, index) => {
-                              const winnerSector = Math.max(...comparisonEntries.map((item) => item.sectorScore));
-                              const isWinner = entry.sectorScore >= winnerSector;
-                              return (
-                                <div key={`cmp-sector-${entry.symbol}`} className="rounded-xl border border-white/10 bg-black/10 px-3 py-2">
-                                  <div className="mb-1 flex items-center justify-between text-xs text-white/80">
-                                    <span className={clsx("font-mono", isWinner && "text-zinc-100")}>{entry.symbol}</span>
-                                    <span>{entry.sectorScore.toFixed(1)} ({sectorHeatLabel(entry.heat)})</span>
-                                  </div>
-                                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                                    <div
-                                      className={clsx(
-                                        "h-full rounded-full transition-all duration-[500ms] ease-[cubic-bezier(0.4,0,0.2,1)]",
-                                        isWinner ? "bg-zinc-100/80" : "bg-zinc-300/45"
-                                      )}
-                                      style={{
-                                        width: `${Math.max(4, Math.min(100, (entry.sectorScore / 10) * 100))}%`,
-                                        transitionDelay: `${index * 100}ms`
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className="mb-2 text-[11px] uppercase tracking-[0.12em] text-white/60">Rating</p>
-                          <div className="space-y-1">
-                            {comparisonEntries.map((entry) => (
-                              <p key={`cmp-label-${entry.symbol}`} className="text-xs text-white/80">
-                                <span>{entry.symbol}: </span>
-                                <span className={clsx(!entry.loading && ratingLabelToneClass(entry.ratingLabel))}>
-                                  {entry.loading ? "Loading..." : entry.ratingLabel}
-                                </span>
-                              </p>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="eldar-panel reveal-block rounded-3xl p-5" style={{ transitionDelay: "340ms" }}>
-                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.12em] text-white">WHAT WOULD CHANGE THE RATING</h3>
-                  {upgradePath.targetLabel ? (
-                    <p className="mb-3 text-sm text-white/75">
-                      To reach {upgradePath.targetLabel}:
-                    </p>
-                  ) : (
-                    <p className="mb-3 text-sm text-white/75">Current rating is already at the top band.</p>
-                  )}
-                  <div className="space-y-1.5 text-sm text-white/82">
-                    {upgradePath.actions.map((action, index) => (
-                      <p key={`upgrade-action-bottom-${index}`}>· {action}</p>
-                    ))}
-                  </div>
-                </div>
-              </aside>
+              <ResultsSidebar
+                currentRating={currentRating}
+                stockContextLoading={stockContextLoading}
+                stockContext={stockContext}
+                stockContextError={stockContextError}
+                sectorRelative={sectorRelative}
+                isNewsExpanded={isNewsExpanded}
+                onToggleNewsExpanded={() => setIsNewsExpanded((prev) => !prev)}
+                relatedNewsItems={relatedNewsItems}
+                currentUserId={currentUserId}
+                journalRelatedLoading={journalRelatedLoading}
+                visibleJournalEntries={visibleJournalEntries}
+                hiddenJournalLinksCount={hiddenJournalLinksCount}
+                showAllJournalLinks={showAllJournalLinks}
+                onToggleJournalLinks={() => setShowAllJournalLinks((value) => !value)}
+                onOpenJournalThesis={() => openJournalPage({ symbol: currentRating.symbol, type: "thesis" })}
+                onOpenJournalEntry={(entryId) => openJournalPage({ symbol: currentRating.symbol, entryId })}
+                journalRelatedError={journalRelatedError}
+                onOpenCommandPalette={() => openCommandPalette(currentRating.symbol)}
+                onAnalyzeSymbol={(symbol) => {
+                  setTicker(symbol);
+                  void analyzeSymbol(symbol);
+                }}
+                onAddComparisonSymbol={(symbol) => {
+                  void addComparisonSymbol(symbol);
+                }}
+                comparisonOpen={comparisonOpen}
+                onCloseComparison={() => setComparisonOpen(false)}
+                comparisonEntries={comparisonEntries}
+                sectorHeatLabel={sectorHeatLabel}
+                ratingLabelToneClass={ratingLabelToneClass}
+                upgradePath={upgradePath}
+              />
             </div>
           </div>
         </div>
@@ -5000,229 +4151,37 @@ export function StockDashboard({
         />
         {topRightAccountDock}
         <div className="container mx-auto px-6 pb-28 pl-[104px] pr-10 pt-6">
-          <div className="mx-auto max-w-6xl">
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h1 className="text-2xl font-black tracking-tight text-white md:text-3xl">Portfolio Health Checker</h1>
-                <p className="mt-2 text-sm text-white/70">Build and evaluate your holdings with a weighted ELDAR portfolio score.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => openShareModal("portfolio")}
-                disabled={!activePortfolioRating}
-                className="eldar-share-inline inline-flex min-h-[40px] items-center gap-2 px-1 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] disabled:opacity-60"
-              >
-                <Share2 className="h-4 w-4" />
-                Share
-              </button>
-            </div>
-
-            <div className="grid gap-4 xl:grid-cols-[minmax(250px,0.55fr)_minmax(0,1.45fr)]">
-              <div className="space-y-3">
-                <div className="eldar-panel reveal-block rounded-3xl p-4">
-                  <p className="mb-2 text-sm text-white/75">Add Your Stocks:</p>
-                  <form
-                    className="card-grain grid gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_86px_auto]"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void addPortfolioHolding();
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => openCommandPalette(portfolioInputTicker || "", "portfolio-add")}
-                      className="eldar-btn-silver flex min-h-[44px] items-center justify-between rounded-xl px-4 text-left text-sm font-semibold backdrop-blur-xl transition-all duration-300 hover:scale-[1.01]"
-                    >
-                      <span className="flex items-center gap-2 text-slate-900">
-                        <Search className="h-4 w-4" />
-                        {portfolioInputTicker ? portfolioInputTicker : "Ticker or company..."}
-                      </span>
-                      <span className="rounded-md border border-black/20 bg-black/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-700">
-                        /
-                      </span>
-                    </button>
-                    <input
-                      type="number"
-                      min={1}
-                      step={1}
-                      inputMode="numeric"
-                      value={portfolioInputShares}
-                      onChange={(event) => setPortfolioInputShares(event.target.value.replace(/[^0-9]/g, ""))}
-                      placeholder="Quantity"
-                      className="min-h-[44px] w-full rounded-xl border border-white/20 bg-white/5 px-2 py-2 text-center text-sm text-white outline-none placeholder:text-white/45"
-                    />
-                    <button
-                      type="submit"
-                      className="eldar-btn-silver primary-cta flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em]"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add
-                    </button>
-                  </form>
-                  {portfolioError ? (
-                    <p className="mt-2 text-xs text-zinc-200/85">{portfolioError}</p>
-                  ) : null}
-                </div>
-
-                <div className="eldar-panel reveal-block rounded-3xl p-4">
-                  {portfolioHoldings.length === 0 ? (
-                    <EmptyState
-                      icon="📊"
-                      message="No holdings yet"
-                      action={{ label: "Add holdings", onClick: () => openCommandPalette("", "portfolio-add") }}
-                    />
-                  ) : (
-                    <div className="p-1">
-                      <div className="flex items-center justify-center">
-                        <svg viewBox="0 0 260 260" className="h-[210px] w-[210px]" role="img" aria-label="Portfolio holdings wheel">
-                          <circle cx="130" cy="130" r="108" fill="#0c0c0c" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-                          {portfolioWheelRows.map((row) => (
-                            <path
-                              key={`wheel-${row.id}`}
-                              d={describeDonutSlicePath(130, 130, 52, 108, row.startAngle, row.endAngle)}
-                              fill={scoreBandColor(row.score)}
-                              fillOpacity={portfolioWheelHoverId === row.id || portfolioDrawerHoldingId === row.id ? 0.8 : 0.38}
-                              stroke="rgba(255,255,255,0.16)"
-                              strokeWidth={portfolioWheelHoverId === row.id || portfolioDrawerHoldingId === row.id ? 1.8 : 1}
-                              className="cursor-pointer transition-all duration-150"
-                              onMouseEnter={() => setPortfolioWheelHoverId(row.id)}
-                              onMouseLeave={() => setPortfolioWheelHoverId((prev) => (prev === row.id ? null : prev))}
-                              onClick={() => setPortfolioDrawerHoldingId(row.id)}
-                            />
-                          ))}
-                          <circle cx="130" cy="130" r="52" fill="#0a0a0a" stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
-                          <text
-                            x="130"
-                            y="121"
-                            textAnchor="middle"
-                            fontSize="15"
-                            fontWeight="700"
-                            fontFamily="Neue Haas Grotesk Mono, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
-                            fill="#f5f5f5"
-                          >
-                            {activePortfolioWheelRow?.symbol ?? "—"}
-                          </text>
-                          <text
-                            x="130"
-                            y="141"
-                            textAnchor="middle"
-                            fontSize="10"
-                            fontFamily="Neue Haas Grotesk Mono, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
-                            fill="#9ca3af"
-                          >
-                            {activePortfolioWheelRow?.allocationPct !== null && activePortfolioWheelRow?.allocationPct !== undefined
-                              ? `${activePortfolioWheelRow.allocationPct.toFixed(1)}%`
-                              : "allocation"}
-                          </text>
-                        </svg>
-                      </div>
-                      {activePortfolioRating ? (
-                        <div className="mt-2 text-center">
-                          <p className="text-xl font-bold text-white">
-                            {"★".repeat(activePortfolioRating.stars)}
-                            {"☆".repeat(5 - activePortfolioRating.stars)}
-                          </p>
-                          <p
-                            className="mt-1 text-sm font-semibold"
-                            style={{ color: RATING_BANDS[activePortfolioRating.rating].color }}
-                          >
-                            {RATING_BANDS[activePortfolioRating.rating].label}
-                          </p>
-                          <p className="mt-1 text-xs text-white/60">
-                            Rated vs: {activePortfolioRating.peerGroup} peers
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="mt-1 text-center text-sm font-semibold text-white/75">Portfolio Rating</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="eldar-panel reveal-block rounded-3xl p-4">
-                {activePortfolioRating ? (
-                  <PortfolioRatingPanel rating={activePortfolioRating} />
-                ) : (
-                  <RatingCardSkeleton />
-                )}
-              </div>
-            </div>
-          </div>
+          <PortfolioMainPanel
+            activePortfolioRating={activePortfolioRating}
+            portfolioInputTicker={portfolioInputTicker}
+            portfolioInputShares={portfolioInputShares}
+            portfolioError={portfolioError}
+            portfolioHoldingsCount={portfolioHoldings.length}
+            portfolioWheelRows={portfolioWheelRows}
+            portfolioWheelHoverId={portfolioWheelHoverId}
+            portfolioDrawerHoldingId={portfolioDrawerHoldingId}
+            activePortfolioWheelRow={activePortfolioWheelRow}
+            onOpenShare={() => openShareModal("portfolio")}
+            onOpenPaletteForAdd={(value) => openCommandPalette(value, "portfolio-add")}
+            onSubmitAdd={() => {
+              void addPortfolioHolding();
+            }}
+            onSharesChange={(value) => setPortfolioInputShares(value.replace(/[^0-9]/g, ""))}
+            onWheelHover={(id) => setPortfolioWheelHoverId(id)}
+            onWheelLeave={(id) => setPortfolioWheelHoverId((prev) => (prev === id ? null : prev))}
+            onWheelSelect={(id) => setPortfolioDrawerHoldingId(id)}
+          />
         </div>
         {portfolioDrawerRow ? (
-          <div className="fixed inset-0 z-[95]">
-            <button
-              type="button"
-              aria-label="Close drawer"
-              className="absolute inset-0 bg-black/45"
-              onClick={() => setPortfolioDrawerHoldingId(null)}
-            />
-            <aside className="card-grain rough-border absolute right-0 top-0 h-full w-full max-w-[480px] border-l border-white/15 bg-[#0a0a0a] p-5 shadow-2xl shadow-black/70">
-              <div className="sticky top-0 z-10 mb-4 flex items-center justify-between border-b border-white/10 bg-[#0a0a0a] pb-3">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Holding Details</p>
-                  <p className="mt-1 font-mono text-xl font-bold text-white">{portfolioDrawerRow.symbol}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setPortfolioDrawerHoldingId(null)}
-                  className="eldar-btn-ghost min-h-[40px] rounded-xl px-3 text-xs font-semibold uppercase tracking-[0.12em]"
-                >
-                  Close
-                </button>
-              </div>
-              <div onWheelCapture={handlePopupWheel} className="eldar-scrollbar space-y-3 overflow-y-auto pb-24">
-                <div className="rounded-xl border border-white/12 bg-black/25 p-3">
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Allocation</p>
-                  <p className="mt-1 font-mono text-2xl font-bold text-white">
-                    {portfolioDrawerRow.allocationPct !== null ? `${portfolioDrawerRow.allocationPct.toFixed(1)}%` : "Pending"}
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-xl border border-white/12 bg-black/25 p-3">
-                    <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Shares</p>
-                    <p className="mt-1 font-mono text-lg font-semibold text-white">{portfolioDrawerRow.shares}</p>
-                  </div>
-                  <div className="rounded-xl border border-white/12 bg-black/25 p-3">
-                    <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Position Value</p>
-                    <p className="mt-1 font-mono text-lg font-semibold text-white">
-                      {portfolioDrawerRow.positionValue !== null
-                        ? formatPrice(portfolioDrawerRow.positionValue, portfolioDrawerRow.currency)
-                        : "N/A"}
-                    </p>
-                  </div>
-                </div>
-                <div className="rounded-xl border border-white/12 bg-black/25 p-3">
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">ELDAR Band</p>
-                  <p className="mt-1 text-sm font-semibold" style={{ color: scoreBandColor(portfolioDrawerRow.score) }}>
-                    {portfolioDrawerRow.ratingLabel ?? "Pending"}
-                  </p>
-                </div>
-                {portfolioDrawerRow.error ? (
-                  <div className="rounded-xl border border-red-300/30 bg-red-400/10 p-3 text-xs text-red-100">{portfolioDrawerRow.error}</div>
-                ) : null}
-              </div>
-              <div className="sticky bottom-0 z-10 mt-4 flex items-center gap-2 border-t border-white/10 bg-[#0a0a0a] pt-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    void refreshPortfolioHolding(portfolioDrawerRow.symbol);
-                  }}
-                  className="eldar-btn-silver min-h-[44px] flex-1 rounded-xl px-4 text-xs font-semibold uppercase tracking-[0.12em]"
-                >
-                  Refresh
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removePortfolioHolding(portfolioDrawerRow.id)}
-                  className="eldar-btn-ghost min-h-[44px] flex-1 rounded-xl px-4 text-xs font-semibold uppercase tracking-[0.12em]"
-                >
-                  Remove
-                </button>
-              </div>
-            </aside>
-          </div>
+          <PortfolioHoldingDrawer
+            drawerRow={portfolioDrawerRow}
+            onClose={() => setPortfolioDrawerHoldingId(null)}
+            onWheelCapture={handlePopupWheel}
+            onRefresh={(symbol) => {
+              void refreshPortfolioHolding(symbol);
+            }}
+            onRemove={(id) => removePortfolioHolding(id)}
+          />
         ) : null}
         {analysisPhase !== "idle" ? <AnalysisRadarOverlay symbol={(pendingSymbol ?? ticker) || null} phase={analysisPhase} /> : null}
         {renderCommandPalette()}
