@@ -1683,6 +1683,7 @@ export function StockDashboard({
     };
 
     const loadDashboard = async (showSkeleton: boolean): Promise<void> => {
+      let keepLoading = false;
       if (showSkeleton) {
         setHomeDashboardLoading(true);
       }
@@ -1693,11 +1694,23 @@ export function StockDashboard({
         const response = await fetch(`/api/home/dashboard?${params.toString()}`, {
           signal: controller.signal
         });
-        const payload = (await response.json()) as HomeDashboardPayload & { error?: string };
+        const payload = (await response.json()) as HomeDashboardPayload & {
+          error?: string;
+          pending?: boolean;
+          refreshQueued?: boolean;
+        };
         if (!response.ok) {
           throw new Error(payload.error ?? "Failed to load dashboard modules.");
         }
         if (disposed) return;
+        if (payload.pending) {
+          if (!homeDashboardLoadedRef.current && !cachedDashboard) {
+            keepLoading = true;
+            setHomeDashboardLoading(true);
+          }
+          schedule(2_500);
+          return;
+        }
         setHomeDashboard(payload);
         writeCachedHomeDashboard(payload);
         homeDashboardLoadedRef.current = true;
@@ -1709,7 +1722,7 @@ export function StockDashboard({
         setHomeDashboardError(message);
         schedule(45_000);
       } finally {
-        if (!disposed) {
+        if (!disposed && !keepLoading) {
           setHomeDashboardLoading(false);
         }
       }

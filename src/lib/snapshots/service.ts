@@ -29,6 +29,12 @@ import {
   upsertSymbolSnapshot
 } from "@/lib/snapshots/store";
 
+const ENABLE_ON_DEMAND_SNAPSHOT_FALLBACK =
+  process.env.NODE_ENV !== "production" || process.env.ELDAR_ALLOW_ON_DEMAND_SNAPSHOT_FALLBACK === "1";
+
+const symbolFallbackInFlight = new Map<string, Promise<SymbolSnapshotContract | null>>();
+const aggregateFallbackInFlight = new Map<string, Promise<AggregateSnapshotContract | null>>();
+
 function normalizeSymbol(symbol: string): string {
   return symbol.trim().toUpperCase();
 }
@@ -62,6 +68,60 @@ function withFreshness(snapshot: SymbolSnapshotContract): SymbolSnapshotContract
       staleModules: stale
     }
   };
+}
+
+async function buildSymbolSnapshotOnDemand(symbol: string, requestedBy: string | null): Promise<SymbolSnapshotContract | null> {
+  const existing = symbolFallbackInFlight.get(symbol);
+  if (existing) {
+    return existing;
+  }
+
+  const run = (async (): Promise<SymbolSnapshotContract | null> => {
+    try {
+      const snapshot = await buildSymbolSnapshot(symbol, {
+        workerId: requestedBy ? `api:${requestedBy}` : "api-ondemand",
+        jobId: null
+      });
+      await upsertSymbolSnapshot(snapshot);
+      return snapshot;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[snapshots] on-demand symbol build failed for ${symbol}: ${message}`);
+      return null;
+    } finally {
+      symbolFallbackInFlight.delete(symbol);
+    }
+  })();
+
+  symbolFallbackInFlight.set(symbol, run);
+  return run;
+}
+
+async function buildAggregateSnapshotOnDemand(key: string, requestedBy: string | null): Promise<AggregateSnapshotContract | null> {
+  const existing = aggregateFallbackInFlight.get(key);
+  if (existing) {
+    return existing;
+  }
+
+  const run = (async (): Promise<AggregateSnapshotContract | null> => {
+    try {
+      const snapshot = await buildAggregateSnapshotByKey(key, {
+        workerId: requestedBy ? `api:${requestedBy}` : "api-ondemand",
+        jobId: null
+      });
+      await upsertAggregateSnapshot(snapshot);
+      return snapshot;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[snapshots] on-demand aggregate build failed for ${key}: ${message}`);
+      return null;
+    } finally {
+      aggregateFallbackInFlight.delete(key);
+    }
+  })();
+
+  aggregateFallbackInFlight.set(key, run);
+  return run;
 }
 
 export async function requestSnapshotRefresh(input: EnqueueSnapshotJobInput): Promise<{ id: string; created: boolean }> {
@@ -101,6 +161,17 @@ export async function getSnapshotForRead(input: ReadSnapshotInput): Promise<Snap
   const normalized = normalizeSymbol(input.symbol);
   const snapshot = await getSymbolSnapshot(normalized);
   if (!snapshot) {
+    if (ENABLE_ON_DEMAND_SNAPSHOT_FALLBACK) {
+      const built = await buildSymbolSnapshotOnDemand(normalized, input.requestedBy);
+      if (built) {
+        return {
+          snapshot: withFreshness(built),
+          state: "fresh",
+          enqueued: false
+        };
+      }
+    }
+
     const enqueued = await requestSnapshotRefresh({
       symbol: normalized,
       priority: input.priority,
@@ -147,6 +218,17 @@ export async function getAggregateSnapshotForRead<T = unknown>(input: {
   const key = input.key.trim();
   const snapshot = await getAggregateSnapshot<T>(key);
   if (!snapshot) {
+    if (ENABLE_ON_DEMAND_SNAPSHOT_FALLBACK) {
+      const built = await buildAggregateSnapshotOnDemand(key, input.requestedBy);
+      if (built) {
+        return {
+          snapshot: built as AggregateSnapshotContract<T>,
+          state: "fresh",
+          enqueued: false
+        };
+      }
+    }
+
     const enqueued = await requestAggregateSnapshotRefresh({
       key,
       priority: input.priority,

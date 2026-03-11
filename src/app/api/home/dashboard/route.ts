@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { runRouteGuards } from "@/lib/api/route-security";
 import { withApiPerfHeaders } from "@/lib/api/responses";
-import { getHomeDashboardPayloadCached, parseSectorWindow } from "@/lib/home/dashboard-service";
+import { getHomeDashboardPayloadCached, getHomeDashboardPayloadWithMeta, parseSectorWindow } from "@/lib/home/dashboard-service";
 import { isNySessionOpen } from "@/lib/market/ny-session";
 import { AGGREGATE_SNAPSHOT_KEYS } from "@/lib/snapshots/contracts";
 import { getAggregateSnapshotForRead } from "@/lib/snapshots/service";
@@ -12,6 +12,8 @@ export const dynamic = "force-dynamic";
 
 const CACHE_HEADER_OPEN = "public, max-age=20, s-maxage=45, stale-while-revalidate=90";
 const CACHE_HEADER_CLOSED = "public, max-age=90, s-maxage=240, stale-while-revalidate=480";
+const ALLOW_ON_DEMAND_DASHBOARD_FALLBACK =
+  process.env.NODE_ENV !== "production" || process.env.ELDAR_ALLOW_DASHBOARD_FALLBACK === "1";
 
 function aggregateDashboardKey(window: ReturnType<typeof parseSectorWindow>): string {
   if (window === "1M") return AGGREGATE_SNAPSHOT_KEYS.HOME_DASHBOARD_1M;
@@ -47,6 +49,11 @@ export async function GET(request: Request): Promise<NextResponse> {
         payload = cached;
         cacheLayer = "redis-fallback";
       }
+    }
+    if (!payload && ALLOW_ON_DEMAND_DASHBOARD_FALLBACK) {
+      const computed = await getHomeDashboardPayloadWithMeta(sectorWindow);
+      payload = computed.payload;
+      cacheLayer = `ondemand-${computed.cacheLayer}`;
     }
     if (!payload) {
       return NextResponse.json(
