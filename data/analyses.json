@@ -45357,6 +45357,1790 @@
   ],
   "portfolioSnapshots": [
     {
+      "id": "080db8a7-f3cb-44ae-ae4f-4e960ff4e124",
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "asOfDate": "2026-03-11",
+      "holdings": [
+        {
+          "symbol": "PM",
+          "shares": 50
+        },
+        {
+          "symbol": "GS",
+          "shares": 7
+        },
+        {
+          "symbol": "MSFT",
+          "shares": 14
+        },
+        {
+          "symbol": "SPGI",
+          "shares": 10
+        },
+        {
+          "symbol": "RL",
+          "shares": 11
+        },
+        {
+          "symbol": "AVGO",
+          "shares": 9
+        },
+        {
+          "symbol": "COST",
+          "shares": 3
+        },
+        {
+          "symbol": "CBOE",
+          "shares": 8
+        },
+        {
+          "symbol": "MS",
+          "shares": 14
+        },
+        {
+          "symbol": "KO",
+          "shares": 25
+        },
+        {
+          "symbol": "CME",
+          "shares": 6
+        },
+        {
+          "symbol": "DE",
+          "shares": 3
+        },
+        {
+          "symbol": "PEP",
+          "shares": 10
+        },
+        {
+          "symbol": "ADBE",
+          "shares": 5
+        },
+        {
+          "symbol": "WMT",
+          "shares": 10
+        },
+        {
+          "symbol": "NVDA",
+          "shares": 5
+        },
+        {
+          "symbol": "AAPL",
+          "shares": 3
+        },
+        {
+          "symbol": "IBKR",
+          "shares": 9
+        }
+      ],
+      "rating": {
+        "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+        "asOfDate": "2026-03-11",
+        "peerGroup": "US Equity",
+        "compositeScore": 5.7,
+        "stars": 3,
+        "rating": "HOLD",
+        "pillars": [
+          {
+            "key": "return",
+            "label": "Return",
+            "score": 42.5,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "cagr": "-0.0%",
+              "oneYearReturn": "-0.0%",
+              "excessReturn": "+1.1%"
+            },
+            "flags": []
+          },
+          {
+            "key": "risk",
+            "label": "Risk",
+            "score": 38.9,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "sharpe": "-0.34",
+              "volatility": "12.6%",
+              "sortino": "-0.51"
+            },
+            "flags": []
+          },
+          {
+            "key": "drawdown",
+            "label": "Drawdown",
+            "score": 90.7,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "maxDrawdown": "-2.8%",
+              "currentDrawdown": "-2.2%",
+              "cvar95": "1.8%"
+            },
+            "flags": []
+          },
+          {
+            "key": "diversification",
+            "label": "Diversification",
+            "score": 51,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "effectiveN": "11.8",
+              "topFivePct": "55.5%",
+              "sectorHHI": "0.28"
+            },
+            "flags": [
+              "concentrated"
+            ]
+          },
+          {
+            "key": "implementability",
+            "label": "Implementability",
+            "score": 80.3,
+            "peerMedian": 50,
+            "weight": 0.1,
+            "hasData": true,
+            "metrics": {
+              "liquidityTier": "Large Cap",
+              "turnover": "29.4%",
+              "tcDrag": "0.1%"
+            },
+            "flags": []
+          },
+          {
+            "key": "eldarTilt",
+            "label": "ELDAR Tilt",
+            "score": 57.1,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "weightedScore": "6.60",
+              "strongBuyPct": "8.1%",
+              "strongSellPct": "0.0%"
+            },
+            "flags": []
+          }
+        ],
+        "holdings": [
+          {
+            "ticker": "PM",
+            "name": "Philip Morris International",
+            "weight": 0.16921161161717188,
+            "eldarScore": 7.65,
+            "rating": "BUY",
+            "contribution": 1.294468828871365
+          },
+          {
+            "ticker": "GS",
+            "name": "Goldman Sachs",
+            "weight": 0.11426252693658855,
+            "eldarScore": 5.98,
+            "rating": "HOLD",
+            "contribution": 0.6832899110807995
+          },
+          {
+            "ticker": "MSFT",
+            "name": "Microsoft",
+            "weight": 0.1113638542030135,
+            "eldarScore": 5.85,
+            "rating": "HOLD",
+            "contribution": 0.6514785470876289
+          },
+          {
+            "ticker": "RL",
+            "name": "Ralph Lauren Corporation",
+            "weight": 0.0745887916650421,
+            "eldarScore": 6.73,
+            "rating": "BUY",
+            "contribution": 0.5019825679057334
+          },
+          {
+            "ticker": "SPGI",
+            "name": "S&P Global",
+            "weight": 0.08521569203385349,
+            "eldarScore": 5.6,
+            "rating": "HOLD",
+            "contribution": 0.4772078753895795
+          },
+          {
+            "ticker": "CBOE",
+            "name": "Cboe Global Markets",
+            "weight": 0.044793646921866416,
+            "eldarScore": 9.02,
+            "rating": "STRONG_BUY",
+            "contribution": 0.40403869523523506
+          },
+          {
+            "ticker": "COST",
+            "name": "Costco",
+            "weight": 0.05858079562520226,
+            "eldarScore": 6.38,
+            "rating": "BUY",
+            "contribution": 0.37374547608879044
+          },
+          {
+            "ticker": "AVGO",
+            "name": "Broadcom",
+            "weight": 0.06059018963159744,
+            "eldarScore": 5.83,
+            "rating": "HOLD",
+            "contribution": 0.35324080555221304
+          },
+          {
+            "ticker": "MS",
+            "name": "Morgan Stanley",
+            "weight": 0.044062566612027225,
+            "eldarScore": 7.22,
+            "rating": "BUY",
+            "contribution": 0.31813173093883657
+          },
+          {
+            "ticker": "CME",
+            "name": "CME Group",
+            "weight": 0.03598583256235228,
+            "eldarScore": 8.68,
+            "rating": "STRONG_BUY",
+            "contribution": 0.3123570266412178
+          },
+          {
+            "ticker": "KO",
+            "name": "Coca-Cola Company (The)",
+            "weight": 0.03813502250727593,
+            "eldarScore": 6.45,
+            "rating": "BUY",
+            "contribution": 0.24597089517192974
+          },
+          {
+            "ticker": "WMT",
+            "name": "Walmart",
+            "weight": 0.02449334407093804,
+            "eldarScore": 7.42,
+            "rating": "BUY",
+            "contribution": 0.18174061300636027
+          },
+          {
+            "ticker": "DE",
+            "name": "Deere & Company",
+            "weight": 0.0347978760063937,
+            "eldarScore": 4.81,
+            "rating": "HOLD",
+            "contribution": 0.1673777835907537
+          },
+          {
+            "ticker": "ADBE",
+            "name": "Adobe Inc.",
+            "weight": 0.026930931070803573,
+            "eldarScore": 5.92,
+            "rating": "HOLD",
+            "contribution": 0.15943111193915716
+          },
+          {
+            "ticker": "PEP",
+            "name": "PepsiCo",
+            "weight": 0.03147326186573373,
+            "eldarScore": 4.78,
+            "rating": "HOLD",
+            "contribution": 0.15044219171820725
+          },
+          {
+            "ticker": "NVDA",
+            "name": "Nvidia",
+            "weight": 0.01812527040261462,
+            "eldarScore": 7.4,
+            "rating": "BUY",
+            "contribution": 0.1341270009793482
+          },
+          {
+            "ticker": "IBKR",
+            "name": "Interactive Brokers",
+            "weight": 0.012073104093671365,
+            "eldarScore": 7.79,
+            "rating": "BUY",
+            "contribution": 0.09404948088969993
+          },
+          {
+            "ticker": "AAPL",
+            "name": "Apple Inc.",
+            "weight": 0.015315682173853939,
+            "eldarScore": 6.11,
+            "rating": "HOLD",
+            "contribution": 0.09357881808224756
+          }
+        ],
+        "dataCompleteness": 1,
+        "monthsOfHistory": 48,
+        "disclaimers": [
+          "Portfolio rating is based on trailing historical performance and current holdings composition.",
+          "This rating is not a forecast of future returns."
+        ],
+        "modelVersion": "portfolio-v1.0",
+        "confidenceFlags": [],
+        "peerPercentile": 57,
+        "riskSeries": {
+          "portfolio": [
+            1.0066202367581878,
+            1.0131258447454414,
+            1.0099103722240428,
+            1.0102564262463323,
+            1.0170671678632233,
+            1.0169670486138578,
+            1.011813821775263,
+            1.014693480449127,
+            1.014311760462702,
+            0.9936597155804131,
+            1.005438410008868,
+            1.011223312596414,
+            1.0118229475244507,
+            1.0171574733093753,
+            1.0215800801779777,
+            1.0204480276588679,
+            1.0163297139913612,
+            1.0220794733462801,
+            1.0137619202661328,
+            1.0088894945834337,
+            0.9967980491550457,
+            1.016696038702068,
+            1.0217360008587755,
+            1.0186323724334778,
+            1.0188535723461603,
+            1.0036689563648855,
+            1.0049711485574424,
+            1.0108323212316113,
+            1.0082486178540535,
+            1.0155138906873258,
+            1.005237354859518,
+            1.0131965467693629,
+            1.0217098958496822,
+            1.0164997161964515,
+            1.0123592659266412,
+            1.0034673818920228,
+            1.011517356939069,
+            1.0060747917357193,
+            0.9929850686092135,
+            1.0014952201497636,
+            0.9996234155739888
+          ],
+          "benchmark": [
+            1.0063541268648264,
+            1.0125902142416707,
+            1.0091069814376854,
+            1.0091842268203515,
+            1.0157191861939079,
+            1.015348906714418,
+            1.009933685016966,
+            1.0125392394085013,
+            1.011888883122183,
+            0.9910168959501849,
+            1.00250054338745,
+            1.0080017673174004,
+            1.0083312526915746,
+            1.0133790426655795,
+            1.017515550705827,
+            1.016117231294817,
+            1.0117459969627258,
+            1.0172005888874722,
+            1.0086520524098175,
+            1.0035357739029787,
+            0.9912414415141748,
+            1.010764731424212,
+            1.0155063164296942,
+            1.0121513750354458,
+            1.012101824080298,
+            0.9967485033440134,
+            0.9977764720816324,
+            1.003330165916675,
+            1.0004986420831283,
+            1.0074418272854475,
+            0.9969788868078917,
+            1.004607384501957,
+            1.012781227478255,
+            1.0073470682031171,
+            1.002975833871026,
+            0.9938994658108028,
+            1.0016081990313792,
+            0.9959524131421955,
+            0.9827293563138709,
+            0.9908900996123712,
+            0.9887744304541316
+          ],
+          "rollingSharpe": [
+            0,
+            -2.296026339831705,
+            -5.732816152194143,
+            -10.454913067365121,
+            -0.04017447421528955,
+            1.0468839031839658,
+            0.29795988570075105,
+            0.2908553171788706,
+            -2.259658235280166,
+            -1.9716700757985481,
+            -1.008853755104293,
+            -1.3545797660609273,
+            -1.1223333410976357,
+            -1.3766361866960484,
+            0.37005873711089454,
+            3.3247341843022746,
+            -0.34303274637958564,
+            -1.9684864742819344,
+            -2.8671879105076066,
+            -1.443949881037387,
+            0.11643066847122305,
+            -2.271551761372571,
+            -1.762470473163732,
+            -1.6542068115794255
+          ]
+        }
+      },
+      "createdAt": "2026-03-11T08:22:11.313Z"
+    },
+    {
+      "id": "bffbf968-0253-4e12-b345-5f61a37b973f",
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "asOfDate": "2026-03-11",
+      "holdings": [
+        {
+          "symbol": "PM",
+          "shares": 50
+        },
+        {
+          "symbol": "GS",
+          "shares": 7
+        },
+        {
+          "symbol": "MSFT",
+          "shares": 14
+        },
+        {
+          "symbol": "SPGI",
+          "shares": 10
+        },
+        {
+          "symbol": "RL",
+          "shares": 11
+        },
+        {
+          "symbol": "AVGO",
+          "shares": 9
+        },
+        {
+          "symbol": "COST",
+          "shares": 3
+        },
+        {
+          "symbol": "CBOE",
+          "shares": 8
+        },
+        {
+          "symbol": "MS",
+          "shares": 14
+        },
+        {
+          "symbol": "KO",
+          "shares": 25
+        },
+        {
+          "symbol": "CME",
+          "shares": 6
+        },
+        {
+          "symbol": "DE",
+          "shares": 3
+        },
+        {
+          "symbol": "PEP",
+          "shares": 10
+        },
+        {
+          "symbol": "ADBE",
+          "shares": 5
+        },
+        {
+          "symbol": "WMT",
+          "shares": 10
+        },
+        {
+          "symbol": "NVDA",
+          "shares": 5
+        },
+        {
+          "symbol": "AAPL",
+          "shares": 3
+        },
+        {
+          "symbol": "IBKR",
+          "shares": 9
+        }
+      ],
+      "rating": {
+        "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+        "asOfDate": "2026-03-11",
+        "peerGroup": "US Equity",
+        "compositeScore": 5.7,
+        "stars": 3,
+        "rating": "HOLD",
+        "pillars": [
+          {
+            "key": "return",
+            "label": "Return",
+            "score": 42.5,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "cagr": "-0.0%",
+              "oneYearReturn": "-0.0%",
+              "excessReturn": "+1.1%"
+            },
+            "flags": []
+          },
+          {
+            "key": "risk",
+            "label": "Risk",
+            "score": 38.9,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "sharpe": "-0.34",
+              "volatility": "12.6%",
+              "sortino": "-0.51"
+            },
+            "flags": []
+          },
+          {
+            "key": "drawdown",
+            "label": "Drawdown",
+            "score": 90.7,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "maxDrawdown": "-2.8%",
+              "currentDrawdown": "-2.2%",
+              "cvar95": "1.8%"
+            },
+            "flags": []
+          },
+          {
+            "key": "diversification",
+            "label": "Diversification",
+            "score": 51,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "effectiveN": "11.8",
+              "topFivePct": "55.5%",
+              "sectorHHI": "0.28"
+            },
+            "flags": [
+              "concentrated"
+            ]
+          },
+          {
+            "key": "implementability",
+            "label": "Implementability",
+            "score": 80.3,
+            "peerMedian": 50,
+            "weight": 0.1,
+            "hasData": true,
+            "metrics": {
+              "liquidityTier": "Large Cap",
+              "turnover": "29.4%",
+              "tcDrag": "0.1%"
+            },
+            "flags": []
+          },
+          {
+            "key": "eldarTilt",
+            "label": "ELDAR Tilt",
+            "score": 57.1,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "weightedScore": "6.60",
+              "strongBuyPct": "8.1%",
+              "strongSellPct": "0.0%"
+            },
+            "flags": []
+          }
+        ],
+        "holdings": [
+          {
+            "ticker": "PM",
+            "name": "Philip Morris International",
+            "weight": 0.16921161161717188,
+            "eldarScore": 7.65,
+            "rating": "BUY",
+            "contribution": 1.294468828871365
+          },
+          {
+            "ticker": "GS",
+            "name": "Goldman Sachs",
+            "weight": 0.11426252693658855,
+            "eldarScore": 5.98,
+            "rating": "HOLD",
+            "contribution": 0.6832899110807995
+          },
+          {
+            "ticker": "MSFT",
+            "name": "Microsoft",
+            "weight": 0.1113638542030135,
+            "eldarScore": 5.85,
+            "rating": "HOLD",
+            "contribution": 0.6514785470876289
+          },
+          {
+            "ticker": "RL",
+            "name": "Ralph Lauren Corporation",
+            "weight": 0.0745887916650421,
+            "eldarScore": 6.73,
+            "rating": "BUY",
+            "contribution": 0.5019825679057334
+          },
+          {
+            "ticker": "SPGI",
+            "name": "S&P Global",
+            "weight": 0.08521569203385349,
+            "eldarScore": 5.6,
+            "rating": "HOLD",
+            "contribution": 0.4772078753895795
+          },
+          {
+            "ticker": "CBOE",
+            "name": "Cboe Global Markets",
+            "weight": 0.044793646921866416,
+            "eldarScore": 9.02,
+            "rating": "STRONG_BUY",
+            "contribution": 0.40403869523523506
+          },
+          {
+            "ticker": "COST",
+            "name": "Costco",
+            "weight": 0.05858079562520226,
+            "eldarScore": 6.38,
+            "rating": "BUY",
+            "contribution": 0.37374547608879044
+          },
+          {
+            "ticker": "AVGO",
+            "name": "Broadcom",
+            "weight": 0.06059018963159744,
+            "eldarScore": 5.83,
+            "rating": "HOLD",
+            "contribution": 0.35324080555221304
+          },
+          {
+            "ticker": "MS",
+            "name": "Morgan Stanley",
+            "weight": 0.044062566612027225,
+            "eldarScore": 7.22,
+            "rating": "BUY",
+            "contribution": 0.31813173093883657
+          },
+          {
+            "ticker": "CME",
+            "name": "CME Group",
+            "weight": 0.03598583256235228,
+            "eldarScore": 8.68,
+            "rating": "STRONG_BUY",
+            "contribution": 0.3123570266412178
+          },
+          {
+            "ticker": "KO",
+            "name": "Coca-Cola Company (The)",
+            "weight": 0.03813502250727593,
+            "eldarScore": 6.45,
+            "rating": "BUY",
+            "contribution": 0.24597089517192974
+          },
+          {
+            "ticker": "WMT",
+            "name": "Walmart",
+            "weight": 0.02449334407093804,
+            "eldarScore": 7.42,
+            "rating": "BUY",
+            "contribution": 0.18174061300636027
+          },
+          {
+            "ticker": "DE",
+            "name": "Deere & Company",
+            "weight": 0.0347978760063937,
+            "eldarScore": 4.81,
+            "rating": "HOLD",
+            "contribution": 0.1673777835907537
+          },
+          {
+            "ticker": "ADBE",
+            "name": "Adobe Inc.",
+            "weight": 0.026930931070803573,
+            "eldarScore": 5.92,
+            "rating": "HOLD",
+            "contribution": 0.15943111193915716
+          },
+          {
+            "ticker": "PEP",
+            "name": "PepsiCo",
+            "weight": 0.03147326186573373,
+            "eldarScore": 4.78,
+            "rating": "HOLD",
+            "contribution": 0.15044219171820725
+          },
+          {
+            "ticker": "NVDA",
+            "name": "Nvidia",
+            "weight": 0.01812527040261462,
+            "eldarScore": 7.4,
+            "rating": "BUY",
+            "contribution": 0.1341270009793482
+          },
+          {
+            "ticker": "IBKR",
+            "name": "Interactive Brokers",
+            "weight": 0.012073104093671365,
+            "eldarScore": 7.79,
+            "rating": "BUY",
+            "contribution": 0.09404948088969993
+          },
+          {
+            "ticker": "AAPL",
+            "name": "Apple Inc.",
+            "weight": 0.015315682173853939,
+            "eldarScore": 6.11,
+            "rating": "HOLD",
+            "contribution": 0.09357881808224756
+          }
+        ],
+        "dataCompleteness": 1,
+        "monthsOfHistory": 48,
+        "disclaimers": [
+          "Portfolio rating is based on trailing historical performance and current holdings composition.",
+          "This rating is not a forecast of future returns."
+        ],
+        "modelVersion": "portfolio-v1.0",
+        "confidenceFlags": [],
+        "peerPercentile": 57,
+        "riskSeries": {
+          "portfolio": [
+            1.0066202367581878,
+            1.0131258447454414,
+            1.0099103722240428,
+            1.0102564262463323,
+            1.0170671678632233,
+            1.0169670486138578,
+            1.011813821775263,
+            1.014693480449127,
+            1.014311760462702,
+            0.9936597155804131,
+            1.005438410008868,
+            1.011223312596414,
+            1.0118229475244507,
+            1.0171574733093753,
+            1.0215800801779777,
+            1.0204480276588679,
+            1.0163297139913612,
+            1.0220794733462801,
+            1.0137619202661328,
+            1.0088894945834337,
+            0.9967980491550457,
+            1.016696038702068,
+            1.0217360008587755,
+            1.0186323724334778,
+            1.0188535723461603,
+            1.0036689563648855,
+            1.0049711485574424,
+            1.0108323212316113,
+            1.0082486178540535,
+            1.0155138906873258,
+            1.005237354859518,
+            1.0131965467693629,
+            1.0217098958496822,
+            1.0164997161964515,
+            1.0123592659266412,
+            1.0034673818920228,
+            1.011517356939069,
+            1.0060747917357193,
+            0.9929850686092135,
+            1.0014952201497636,
+            0.9996234155739888
+          ],
+          "benchmark": [
+            1.0063541268648264,
+            1.0125902142416707,
+            1.0091069814376854,
+            1.0091842268203515,
+            1.0157191861939079,
+            1.015348906714418,
+            1.009933685016966,
+            1.0125392394085013,
+            1.011888883122183,
+            0.9910168959501849,
+            1.00250054338745,
+            1.0080017673174004,
+            1.0083312526915746,
+            1.0133790426655795,
+            1.017515550705827,
+            1.016117231294817,
+            1.0117459969627258,
+            1.0172005888874722,
+            1.0086520524098175,
+            1.0035357739029787,
+            0.9912414415141748,
+            1.010764731424212,
+            1.0155063164296942,
+            1.0121513750354458,
+            1.012101824080298,
+            0.9967485033440134,
+            0.9977764720816324,
+            1.003330165916675,
+            1.0004986420831283,
+            1.0074418272854475,
+            0.9969788868078917,
+            1.004607384501957,
+            1.012781227478255,
+            1.0073470682031171,
+            1.002975833871026,
+            0.9938994658108028,
+            1.0016081990313792,
+            0.9959524131421955,
+            0.9827293563138709,
+            0.9908900996123712,
+            0.9887744304541316
+          ],
+          "rollingSharpe": [
+            0,
+            -2.296026339831705,
+            -5.732816152194143,
+            -10.454913067365121,
+            -0.04017447421528955,
+            1.0468839031839658,
+            0.29795988570075105,
+            0.2908553171788706,
+            -2.259658235280166,
+            -1.9716700757985481,
+            -1.008853755104293,
+            -1.3545797660609273,
+            -1.1223333410976357,
+            -1.3766361866960484,
+            0.37005873711089454,
+            3.3247341843022746,
+            -0.34303274637958564,
+            -1.9684864742819344,
+            -2.8671879105076066,
+            -1.443949881037387,
+            0.11643066847122305,
+            -2.271551761372571,
+            -1.762470473163732,
+            -1.6542068115794255
+          ]
+        }
+      },
+      "createdAt": "2026-03-11T08:21:57.889Z"
+    },
+    {
+      "id": "da24518a-ba89-4ff4-a518-fb6013b57aac",
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "asOfDate": "2026-03-11",
+      "holdings": [
+        {
+          "symbol": "PM",
+          "shares": 50
+        },
+        {
+          "symbol": "GS",
+          "shares": 7
+        },
+        {
+          "symbol": "MSFT",
+          "shares": 14
+        },
+        {
+          "symbol": "SPGI",
+          "shares": 10
+        },
+        {
+          "symbol": "RL",
+          "shares": 11
+        },
+        {
+          "symbol": "AVGO",
+          "shares": 9
+        },
+        {
+          "symbol": "COST",
+          "shares": 3
+        },
+        {
+          "symbol": "CBOE",
+          "shares": 8
+        },
+        {
+          "symbol": "MS",
+          "shares": 14
+        },
+        {
+          "symbol": "KO",
+          "shares": 25
+        },
+        {
+          "symbol": "CME",
+          "shares": 6
+        },
+        {
+          "symbol": "DE",
+          "shares": 3
+        },
+        {
+          "symbol": "PEP",
+          "shares": 10
+        },
+        {
+          "symbol": "ADBE",
+          "shares": 5
+        },
+        {
+          "symbol": "WMT",
+          "shares": 10
+        },
+        {
+          "symbol": "NVDA",
+          "shares": 5
+        },
+        {
+          "symbol": "AAPL",
+          "shares": 3
+        },
+        {
+          "symbol": "IBKR",
+          "shares": 9
+        }
+      ],
+      "rating": {
+        "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+        "asOfDate": "2026-03-11",
+        "peerGroup": "US Equity",
+        "compositeScore": 5.7,
+        "stars": 3,
+        "rating": "HOLD",
+        "pillars": [
+          {
+            "key": "return",
+            "label": "Return",
+            "score": 42.5,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "cagr": "-0.0%",
+              "oneYearReturn": "-0.0%",
+              "excessReturn": "+1.1%"
+            },
+            "flags": []
+          },
+          {
+            "key": "risk",
+            "label": "Risk",
+            "score": 38.9,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "sharpe": "-0.34",
+              "volatility": "12.6%",
+              "sortino": "-0.51"
+            },
+            "flags": []
+          },
+          {
+            "key": "drawdown",
+            "label": "Drawdown",
+            "score": 90.7,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "maxDrawdown": "-2.8%",
+              "currentDrawdown": "-2.2%",
+              "cvar95": "1.8%"
+            },
+            "flags": []
+          },
+          {
+            "key": "diversification",
+            "label": "Diversification",
+            "score": 51,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "effectiveN": "11.8",
+              "topFivePct": "55.5%",
+              "sectorHHI": "0.28"
+            },
+            "flags": [
+              "concentrated"
+            ]
+          },
+          {
+            "key": "implementability",
+            "label": "Implementability",
+            "score": 80.3,
+            "peerMedian": 50,
+            "weight": 0.1,
+            "hasData": true,
+            "metrics": {
+              "liquidityTier": "Large Cap",
+              "turnover": "29.4%",
+              "tcDrag": "0.1%"
+            },
+            "flags": []
+          },
+          {
+            "key": "eldarTilt",
+            "label": "ELDAR Tilt",
+            "score": 57.1,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "weightedScore": "6.60",
+              "strongBuyPct": "8.1%",
+              "strongSellPct": "0.0%"
+            },
+            "flags": []
+          }
+        ],
+        "holdings": [
+          {
+            "ticker": "PM",
+            "name": "Philip Morris International",
+            "weight": 0.16921205887283872,
+            "eldarScore": 7.65,
+            "rating": "BUY",
+            "contribution": 1.2944722503772161
+          },
+          {
+            "ticker": "GS",
+            "name": "Goldman Sachs",
+            "weight": 0.1142628289522847,
+            "eldarScore": 5.98,
+            "rating": "HOLD",
+            "contribution": 0.6832917171346626
+          },
+          {
+            "ticker": "MSFT",
+            "name": "Microsoft",
+            "weight": 0.11136414855701436,
+            "eldarScore": 5.85,
+            "rating": "HOLD",
+            "contribution": 0.651480269058534
+          },
+          {
+            "ticker": "RL",
+            "name": "Ralph Lauren Corporation",
+            "weight": 0.07458898881616806,
+            "eldarScore": 6.73,
+            "rating": "BUY",
+            "contribution": 0.501983894732811
+          },
+          {
+            "ticker": "SPGI",
+            "name": "S&P Global",
+            "weight": 0.08521591727372209,
+            "eldarScore": 5.6,
+            "rating": "HOLD",
+            "contribution": 0.47720913673284365
+          },
+          {
+            "ticker": "CBOE",
+            "name": "Cboe Global Markets",
+            "weight": 0.04479376531925199,
+            "eldarScore": 9.02,
+            "rating": "STRONG_BUY",
+            "contribution": 0.40403976317965296
+          },
+          {
+            "ticker": "COST",
+            "name": "Costco",
+            "weight": 0.058580950464415485,
+            "eldarScore": 6.38,
+            "rating": "BUY",
+            "contribution": 0.3737464639629708
+          },
+          {
+            "ticker": "AVGO",
+            "name": "Broadcom",
+            "weight": 0.060590349781987886,
+            "eldarScore": 5.83,
+            "rating": "HOLD",
+            "contribution": 0.3532417392289894
+          },
+          {
+            "ticker": "MS",
+            "name": "Morgan Stanley",
+            "weight": 0.04406268307704062,
+            "eldarScore": 7.22,
+            "rating": "BUY",
+            "contribution": 0.3181325718162333
+          },
+          {
+            "ticker": "CME",
+            "name": "CME Group",
+            "weight": 0.03598592767915535,
+            "eldarScore": 8.68,
+            "rating": "STRONG_BUY",
+            "contribution": 0.31235785225506846
+          },
+          {
+            "ticker": "KO",
+            "name": "Coca-Cola Company (The)",
+            "weight": 0.038135123304761154,
+            "eldarScore": 6.45,
+            "rating": "BUY",
+            "contribution": 0.24597154531570944
+          },
+          {
+            "ticker": "WMT",
+            "name": "Walmart",
+            "weight": 0.024493408811098783,
+            "eldarScore": 7.42,
+            "rating": "BUY",
+            "contribution": 0.18174109337835298
+          },
+          {
+            "ticker": "DE",
+            "name": "Deere & Company",
+            "weight": 0.03479796798322136,
+            "eldarScore": 4.81,
+            "rating": "HOLD",
+            "contribution": 0.16737822599929472
+          },
+          {
+            "ticker": "ADBE",
+            "name": "Adobe Inc.",
+            "weight": 0.026931002253929956,
+            "eldarScore": 5.92,
+            "rating": "HOLD",
+            "contribution": 0.15943153334326535
+          },
+          {
+            "ticker": "PEP",
+            "name": "PepsiCo",
+            "weight": 0.031473345055029016,
+            "eldarScore": 4.78,
+            "rating": "HOLD",
+            "contribution": 0.1504425893630387
+          },
+          {
+            "ticker": "NVDA",
+            "name": "Nvidia",
+            "weight": 0.01812531831085108,
+            "eldarScore": 7.4,
+            "rating": "BUY",
+            "contribution": 0.134127355500298
+          },
+          {
+            "ticker": "IBKR",
+            "name": "Interactive Brokers",
+            "weight": 0.012070492831368827,
+            "eldarScore": 7.79,
+            "rating": "BUY",
+            "contribution": 0.09402913915636316
+          },
+          {
+            "ticker": "AAPL",
+            "name": "Apple Inc.",
+            "weight": 0.015315722655860928,
+            "eldarScore": 6.11,
+            "rating": "HOLD",
+            "contribution": 0.09357906542731027
+          }
+        ],
+        "dataCompleteness": 1,
+        "monthsOfHistory": 48,
+        "disclaimers": [
+          "Portfolio rating is based on trailing historical performance and current holdings composition.",
+          "This rating is not a forecast of future returns."
+        ],
+        "modelVersion": "portfolio-v1.0",
+        "confidenceFlags": [],
+        "peerPercentile": 57,
+        "riskSeries": {
+          "portfolio": [
+            1.0066202362324868,
+            1.0131258436871615,
+            1.0099103706365204,
+            1.010256424127355,
+            1.0170671651988679,
+            1.0169670454150914,
+            1.011813818058085,
+            1.0146934761894582,
+            1.0143117556712102,
+            0.9936597103532543,
+            1.0054384041973794,
+            1.0112233062229283,
+            1.0118229406155845,
+            1.017157465832168,
+            1.0215800721335386,
+            1.0204480190862975,
+            1.0163297049169373,
+            1.0220794636862331,
+            1.0137619101473898,
+            1.0088894839803884,
+            0.9967980381487026,
+            1.0166960269519996,
+            1.0217359885159814,
+            1.0186323595910483,
+            1.0188535589654457,
+            1.00366894264798,
+            1.0049711342951102,
+            1.0108323063577842,
+            1.0082486024868484,
+            1.0155138746793497,
+            1.0052373384796784,
+            1.013196529731378,
+            1.021709878135898,
+            1.0164996980358842,
+            1.0123592473056713,
+            1.0034673629024085,
+            1.0115173372695927,
+            1.0060747716403207,
+            0.9929850482463752,
+            1.0014951990903966,
+            0.999623394027495
+          ],
+          "benchmark": [
+            1.0063541268648264,
+            1.0125902142416707,
+            1.0091069814376854,
+            1.0091842268203515,
+            1.0157191861939079,
+            1.015348906714418,
+            1.009933685016966,
+            1.0125392394085013,
+            1.011888883122183,
+            0.9910168959501849,
+            1.00250054338745,
+            1.0080017673174004,
+            1.0083312526915746,
+            1.0133790426655795,
+            1.017515550705827,
+            1.016117231294817,
+            1.0117459969627258,
+            1.0172005888874722,
+            1.0086520524098175,
+            1.0035357739029787,
+            0.9912414415141748,
+            1.010764731424212,
+            1.0155063164296942,
+            1.0121513750354458,
+            1.012101824080298,
+            0.9967485033440134,
+            0.9977764720816324,
+            1.003330165916675,
+            1.0004986420831283,
+            1.0074418272854475,
+            0.9969788868078917,
+            1.004607384501957,
+            1.012781227478255,
+            1.0073470682031171,
+            1.002975833871026,
+            0.9938994658108028,
+            1.0016081990313792,
+            0.9959524131421955,
+            0.9827293563138709,
+            0.9908900996123712,
+            0.9887744304541316
+          ],
+          "rollingSharpe": [
+            0,
+            -2.29602719534072,
+            -5.732817311523473,
+            -10.45491416911861,
+            -0.04017512224846189,
+            1.04688318900418,
+            0.2979591110169889,
+            0.2908544804375149,
+            -2.2596590206789986,
+            -1.9716709059636723,
+            -1.0088546100109472,
+            -1.354580660787365,
+            -1.1223342258694058,
+            -1.3766370565360075,
+            0.37005788514462196,
+            3.324733277424697,
+            -0.3430338653616103,
+            -1.9684876068656878,
+            -2.867188992933817,
+            -1.4439509039433565,
+            0.11642947993521043,
+            -2.2715528081032788,
+            -1.7624714883523245,
+            -1.6542078281775159
+          ]
+        }
+      },
+      "createdAt": "2026-03-11T08:21:51.320Z"
+    },
+    {
+      "id": "ab500bcf-9da0-4cc3-820f-fbb781351b42",
+      "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+      "asOfDate": "2026-03-11",
+      "holdings": [
+        {
+          "symbol": "PM",
+          "shares": 50
+        },
+        {
+          "symbol": "GS",
+          "shares": 7
+        },
+        {
+          "symbol": "MSFT",
+          "shares": 14
+        },
+        {
+          "symbol": "SPGI",
+          "shares": 10
+        },
+        {
+          "symbol": "RL",
+          "shares": 11
+        },
+        {
+          "symbol": "AVGO",
+          "shares": 9
+        },
+        {
+          "symbol": "COST",
+          "shares": 3
+        },
+        {
+          "symbol": "CBOE",
+          "shares": 8
+        },
+        {
+          "symbol": "MS",
+          "shares": 14
+        },
+        {
+          "symbol": "KO",
+          "shares": 25
+        },
+        {
+          "symbol": "CME",
+          "shares": 6
+        },
+        {
+          "symbol": "DE",
+          "shares": 3
+        },
+        {
+          "symbol": "PEP",
+          "shares": 10
+        },
+        {
+          "symbol": "ADBE",
+          "shares": 5
+        },
+        {
+          "symbol": "WMT",
+          "shares": 10
+        },
+        {
+          "symbol": "NVDA",
+          "shares": 5
+        },
+        {
+          "symbol": "AAPL",
+          "shares": 3
+        },
+        {
+          "symbol": "IBKR",
+          "shares": 9
+        }
+      ],
+      "rating": {
+        "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
+        "asOfDate": "2026-03-11",
+        "peerGroup": "US Equity",
+        "compositeScore": 5.7,
+        "stars": 3,
+        "rating": "HOLD",
+        "pillars": [
+          {
+            "key": "return",
+            "label": "Return",
+            "score": 42.5,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "cagr": "-0.0%",
+              "oneYearReturn": "-0.0%",
+              "excessReturn": "+1.1%"
+            },
+            "flags": []
+          },
+          {
+            "key": "risk",
+            "label": "Risk",
+            "score": 38.9,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "sharpe": "-0.34",
+              "volatility": "12.6%",
+              "sortino": "-0.51"
+            },
+            "flags": []
+          },
+          {
+            "key": "drawdown",
+            "label": "Drawdown",
+            "score": 90.7,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "maxDrawdown": "-2.8%",
+              "currentDrawdown": "-2.2%",
+              "cvar95": "1.8%"
+            },
+            "flags": []
+          },
+          {
+            "key": "diversification",
+            "label": "Diversification",
+            "score": 51,
+            "peerMedian": 50,
+            "weight": 0.15,
+            "hasData": true,
+            "metrics": {
+              "effectiveN": "11.8",
+              "topFivePct": "55.5%",
+              "sectorHHI": "0.28"
+            },
+            "flags": [
+              "concentrated"
+            ]
+          },
+          {
+            "key": "implementability",
+            "label": "Implementability",
+            "score": 80.3,
+            "peerMedian": 50,
+            "weight": 0.1,
+            "hasData": true,
+            "metrics": {
+              "liquidityTier": "Large Cap",
+              "turnover": "29.4%",
+              "tcDrag": "0.1%"
+            },
+            "flags": []
+          },
+          {
+            "key": "eldarTilt",
+            "label": "ELDAR Tilt",
+            "score": 57.1,
+            "peerMedian": 50,
+            "weight": 0.2,
+            "hasData": true,
+            "metrics": {
+              "weightedScore": "6.60",
+              "strongBuyPct": "8.1%",
+              "strongSellPct": "0.0%"
+            },
+            "flags": []
+          }
+        ],
+        "holdings": [
+          {
+            "ticker": "PM",
+            "name": "Philip Morris International",
+            "weight": 0.16921205887283872,
+            "eldarScore": 7.65,
+            "rating": "BUY",
+            "contribution": 1.2944722503772161
+          },
+          {
+            "ticker": "GS",
+            "name": "Goldman Sachs",
+            "weight": 0.1142628289522847,
+            "eldarScore": 5.98,
+            "rating": "HOLD",
+            "contribution": 0.6832917171346626
+          },
+          {
+            "ticker": "MSFT",
+            "name": "Microsoft",
+            "weight": 0.11136414855701436,
+            "eldarScore": 5.85,
+            "rating": "HOLD",
+            "contribution": 0.651480269058534
+          },
+          {
+            "ticker": "RL",
+            "name": "Ralph Lauren Corporation",
+            "weight": 0.07458898881616806,
+            "eldarScore": 6.73,
+            "rating": "BUY",
+            "contribution": 0.501983894732811
+          },
+          {
+            "ticker": "SPGI",
+            "name": "S&P Global",
+            "weight": 0.08521591727372209,
+            "eldarScore": 5.6,
+            "rating": "HOLD",
+            "contribution": 0.47720913673284365
+          },
+          {
+            "ticker": "CBOE",
+            "name": "Cboe Global Markets",
+            "weight": 0.04479376531925199,
+            "eldarScore": 9.02,
+            "rating": "STRONG_BUY",
+            "contribution": 0.40403976317965296
+          },
+          {
+            "ticker": "COST",
+            "name": "Costco",
+            "weight": 0.058580950464415485,
+            "eldarScore": 6.38,
+            "rating": "BUY",
+            "contribution": 0.3737464639629708
+          },
+          {
+            "ticker": "AVGO",
+            "name": "Broadcom",
+            "weight": 0.060590349781987886,
+            "eldarScore": 5.83,
+            "rating": "HOLD",
+            "contribution": 0.3532417392289894
+          },
+          {
+            "ticker": "MS",
+            "name": "Morgan Stanley",
+            "weight": 0.04406268307704062,
+            "eldarScore": 7.22,
+            "rating": "BUY",
+            "contribution": 0.3181325718162333
+          },
+          {
+            "ticker": "CME",
+            "name": "CME Group",
+            "weight": 0.03598592767915535,
+            "eldarScore": 8.68,
+            "rating": "STRONG_BUY",
+            "contribution": 0.31235785225506846
+          },
+          {
+            "ticker": "KO",
+            "name": "Coca-Cola Company (The)",
+            "weight": 0.038135123304761154,
+            "eldarScore": 6.45,
+            "rating": "BUY",
+            "contribution": 0.24597154531570944
+          },
+          {
+            "ticker": "WMT",
+            "name": "Walmart",
+            "weight": 0.024493408811098783,
+            "eldarScore": 7.42,
+            "rating": "BUY",
+            "contribution": 0.18174109337835298
+          },
+          {
+            "ticker": "DE",
+            "name": "Deere & Company",
+            "weight": 0.03479796798322136,
+            "eldarScore": 4.81,
+            "rating": "HOLD",
+            "contribution": 0.16737822599929472
+          },
+          {
+            "ticker": "ADBE",
+            "name": "Adobe Inc.",
+            "weight": 0.026931002253929956,
+            "eldarScore": 5.92,
+            "rating": "HOLD",
+            "contribution": 0.15943153334326535
+          },
+          {
+            "ticker": "PEP",
+            "name": "PepsiCo",
+            "weight": 0.031473345055029016,
+            "eldarScore": 4.78,
+            "rating": "HOLD",
+            "contribution": 0.1504425893630387
+          },
+          {
+            "ticker": "NVDA",
+            "name": "Nvidia",
+            "weight": 0.01812531831085108,
+            "eldarScore": 7.4,
+            "rating": "BUY",
+            "contribution": 0.134127355500298
+          },
+          {
+            "ticker": "IBKR",
+            "name": "Interactive Brokers",
+            "weight": 0.012070492831368827,
+            "eldarScore": 7.79,
+            "rating": "BUY",
+            "contribution": 0.09402913915636316
+          },
+          {
+            "ticker": "AAPL",
+            "name": "Apple Inc.",
+            "weight": 0.015315722655860928,
+            "eldarScore": 6.11,
+            "rating": "HOLD",
+            "contribution": 0.09357906542731027
+          }
+        ],
+        "dataCompleteness": 1,
+        "monthsOfHistory": 48,
+        "disclaimers": [
+          "Portfolio rating is based on trailing historical performance and current holdings composition.",
+          "This rating is not a forecast of future returns."
+        ],
+        "modelVersion": "portfolio-v1.0",
+        "confidenceFlags": [],
+        "peerPercentile": 57,
+        "riskSeries": {
+          "portfolio": [
+            1.0066202362324868,
+            1.0131258436871615,
+            1.0099103706365204,
+            1.010256424127355,
+            1.0170671651988679,
+            1.0169670454150914,
+            1.011813818058085,
+            1.0146934761894582,
+            1.0143117556712102,
+            0.9936597103532543,
+            1.0054384041973794,
+            1.0112233062229283,
+            1.0118229406155845,
+            1.017157465832168,
+            1.0215800721335386,
+            1.0204480190862975,
+            1.0163297049169373,
+            1.0220794636862331,
+            1.0137619101473898,
+            1.0088894839803884,
+            0.9967980381487026,
+            1.0166960269519996,
+            1.0217359885159814,
+            1.0186323595910483,
+            1.0188535589654457,
+            1.00366894264798,
+            1.0049711342951102,
+            1.0108323063577842,
+            1.0082486024868484,
+            1.0155138746793497,
+            1.0052373384796784,
+            1.013196529731378,
+            1.021709878135898,
+            1.0164996980358842,
+            1.0123592473056713,
+            1.0034673629024085,
+            1.0115173372695927,
+            1.0060747716403207,
+            0.9929850482463752,
+            1.0014951990903966,
+            0.999623394027495
+          ],
+          "benchmark": [
+            1.0063541268648264,
+            1.0125902142416707,
+            1.0091069814376854,
+            1.0091842268203515,
+            1.0157191861939079,
+            1.015348906714418,
+            1.009933685016966,
+            1.0125392394085013,
+            1.011888883122183,
+            0.9910168959501849,
+            1.00250054338745,
+            1.0080017673174004,
+            1.0083312526915746,
+            1.0133790426655795,
+            1.017515550705827,
+            1.016117231294817,
+            1.0117459969627258,
+            1.0172005888874722,
+            1.0086520524098175,
+            1.0035357739029787,
+            0.9912414415141748,
+            1.010764731424212,
+            1.0155063164296942,
+            1.0121513750354458,
+            1.012101824080298,
+            0.9967485033440134,
+            0.9977764720816324,
+            1.003330165916675,
+            1.0004986420831283,
+            1.0074418272854475,
+            0.9969788868078917,
+            1.004607384501957,
+            1.012781227478255,
+            1.0073470682031171,
+            1.002975833871026,
+            0.9938994658108028,
+            1.0016081990313792,
+            0.9959524131421955,
+            0.9827293563138709,
+            0.9908900996123712,
+            0.9887744304541316
+          ],
+          "rollingSharpe": [
+            0,
+            -2.29602719534072,
+            -5.732817311523473,
+            -10.45491416911861,
+            -0.04017512224846189,
+            1.04688318900418,
+            0.2979591110169889,
+            0.2908544804375149,
+            -2.2596590206789986,
+            -1.9716709059636723,
+            -1.0088546100109472,
+            -1.354580660787365,
+            -1.1223342258694058,
+            -1.3766370565360075,
+            0.37005788514462196,
+            3.324733277424697,
+            -0.3430338653616103,
+            -1.9684876068656878,
+            -2.867188992933817,
+            -1.4439509039433565,
+            0.11642947993521043,
+            -2.2715528081032788,
+            -1.7624714883523245,
+            -1.6542078281775159
+          ]
+        }
+      },
+      "createdAt": "2026-03-11T08:21:47.773Z"
+    },
+    {
       "id": "3d0069fe-0ff3-438a-be77-d340637a4b1f",
       "userId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
       "portfolioId": "user_3A5bKBKhLu7MNRFhK4XDwB0SxzW",
