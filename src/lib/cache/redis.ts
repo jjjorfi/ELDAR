@@ -82,12 +82,45 @@ export async function cacheGetJson<T>(key: string): Promise<T | null> {
   }
 }
 
+export async function cacheGetString(key: string): Promise<string | null> {
+  const client = await getClient();
+  if (!client) return null;
+
+  try {
+    const raw = await client.get(keyName(key));
+    return raw ?? null;
+  } catch (error) {
+    warnOperation("get", key, error);
+    return null;
+  }
+}
+
+export async function cacheGetNumber(key: string): Promise<number> {
+  const raw = await cacheGetString(key);
+  if (!raw) return 0;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 export async function cacheSetJson(key: string, value: unknown, ttlSeconds: number): Promise<void> {
   const client = await getClient();
   if (!client) return;
 
   try {
     await client.set(keyName(key), JSON.stringify(value), {
+      EX: Math.max(1, Math.floor(ttlSeconds))
+    });
+  } catch (error) {
+    warnOperation("set", key, error);
+  }
+}
+
+export async function cacheSetString(key: string, value: string, ttlSeconds: number): Promise<void> {
+  const client = await getClient();
+  if (!client) return;
+
+  try {
+    await client.set(keyName(key), value, {
       EX: Math.max(1, Math.floor(ttlSeconds))
     });
   } catch (error) {
@@ -103,6 +136,38 @@ export async function cacheDelete(key: string): Promise<void> {
     await client.del(keyName(key));
   } catch (error) {
     warnOperation("del", key, error);
+  }
+}
+
+export async function cacheDeleteMany(keys: string[]): Promise<number> {
+  if (keys.length === 0) return 0;
+  const client = await getClient();
+  if (!client) return 0;
+
+  const redisKeys = keys.map((key) => keyName(key));
+  try {
+    return await client.del(redisKeys);
+  } catch (error) {
+    warnOperation("del-many", keys[0] ?? "unknown", error);
+    return 0;
+  }
+}
+
+export async function cacheDeleteByPrefix(prefix: string): Promise<number> {
+  const client = await getClient();
+  if (!client) return 0;
+
+  const matchPattern = keyName(`${prefix}*`);
+  const toDelete: string[] = [];
+  try {
+    for await (const key of client.scanIterator({ MATCH: matchPattern, COUNT: 200 })) {
+      toDelete.push(String(key));
+    }
+    if (toDelete.length === 0) return 0;
+    return await client.del(toDelete);
+  } catch (error) {
+    warnOperation("del-prefix", prefix, error);
+    return 0;
   }
 }
 
@@ -162,6 +227,27 @@ export async function cacheIncrementWindow(key: string, ttlSeconds: number): Pro
     return value;
   } catch (error) {
     warnOperation("incr", key, error);
+    return null;
+  }
+}
+
+export async function cacheIncrementByWindow(
+  key: string,
+  amount: number,
+  ttlSeconds: number
+): Promise<number | null> {
+  const client = await getClient();
+  if (!client) return null;
+
+  try {
+    const redisKey = keyName(key);
+    const value = await client.incrBy(redisKey, Math.floor(amount));
+    if (value === amount) {
+      await client.expire(redisKey, Math.max(1, Math.floor(ttlSeconds)));
+    }
+    return value;
+  } catch (error) {
+    warnOperation("incrby", key, error);
     return null;
   }
 }

@@ -31,13 +31,14 @@ import {
   LinesSkeleton,
   RatingCardSkeleton
 } from "@/components/ui/FintechPrimitives";
-import { DriversList, SignalHero } from "@/components/ui/AnalysisPrimitives";
+import { SignalHero } from "@/components/ui/AnalysisPrimitives";
+import { ScoreExplanationWidget } from "@/components/eldar/widgets";
 import {
   MacroEnvironmentCard,
+  MarketSnapshotChart,
   MarketNewsPanel,
   MarketMoverStack,
-  SectorRotationBoard,
-  SnapshotTile
+  SectorRotationBoard
 } from "@/components/dashboard/HomeDashboardModules";
 import { HeroLanding } from "@/components/landing/HeroLanding";
 import { NavigationSidebar } from "@/components/stock-dashboard/NavigationSidebar";
@@ -83,6 +84,25 @@ import {
   sortMag7Cards,
   toConfidenceLevel
 } from "@/components/stock-dashboard/view-helpers";
+import type {
+  AnalysisPhase,
+  AuthMode,
+  ComparisonState,
+  HomeTickerDrawerState,
+  IndexYtdItem,
+  JournalRelatedEntry,
+  LiveQuotePollRow,
+  MarketMoverItem,
+  PaletteAction,
+  PortfolioHolding,
+  PriceHistoryPoint,
+  SearchResultItem,
+  StockContextData,
+  StockDashboardProps,
+  ThemeMode,
+  UpcomingEarningsItem,
+  ViewMode
+} from "@/components/stock-dashboard/types";
 import { RATING_BANDS, toRating } from "@/lib/rating";
 import { scorePortfolio } from "@/lib/scoring/portfolio/engine";
 import type { PersistedPortfolioSnapshot, PortfolioEngineInput, PortfolioInputHolding } from "@/lib/scoring/portfolio/types";
@@ -109,119 +129,6 @@ import type { PriceRange } from "@/lib/features/price/types";
 import { usePopupWheelScroll } from "@/hooks/usePopupWheelScroll";
 import { useSocket } from "@/hooks/useSocket";
 
-type ViewMode = "home" | "results" | "watchlist" | "portfolio";
-type ThemeMode = "dark" | "light";
-type AuthMode = "login" | "signup";
-type AnalysisPhase = "idle" | "fetching" | "rendering";
-type PaletteAction = "analyze" | "portfolio-add" | "compare-add" | "watchlist-add";
-
-interface StockDashboardProps {
-  initialHistory: PersistedAnalysis[];
-  initialWatchlist: WatchlistItem[];
-  initialMag7Scores: Mag7ScoreCard[];
-  currentUserId: string | null;
-  initialSymbol?: string | null;
-}
-
-interface SearchResultItem {
-  symbol: string;
-  companyName: string;
-  sector: string;
-  domain: string | null;
-  marketCap?: number | null;
-}
-
-interface ContextSimilarStock {
-  symbol: string;
-  companyName: string;
-}
-
-interface ContextNewsItem {
-  headline: string;
-  url: string | null;
-  source: string | null;
-  publishedAt: string | null;
-}
-
-interface JournalRelatedEntry {
-  id: string;
-  ticker: string;
-  thesis: string;
-  status: "PLANNING" | "OPEN" | "CLOSED";
-  createdAt: string;
-}
-
-interface StockContextData {
-  symbol: string;
-  sector: string;
-  sectorAverageScore: number | null;
-  vsSectorPercent: number | null;
-  similarStocks: ContextSimilarStock[];
-  news: ContextNewsItem[];
-}
-
-interface MarketMoverItem {
-  symbol: string;
-  companyName: string;
-  currentPrice: number | null;
-  changePercent: number | null;
-}
-
-interface IndexYtdItem {
-  code: "US30" | "US100" | "US500";
-  label: string;
-  symbol: string;
-  current: number | null;
-  ytdChangePercent: number | null;
-  asOf: string | null;
-  points: number[];
-}
-
-interface UpcomingEarningsItem {
-  symbol: string;
-  companyName: string;
-  date: string | null;
-  epsEstimate: number | null;
-}
-
-interface HomeTickerDrawerState {
-  source: "earnings" | "movers";
-  symbol: string;
-  companyName: string;
-  date: string | null;
-  epsEstimate: number | null;
-  currentPrice: number | null;
-  changePercent: number | null;
-}
-
-interface PriceHistoryPoint {
-  time: string;
-  price: number;
-}
-
-interface LiveQuotePollRow {
-  symbol: string;
-  price: number | null;
-  changePercent: number | null;
-  asOfMs: number | null;
-}
-
-interface PortfolioHolding {
-  id: string;
-  symbol: string;
-  shares: number;
-  analysis: PersistedAnalysis | null;
-  loading: boolean;
-  error: string | null;
-  expanded: boolean;
-}
-
-interface ComparisonState {
-  analysis: PersistedAnalysis | null;
-  loading: boolean;
-  error: string | null;
-}
-
 const POPULAR_STOCKS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"];
 const FALLBACK_UPCOMING_EARNINGS: UpcomingEarningsItem[] = [
   { symbol: "AAPL", companyName: "Apple Inc.", date: null, epsEstimate: null },
@@ -229,7 +136,7 @@ const FALLBACK_UPCOMING_EARNINGS: UpcomingEarningsItem[] = [
   { symbol: "NVDA", companyName: "NVIDIA Corporation", date: null, epsEstimate: null }
 ];
 const FALLBACK_INDICES_YTD: IndexYtdItem[] = [
-  { code: "US30", label: "US30", symbol: "^DJI", current: null, ytdChangePercent: null, asOf: null, points: [] },
+  { code: "US2000", label: "RUT", symbol: "^RUT", current: null, ytdChangePercent: null, asOf: null, points: [] },
   { code: "US100", label: "US100", symbol: "^NDX", current: null, ytdChangePercent: null, asOf: null, points: [] },
   { code: "US500", label: "US500", symbol: "^GSPC", current: null, ytdChangePercent: null, asOf: null, points: [] }
 ];
@@ -657,7 +564,7 @@ export function StockDashboard({
           asOf: typeof item.asOf === "string" ? item.asOf : null,
           points: Array.isArray(item.points) ? item.points.filter((point) => typeof point === "number") : []
         }))
-        .filter((item) => item.code === "US30" || item.code === "US100" || item.code === "US500");
+        .filter((item) => item.code === "US2000" || item.code === "US100" || item.code === "US500");
 
       if (normalized.length > 0) {
         setIndicesYtd(normalized);
@@ -2599,49 +2506,118 @@ export function StockDashboard({
     if (!currentRating) {
       return {
         primaryValuation: {
-          label: "P/E",
+          label: "P/E (NTM)",
           value: null as number | null,
           signal: null as FactorResult["signal"] | null,
-          format: "multiple" as "multiple" | "percent"
+          format: "multiple" as "multiple" | "percent",
+          isFallback: false
         },
-        revenueGrowth: { label: "Revenue Growth", value: null as number | null, signal: null as FactorResult["signal"] | null },
-        epsGrowth: { label: "EPS Growth", value: null as number | null, signal: null as FactorResult["signal"] | null },
-        fcfYield: { label: "FCF Yield", value: null as number | null, signal: null as FactorResult["signal"] | null }
+        revenueGrowth: {
+          label: "Rev. Growth (YoY)",
+          value: null as number | null,
+          signal: null as FactorResult["signal"] | null,
+          isFallback: false
+        },
+        epsGrowth: {
+          label: "EPS Growth (YoY)",
+          value: null as number | null,
+          signal: null as FactorResult["signal"] | null,
+          isFallback: false
+        },
+        fcfYield: {
+          label: "FCF Yield",
+          value: null as number | null,
+          signal: null as FactorResult["signal"] | null,
+          isFallback: false
+        }
       };
     }
 
     const fundamentals = currentRating.fundamentals;
+    const hasForwardPE = typeof fundamentals?.forwardPE === "number" && Number.isFinite(fundamentals.forwardPE);
+    const hasTrailingPE = typeof fundamentals?.trailingPE === "number" && Number.isFinite(fundamentals.trailingPE);
+    const inferredPeLabel = hasForwardPE ? "P/E (NTM)" : hasTrailingPE ? "P/E (TTM)" : "P/E";
+    const peLabelByBasis =
+      fundamentals?.peBasis === "NTM"
+        ? "P/E (NTM)"
+        : fundamentals?.peBasis === "TTM"
+          ? "P/E (TTM)"
+          : inferredPeLabel;
+    const epsGrowthLabelByBasis =
+      fundamentals?.epsGrowthBasis === "YOY"
+        ? "EPS Growth (YoY)"
+        : fundamentals?.epsGrowthBasis === "QOQ"
+          ? "EPS Growth (QoQ)"
+          : fundamentals?.epsGrowthBasis === "FORWARD_DELTA"
+            ? "EPS Growth (Forward delta)"
+            : "EPS Growth";
     const isReitValuation =
       currentRating.sector === "Real Estate" &&
       ((typeof fundamentals?.ffoYield === "number" && Number.isFinite(fundamentals.ffoYield)) ||
         findFactorMetric(currentRating.factors, "FFO Yield (REIT)") !== null);
+    const directPeValueFromBasis =
+      fundamentals?.peBasis === "NTM"
+        ? fundamentals?.forwardPE ?? null
+        : fundamentals?.peBasis === "TTM"
+          ? fundamentals?.trailingPE ?? null
+          : null;
+    const directPeValue =
+      directPeValueFromBasis ??
+      (hasForwardPE ? fundamentals?.forwardPE ?? null : null) ??
+      (hasTrailingPE ? fundamentals?.trailingPE ?? null : null);
+    const fallbackPeValue = findFactorMetric(currentRating.factors, "P/E vs Sector");
+    const primaryPeValue = directPeValue ?? fallbackPeValue;
+    const primaryPeIsFallback = directPeValue === null && fallbackPeValue !== null;
+
+    const directFfoYield = ratioToPercentPoints(fundamentals?.ffoYield ?? null);
+    const fallbackFfoYield = findFactorMetric(currentRating.factors, "FFO Yield (REIT)");
+    const resolvedFfoYield = directFfoYield ?? fallbackFfoYield;
+    const ffoIsFallback = directFfoYield === null && fallbackFfoYield !== null;
+
+    const directRevenueGrowth = ratioToPercentPoints(fundamentals?.revenueGrowth ?? null);
+    const fallbackRevenueGrowth = findFactorMetric(currentRating.factors, "Revenue Growth");
+    const resolvedRevenueGrowth = directRevenueGrowth ?? fallbackRevenueGrowth;
+    const revenueGrowthIsFallback = directRevenueGrowth === null && fallbackRevenueGrowth !== null;
+
+    const directEpsGrowth = ratioToPercentPoints(fundamentals?.earningsQuarterlyGrowth ?? null);
+    const fallbackEpsGrowth = findFactorMetric(currentRating.factors, "EPS Growth");
+    const resolvedEpsGrowth = directEpsGrowth ?? fallbackEpsGrowth;
+    const epsGrowthIsFallback = directEpsGrowth === null && fallbackEpsGrowth !== null;
+
+    const directFcfYield = ratioToPercentPoints(fundamentals?.fcfYield ?? null);
+    const fallbackFcfYield = findFactorMetric(currentRating.factors, "FCF Yield");
+    const resolvedFcfYield = directFcfYield ?? fallbackFcfYield;
+    const fcfYieldIsFallback = directFcfYield === null && fallbackFcfYield !== null;
 
     return {
       primaryValuation: {
-        label: isReitValuation ? "FFO Yield" : "P/E",
+        label: isReitValuation ? "FFO Yield" : peLabelByBasis,
         value: isReitValuation
-          ? ratioToPercentPoints(fundamentals?.ffoYield ?? null) ?? findFactorMetric(currentRating.factors, "FFO Yield (REIT)")
-          : fundamentals?.forwardPE ?? fundamentals?.trailingPE ?? findFactorMetric(currentRating.factors, "P/E vs Sector"),
+          ? resolvedFfoYield
+          : primaryPeValue,
         signal: isReitValuation
           ? findFactorSignal(currentRating.factors, "FFO Yield (REIT)")
           : findFactorSignal(currentRating.factors, "P/E vs Sector"),
-        format: isReitValuation ? ("percent" as const) : ("multiple" as const)
+        format: isReitValuation ? ("percent" as const) : ("multiple" as const),
+        isFallback: isReitValuation ? ffoIsFallback : primaryPeIsFallback
       },
       revenueGrowth: {
-        label: "Revenue Growth",
-        value: ratioToPercentPoints(fundamentals?.revenueGrowth ?? null) ?? findFactorMetric(currentRating.factors, "Revenue Growth"),
-        signal: findFactorSignal(currentRating.factors, "Revenue Growth")
+        label: "Rev. Growth (YoY)",
+        value: resolvedRevenueGrowth,
+        signal: findFactorSignal(currentRating.factors, "Revenue Growth"),
+        isFallback: revenueGrowthIsFallback
       },
       epsGrowth: {
-        label: "EPS Growth",
-        value:
-          ratioToPercentPoints(fundamentals?.earningsQuarterlyGrowth ?? null) ?? findFactorMetric(currentRating.factors, "EPS Growth"),
-        signal: findFactorSignal(currentRating.factors, "EPS Growth")
+        label: epsGrowthLabelByBasis,
+        value: resolvedEpsGrowth,
+        signal: findFactorSignal(currentRating.factors, "EPS Growth"),
+        isFallback: epsGrowthIsFallback
       },
       fcfYield: {
         label: "FCF Yield",
-        value: ratioToPercentPoints(fundamentals?.fcfYield ?? null) ?? findFactorMetric(currentRating.factors, "FCF Yield"),
-        signal: findFactorSignal(currentRating.factors, "FCF Yield")
+        value: resolvedFcfYield,
+        signal: findFactorSignal(currentRating.factors, "FCF Yield"),
+        isFallback: fcfYieldIsFallback
       }
     };
   }, [currentRating]);
@@ -3276,7 +3252,7 @@ export function StockDashboard({
                     }
                   }
                 }}
-                placeholder="Ticker or company..."
+                placeholder="Search"
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="off"
@@ -3712,7 +3688,7 @@ export function StockDashboard({
   };
 
   const topRightAccountDock = view === "home" ? (
-    <div className="fixed right-6 top-4 z-[65] flex items-center gap-2">
+    <div className="fixed right-[clamp(16px,2.2vw,36px)] top-4 z-[65] flex items-center gap-2">
       <button
         type="button"
         onClick={() => setView("watchlist")}
@@ -3743,6 +3719,20 @@ export function StockDashboard({
 
   if (view === "home") {
     const snapshotItems = homeDashboard?.snapshot ?? [];
+    const snapshotByLabel = new Map(snapshotItems.map((item) => [item.label, item]));
+    const snapshotChartSeries = [
+      { code: "US500" as const, label: "SPX" as const },
+      { code: "US100" as const, label: "NDX" as const },
+      { code: "US2000" as const, label: "RUT" as const }
+    ].map((entry) => {
+      const indexRow = indicesYtd.find((item) => item.code === entry.code);
+      const snapshotRow = snapshotByLabel.get(entry.label);
+      return {
+        label: entry.label,
+        points: indexRow?.points ?? [],
+        changePercent: snapshotRow?.changePercent ?? indexRow?.ytdChangePercent ?? null
+      };
+    });
     const rankedMarketMovers = homeDashboard?.marketMovers ?? [];
     const sectorRotationRows = homeDashboard?.sectorRotation ?? [];
     const marketNews = homeDashboard?.marketNews ?? [];
@@ -3776,8 +3766,8 @@ export function StockDashboard({
           onQuickSearch={(value) => openCommandPalette(value)}
         />
         {topRightAccountDock}
-        <div className="container mx-auto px-6 pb-20 pl-[104px] pr-10 pt-6">
-            <div ref={heroSectionRef} className="mx-auto max-w-[1240px]">
+        <div className="eldar-main-layout pb-20">
+            <div ref={heroSectionRef} className="eldar-page-width-xl">
               <div className="reveal-block mb-6 flex flex-col items-start gap-3">
                 <button
                   type="button"
@@ -3799,11 +3789,11 @@ export function StockDashboard({
               ) : null}
             </div>
 
-            <div className="reveal-block grid gap-5 xl:grid-cols-12" style={{ transitionDelay: "80ms" }}>
+            <div className="reveal-block grid gap-4 xl:grid-cols-12" style={{ transitionDelay: "80ms" }}>
               <MacroEnvironmentCard regime={homeDashboard?.regime ?? null} loading={homeDashboardLoading && !homeDashboard} />
 
               {homeDashboardLoading && !homeDashboard ? (
-                <section className="eldar-panel texture-none p-6 xl:col-span-4">
+                <section className="eldar-panel texture-none p-5 xl:col-span-4">
                   <div className="mb-5">
                     <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Market News</p>
                   </div>
@@ -3813,23 +3803,19 @@ export function StockDashboard({
                 <MarketNewsPanel items={marketNews} />
               )}
 
-              <section className="eldar-panel texture-none xl:col-span-7 p-6">
+              <section className="eldar-panel texture-none xl:col-span-7 p-5">
                 <div className="mb-5 flex items-end justify-between gap-4">
                   <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Market Snapshot</p>
                 </div>
                 {homeDashboardLoading && !homeDashboard ? (
                   <LinesSkeleton rows={3} />
                 ) : (
-                  <div className="grid gap-3 sm:grid-cols-5">
-                    {snapshotItems.map((item) => (
-                      <SnapshotTile key={item.label} item={item} />
-                    ))}
-                  </div>
+                  <MarketSnapshotChart series={snapshotChartSeries} />
                 )}
               </section>
 
               {homeDashboardLoading && !homeDashboard ? (
-                <section className="eldar-panel texture-none xl:col-span-8 p-6">
+                <section className="eldar-panel texture-none xl:col-span-8 p-5">
                   <div className="mb-5 flex items-center justify-between gap-3">
                     <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Sector Rotation</p>
                     <div className="h-8 w-[168px] rounded-full border border-white/10 bg-white/[0.03]" />
@@ -3844,7 +3830,7 @@ export function StockDashboard({
                 />
               )}
 
-              <section className="eldar-panel texture-none xl:col-span-4 p-6">
+              <section className="eldar-panel texture-none xl:col-span-4 p-5">
                 <div className="mb-5">
                   <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Market Movers</p>
                 </div>
@@ -3896,8 +3882,8 @@ export function StockDashboard({
           onQuickSearch={(value) => openCommandPalette(value)}
         />
         {topRightAccountDock}
-        <div className="container mx-auto px-6 pb-28 pl-[104px] pr-10 pt-6">
-          <div className="mx-auto max-w-6xl">
+        <div className="eldar-main-layout">
+          <div className="eldar-page-width-lg">
             <div className="eldar-panel rounded-3xl p-8 text-center">
               <p className="text-[10px] uppercase tracking-[0.14em] text-white/55">ELDAR Analysis</p>
               <p className="mt-3 text-2xl font-bold text-white">{pendingSymbol ?? ticker ?? "Loading"}</p>
@@ -3949,6 +3935,13 @@ export function StockDashboard({
             : currentRating.rating === "STRONG_SELL"
               ? "strongSell"
               : "hold";
+    const similarStocksFallback = POPULAR_STOCKS
+      .filter((symbol) => symbol !== currentRating.symbol)
+      .slice(0, 3)
+      .map((symbol) => ({
+        symbol,
+        companyName: mag7Cards.find((card) => card.symbol === symbol)?.companyName ?? symbol
+      }));
 
     return (
       <div
@@ -3976,8 +3969,8 @@ export function StockDashboard({
           onQuickSearch={(value) => openCommandPalette(value)}
         />
         {topRightAccountDock}
-        <div className="container mx-auto px-6 pb-28 pl-[104px] pr-10 pt-6">
-          <div className="mx-auto max-w-6xl">
+        <div className="eldar-main-layout">
+          <div className="eldar-page-width-lg">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <button
                 onClick={goHomeView}
@@ -3995,7 +3988,7 @@ export function StockDashboard({
               </div>
             ) : null}
 
-            <div className="reveal-block grid gap-6 xl:grid-cols-[2fr_1fr]">
+            <div className="reveal-block grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(300px,1fr)]">
               <div className="space-y-6">
                 <SignalHero
                   symbol={currentRating.symbol}
@@ -4090,16 +4083,18 @@ export function StockDashboard({
                   onScoreChartHoverIndex={setScoreChartHoverIndex}
                 />
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <DriversList title="Top Drivers" items={driverBullets} maxCollapsed={3} />
-                  <DriversList title="Risks" items={riskBullets} maxCollapsed={3} tone="risks" />
-                </div>
+                <ScoreExplanationWidget
+                  ratingNote={currentRating.ratingNote}
+                  drivers={driverBullets}
+                  risks={riskBullets}
+                />
               </div>
 
               <ResultsSidebar
                 currentRating={currentRating}
                 stockContextLoading={stockContextLoading}
                 stockContext={stockContext}
+                fallbackSimilarStocks={similarStocksFallback}
                 stockContextError={stockContextError}
                 sectorRelative={sectorRelative}
                 isNewsExpanded={isNewsExpanded}
@@ -4163,7 +4158,7 @@ export function StockDashboard({
           onQuickSearch={(value) => openCommandPalette(value, "portfolio-add")}
         />
         {topRightAccountDock}
-        <div className="container mx-auto px-6 pb-28 pl-[104px] pr-10 pt-6">
+        <div className="eldar-main-layout">
           <PortfolioMainPanel
             activePortfolioRating={activePortfolioRating}
             portfolioInputTicker={portfolioInputTicker}
@@ -4226,8 +4221,8 @@ export function StockDashboard({
         onQuickSearch={(value) => openCommandPalette(value)}
       />
       {topRightAccountDock}
-      <div className="container mx-auto px-6 pb-28 pl-[104px] pr-10 pt-6">
-        <div className="mx-auto max-w-4xl">
+      <div className="eldar-main-layout">
+        <div className="eldar-page-width-md">
           <h1 className="mb-8 text-4xl font-black tracking-tight">Watchlist</h1>
           {watchlist.length === 0 ? (
             <div className="eldar-panel rounded-3xl p-8">

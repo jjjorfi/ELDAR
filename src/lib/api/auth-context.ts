@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE:
 // This file provides a minimal auth context helper for API routes.
 // It wraps Clerk's `auth()` so route handlers can require authenticated users
 // without repeating null checks and `orgId ?? null` normalization.

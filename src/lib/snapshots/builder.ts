@@ -1,11 +1,12 @@
 import { analyzeStock } from "@/lib/analyze";
 import { withTimeoutFallback } from "@/lib/async/timeout";
 import { getCompanyFinancials } from "@/lib/financials/eldar-financials-pipeline";
-import { GICS_SECTORS } from "@/lib/market/gics-sectors";
-import { fetchFinnhubCompanyNews } from "@/lib/market/finnhub";
-import { fetchSP500Directory } from "@/lib/market/sp500";
-import { resolveSectorFromCandidates } from "@/lib/scoring/sector-config";
-import { getCachedAnalysis, getRecentAnalyses, saveAnalysis } from "@/lib/storage";
+import { GICS_SECTORS } from "@/lib/market/universe/gics-sectors";
+import { fetchFinnhubCompanyNews } from "@/lib/market/providers/finnhub";
+import { fetchGoogleNewsByQuery } from "@/lib/market/providers/google-news";
+import { fetchSP500Directory } from "@/lib/market/universe/sp500";
+import { resolveSectorFromCandidates } from "@/lib/scoring/sector/config";
+import { getCachedAnalysis, getRecentAnalyses, saveAnalysis } from "@/lib/storage/index";
 
 import {
   acquireTickerBuildLock,
@@ -81,6 +82,32 @@ function sectorNewsFallback(sector: string): SnapshotNewsItem[] {
       publishedAt: null
     }
   ];
+}
+
+function mapGoogleNewsToSnapshotItems(
+  items: Awaited<ReturnType<typeof fetchGoogleNewsByQuery>>
+): SnapshotNewsItem[] {
+  return items
+    .map((item) => ({
+      headline: item.headline,
+      url: item.url,
+      source: item.source,
+      publishedAt: item.publishedAt
+    }))
+    .filter((item) => item.headline.trim().length > 0);
+}
+
+async function fetchNewsFallbackChain(symbol: string, sector: string): Promise<SnapshotNewsItem[]> {
+  const stockNews = mapGoogleNewsToSnapshotItems(await fetchGoogleNewsByQuery(`${symbol} stock`, [symbol], 6));
+  if (stockNews.length > 0) return stockNews;
+
+  const sectorNews = mapGoogleNewsToSnapshotItems(await fetchGoogleNewsByQuery(`${sector} sector stocks`, [symbol], 6));
+  if (sectorNews.length > 0) return sectorNews;
+
+  const marketNews = mapGoogleNewsToSnapshotItems(await fetchGoogleNewsByQuery("S&P 500 market", [symbol], 6));
+  if (marketNews.length > 0) return marketNews;
+
+  return sectorNewsFallback(sector);
 }
 
 async function buildAnalysisEnvelope(symbol: string, warnings: string[]): Promise<SnapshotModuleEnvelope<PersistedAnalysis>> {
@@ -182,19 +209,21 @@ async function buildContextEnvelope(
 async function buildNewsEnvelope(symbol: string, sector: string): Promise<SnapshotModuleEnvelope<SnapshotNewsItem[]>> {
   const budget = await consumeProviderBudget("market-news", SNAPSHOT_MARKET_BUDGET_PER_MIN);
   if (!budget.allowed) {
+    const fallbackNews = await fetchNewsFallbackChain(symbol, sector);
     return {
       state: moduleState("MARKET_INTRADAY", "news-fallback", nowIso(), [
         `news budget exceeded for current minute (used=${budget.used ?? "n/a"})`
       ]),
-      data: sectorNewsFallback(sector)
+      data: fallbackNews
     };
   }
 
   const items = await withTimeoutFallback(fetchFinnhubCompanyNews(symbol, 21, 6), NEWS_FETCH_TIMEOUT_MS, []);
   if (items.length === 0) {
+    const fallbackNews = await fetchNewsFallbackChain(symbol, sector);
     return {
-      state: moduleState("MARKET_INTRADAY", "news-fallback", nowIso(), []),
-      data: sectorNewsFallback(sector)
+      state: moduleState("MARKET_INTRADAY", "google-news-fallback", nowIso(), []),
+      data: fallbackNews
     };
   }
 
@@ -268,4 +297,3 @@ export async function buildSymbolSnapshot(symbol: string, options: BuildSymbolSn
     await releaseTickerBuildLock(normalized, lock.token);
   }
 }
-

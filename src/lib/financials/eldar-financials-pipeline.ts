@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE:
 // File Purpose:
 // - Canonical financial data pipeline for ELDAR.
 // - Fetches SEC EDGAR + ranked market-data fallbacks, computes normalized quarterly/TTM metrics,
@@ -18,11 +17,40 @@ import path from "node:path";
 
 import { sql } from "@vercel/postgres";
 
+import { sicToGics, XBRL_TAGS } from "@/lib/financials/eldar-financials-taxonomy";
+import type {
+  CompanyFinancials,
+  CompanyProfile,
+  FinancialsQuality,
+  GrowthMetrics,
+  PriceHistory,
+  PricePoint,
+  PriceSource,
+  QuarterlyBalanceSheet,
+  QuarterlyCashFlow,
+  QuarterlyIncome,
+  QuarterlyRatios,
+  TTMMetrics
+} from "@/lib/financials/eldar-financials-types";
 import { getFetchSignal, parseOptionalNumber, readEnvToken } from "@/lib/market/adapter-utils";
-import { fetchTemporaryHistoryFallback, fetchTemporaryQuoteFallback } from "@/lib/market/temporary-fallbacks";
+import { fetchTemporaryHistoryFallback, fetchTemporaryQuoteFallback } from "@/lib/market/orchestration/temporary-fallbacks";
 import { sanitizeSymbol } from "@/lib/utils";
 
 export const PIPELINE_VERSION = "eldar-financials-v1.1";
+export { sicToGics, XBRL_TAGS } from "@/lib/financials/eldar-financials-taxonomy";
+export type {
+  CompanyFinancials,
+  CompanyProfile,
+  FinancialsQuality,
+  GrowthMetrics,
+  PriceHistory,
+  PricePoint,
+  QuarterlyBalanceSheet,
+  QuarterlyCashFlow,
+  QuarterlyIncome,
+  QuarterlyRatios,
+  TTMMetrics
+} from "@/lib/financials/eldar-financials-types";
 
 function readPositiveIntEnv(key: string, fallback: number, min = 1, max = 60_000): number {
   const raw = readEnvToken(key);
@@ -54,8 +82,6 @@ const DEFAULT_CONCURRENCY = 5;
 const MAX_CONCURRENCY = 8;
 const BULK_SOFT_SPACING_MS = readPositiveIntEnv("FINANCIALS_BULK_SPACING_MS", 25, 0, 500);
 const LOCAL_FINANCIALS_CACHE_DIR = path.join(process.cwd(), ".cache", "financials");
-
-type PriceSource = "ALPACA" | "TWELVEDATA" | "MARKETSTACK" | "ALPHA_VANTAGE" | "YAHOO_FALLBACK";
 
 // SEC ticker map files can be temporarily incomplete during list updates.
 // Keep explicit overrides for known misses so core pipeline calls remain deterministic.
@@ -96,254 +122,8 @@ class SecUnavailableError extends Error {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TYPE SURFACES
+// TYPE SURFACES (see eldar-financials-types.ts)
 // ─────────────────────────────────────────────────────────────────────────────
-
-export interface CompanyProfile {
-  ticker: string;
-  cik: string;
-  name: string;
-  exchange: string;
-  sector: string;
-  sic: string;
-  currency: string;
-  fiscalYearEnd: string;
-  description: string;
-  employees: number | null;
-}
-
-export interface QuarterlyIncome {
-  fiscalYear: number;
-  fiscalQuarter: 1 | 2 | 3 | 4;
-  periodEnd: string;
-  formType: "10-Q" | "10-K";
-  filedDate: string;
-  revenue: number;
-  costOfRevenue: number | null;
-  grossProfit: number | null;
-  grossMargin: number | null;
-  researchDevelopment: number | null;
-  sellingGeneralAdmin: number | null;
-  depreciationAmortization: number | null;
-  stockBasedCompensation: number | null;
-  ebit: number;
-  ebitda: number | null;
-  ebitMargin: number | null;
-  ebitdaMargin: number | null;
-  interestExpense: number | null;
-  interestIncome: number | null;
-  netInterestExpense: number | null;
-  incomeBeforeTax: number | null;
-  incomeTaxExpense: number | null;
-  effectiveTaxRate: number | null;
-  netIncome: number;
-  netMargin: number | null;
-  epsDiluted: number | null;
-  epsBasic: number | null;
-  sharesDiluted: number | null;
-  sharesBasic: number | null;
-  dividendsPerShare: number | null;
-}
-
-export interface QuarterlyBalanceSheet {
-  fiscalYear: number;
-  fiscalQuarter: 1 | 2 | 3 | 4;
-  periodEnd: string;
-  cash: number;
-  shortTermInvestments: number | null;
-  totalCashAndInvestments: number | null;
-  accountsReceivable: number | null;
-  inventory: number | null;
-  totalCurrentAssets: number | null;
-  ppAndENet: number | null;
-  ppAndEGross: number | null;
-  goodwill: number | null;
-  intangibleAssets: number | null;
-  totalAssets: number;
-  accountsPayable: number | null;
-  shortTermDebt: number | null;
-  currentPortionLTD: number | null;
-  deferredRevenueCurrent: number | null;
-  totalCurrentLiabilities: number | null;
-  longTermDebt: number | null;
-  operatingLeaseLiability: number | null;
-  totalLiabilities: number | null;
-  retainedEarnings: number | null;
-  treasuryStock: number | null;
-  stockholdersEquity: number;
-  sharesOutstanding: number | null;
-  totalDebt: number | null;
-  netDebt: number | null;
-  investedCapital: number | null;
-  tangibleBookValue: number | null;
-  bookValuePerShare: number | null;
-  tangibleBookValuePerShare: number | null;
-  workingCapital: number | null;
-}
-
-export interface QuarterlyCashFlow {
-  fiscalYear: number;
-  fiscalQuarter: 1 | 2 | 3 | 4;
-  periodEnd: string;
-  operatingCashFlow: number;
-  depreciationAmortization: number | null;
-  stockBasedCompensation: number | null;
-  capex: number | null;
-  acquisitions: number | null;
-  purchasesOfInvestments: number | null;
-  salesOfInvestments: number | null;
-  investingCashFlow: number | null;
-  debtIssuance: number | null;
-  debtRepayment: number | null;
-  shareIssuance: number | null;
-  shareBuybacks: number | null;
-  dividendsPaid: number | null;
-  financingCashFlow: number | null;
-  freeCashFlow: number | null;
-  fcfMargin: number | null;
-  fcfConversion: number | null;
-}
-
-export interface QuarterlyRatios {
-  fiscalYear: number;
-  fiscalQuarter: 1 | 2 | 3 | 4;
-  periodEnd: string;
-  priceAtPeriodEnd: number | null;
-  marketCapAtPeriodEnd: number | null;
-  enterpriseValue: number | null;
-  evToEbitda: number | null;
-  evToEbit: number | null;
-  evToRevenue: number | null;
-  evToFCF: number | null;
-  peRatio: number | null;
-  priceToSales: number | null;
-  priceToBook: number | null;
-  priceToFCF: number | null;
-  fcfYield: number | null;
-  grossMargin: number | null;
-  ebitMargin: number | null;
-  ebitdaMargin: number | null;
-  netMargin: number | null;
-  fcfMargin: number | null;
-  roic: number | null;
-  roe: number | null;
-  roa: number | null;
-  roce: number | null;
-  croic: number | null;
-  netDebtToEbitda: number | null;
-  debtToEquity: number | null;
-  interestCoverage: number | null;
-  currentRatio: number | null;
-  quickRatio: number | null;
-  cashRatio: number | null;
-  assetTurnover: number | null;
-  inventoryTurnover: number | null;
-  receivablesTurnover: number | null;
-  daysSalesOutstanding: number | null;
-  daysInventoryOutstanding: number | null;
-  daysPayableOutstanding: number | null;
-  cashConversionCycle: number | null;
-  accrualsRatio: number | null;
-  fcfConversion: number | null;
-  sbcToRevenue: number | null;
-}
-
-export interface TTMMetrics {
-  revenue: number;
-  grossProfit: number | null;
-  ebit: number;
-  ebitda: number | null;
-  netIncome: number;
-  operatingCashFlow: number;
-  freeCashFlow: number | null;
-  capex: number | null;
-  dividendsPaid: number | null;
-  shareBuybacks: number | null;
-  grossMargin: number | null;
-  ebitMargin: number | null;
-  ebitdaMargin: number | null;
-  netMargin: number | null;
-  fcfMargin: number | null;
-  epsDiluted: number | null;
-  fcfPerShare: number | null;
-  revenuePerShare: number | null;
-}
-
-export interface GrowthMetrics {
-  revenueGrowthYoY: number | null;
-  revenueGrowthQoQ: number | null;
-  revenueCagr3Y: number | null;
-  grossProfitGrowthYoY: number | null;
-  ebitGrowthYoY: number | null;
-  ebitdaGrowthYoY: number | null;
-  netIncomeGrowthYoY: number | null;
-  epsGrowthYoY: number | null;
-  fcfGrowthYoY: number | null;
-  epsCagr3Y: number | null;
-  revenueCagr5Y: number | null;
-  revenueAcceleration: number | null;
-  epsAcceleration: number | null;
-  grossMarginExpansionYoY: number | null;
-  ebitMarginExpansionYoY: number | null;
-  netMarginExpansionYoY: number | null;
-}
-
-export interface PricePoint {
-  date: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  adjClose: number;
-  volume: number;
-}
-
-export interface PriceHistory {
-  daily: PricePoint[];
-  beta1Y: number | null;
-  high52W: number | null;
-  low52W: number | null;
-  avgVolume30D: number | null;
-  avgVolume90D: number | null;
-  ma50: number | null;
-  ma200: number | null;
-  rsi14: number | null;
-  priceVsMa200Pct: number | null;
-  volumeRatio: number | null;
-  momentum12_2: number | null;
-}
-
-export interface FinancialsQuality {
-  fundamentalsSource: "SEC_EDGAR";
-  pricesSource: PriceSource;
-  latestFieldSourceTrace: Record<string, string>;
-  restatedPeriods: string[];
-  stats: {
-    quartersParsed: number;
-    quartersAligned: number;
-    imputedFieldCount: number;
-    warningCount: number;
-  };
-}
-
-export interface CompanyFinancials {
-  ticker: string;
-  cik: string;
-  asOf: string;
-  pipelineVersion: string;
-  profile: CompanyProfile;
-  income: QuarterlyIncome[];
-  balance: QuarterlyBalanceSheet[];
-  cashflow: QuarterlyCashFlow[];
-  ratios: QuarterlyRatios[];
-  ttm: TTMMetrics;
-  growth: GrowthMetrics;
-  prices: PriceHistory;
-  quality: FinancialsQuality;
-  confidence: "high" | "medium" | "low";
-  imputedFields: string[];
-  warnings: string[];
-}
 
 interface BuildOptions {
   forceRefresh?: boolean;
@@ -488,161 +268,6 @@ const rankedDailyPriceCache = new Map<string, { expiresAt: number; value: Ranked
 const rankedDailyPriceInFlight = new Map<string, Promise<RankedDailyPriceResult>>();
 const rankedQuoteCache = new Map<string, { expiresAt: number; value: ProviderQuoteRow | null }>();
 const rankedQuoteInFlight = new Map<string, Promise<ProviderQuoteRow | null>>();
-
-const SIC_TO_GICS: Record<string, string> = {
-  "1311": "Energy", "1381": "Energy", "1382": "Energy", "1389": "Energy", "2911": "Energy", "5171": "Energy",
-  "1040": "Materials", "2600": "Materials", "2800": "Materials", "2810": "Materials", "2820": "Materials",
-  "2860": "Materials", "3300": "Materials", "3310": "Materials",
-  "3510": "Industrials", "3520": "Industrials", "3530": "Industrials", "3560": "Industrials", "3720": "Industrials",
-  "3730": "Industrials", "4210": "Industrials", "4213": "Industrials", "4412": "Industrials", "4512": "Industrials",
-  "7389": "Industrials",
-  "2300": "Consumer Discretionary", "5511": "Consumer Discretionary", "5531": "Consumer Discretionary",
-  "5651": "Consumer Discretionary", "5712": "Consumer Discretionary", "5731": "Consumer Discretionary",
-  "7011": "Consumer Discretionary", "7812": "Consumer Discretionary",
-  "2000": "Consumer Staples", "2010": "Consumer Staples", "2020": "Consumer Staples", "2080": "Consumer Staples",
-  "2090": "Consumer Staples", "2100": "Consumer Staples", "5400": "Consumer Staples", "5411": "Consumer Staples",
-  "2830": "Health Care", "2833": "Health Care", "2835": "Health Care", "2836": "Health Care", "3841": "Health Care",
-  "3842": "Health Care", "8000": "Health Care", "8011": "Health Care", "8062": "Health Care",
-  "6020": "Financials", "6022": "Financials", "6035": "Financials", "6099": "Financials", "6141": "Financials",
-  "6199": "Financials", "6211": "Financials", "6282": "Financials", "6311": "Financials", "6331": "Financials",
-  "6411": "Financials",
-  "6500": "Real Estate", "6510": "Real Estate", "6512": "Real Estate", "6552": "Real Estate",
-  "3571": "Information Technology", "3572": "Information Technology", "3576": "Information Technology",
-  "3577": "Information Technology", "3661": "Information Technology", "3669": "Information Technology",
-  "3672": "Information Technology", "3674": "Information Technology", "7370": "Information Technology",
-  "7371": "Information Technology", "7372": "Information Technology", "7374": "Information Technology",
-  "7379": "Information Technology",
-  "4800": "Communication Services", "4812": "Communication Services", "4813": "Communication Services",
-  "4833": "Communication Services", "4841": "Communication Services", "7375": "Communication Services",
-  "4911": "Utilities", "4931": "Utilities", "4941": "Utilities"
-};
-
-export function sicToGics(sic: string): string {
-  return SIC_TO_GICS[sic] ?? "Unknown";
-}
-
-export const XBRL_TAGS = {
-  revenue: [
-    "Revenues",
-    "OperatingLeaseLeaseIncome",
-    "RentalRevenue",
-    "RentalIncome",
-    "RevenueMineralSales",
-    "OilAndGasRevenue",
-    "RevenueFromContractWithCustomerExcludingAssessedTax",
-    "RevenueFromContractWithCustomerIncludingAssessedTax",
-    "SalesRevenueNet",
-    "SalesRevenueGoodsNet",
-    "RevenuesNetOfInterestExpense",
-    "RealEstateRevenueNet",
-    "HealthCareOrganizationRevenue",
-    // Financial-sector fallbacks
-    "InterestRevenueExpenseNet",
-    "InterestIncomeExpenseNet",
-    "PremiumsEarnedNet",
-    "NetInvestmentIncome",
-    "NoninterestIncome",
-    // Utility-sector revenue tags
-    "OperatingRevenues",
-    "ElectricDomesticRegulatedRevenue",
-    "GasDomesticRegulatedRevenue",
-    "ElectricUtilityRevenue",
-    "UtilityRevenue",
-    "RegulatedAndUnregulatedOperatingRevenue"
-  ],
-  costOfRevenue: [
-    "CostOfRevenue",
-    "CostOfGoodsAndServicesSold",
-    "CostOfGoodsSold",
-    "CostOfServices",
-    "CostOfGoodsAndServiceExcludingDepreciationDepletionAndAmortization"
-  ],
-  grossProfit: ["GrossProfit"],
-  researchDevelopment: ["ResearchAndDevelopmentExpense", "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"],
-  sellingGeneralAdmin: ["SellingGeneralAndAdministrativeExpense", "GeneralAndAdministrativeExpense"],
-  depreciationAmortization: [
-    "DepreciationDepletionAndAmortization",
-    "DepreciationAndAmortization",
-    "Depreciation",
-    "AmortizationOfIntangibleAssets"
-  ],
-  ebit: ["OperatingIncomeLoss"],
-  interestExpense: ["InterestExpense", "InterestAndDebtExpense", "InterestExpenseDebt"],
-  interestIncome: ["InvestmentIncomeInterest", "InterestAndDividendIncomeOperating", "InterestIncomeOperating"],
-  incomeBeforeTax: [
-    "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
-    "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"
-  ],
-  incomeTaxExpense: ["IncomeTaxExpenseBenefit"],
-  netIncome: ["NetIncomeLoss", "NetIncomeLossAvailableToCommonStockholdersBasic", "ProfitLoss"],
-  epsDiluted: ["EarningsPerShareDiluted", "EarningsPerShareBasic"],
-  epsBasic: ["EarningsPerShareBasic"],
-  sharesDiluted: ["WeightedAverageNumberOfDilutedSharesOutstanding", "WeightedAverageNumberOfSharesOutstandingDiluted"],
-  sharesBasic: ["WeightedAverageNumberOfSharesOutstandingBasic"],
-  dividendsPerShare: ["CommonStockDividendsPerShareDeclared", "CommonStockDividendsPerShareCashPaid"],
-  stockBasedCompensation: ["ShareBasedCompensation", "AllocatedShareBasedCompensationExpense"],
-  cash: [
-    "Cash",
-    "CashAndCashEquivalentsAtCarryingValue",
-    "CashAndDueFromBanks",
-    "CashCashEquivalentsAndShortTermInvestments",
-    "CashAndCashEquivalentsAndShortTermInvestments",
-    "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
-    "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalentsIncludingDisposalGroupAndDiscontinuedOperations",
-    "RestrictedCashAndCashEquivalents"
-  ],
-  shortTermInvestments: ["ShortTermInvestments", "MarketableSecuritiesCurrent", "AvailableForSaleSecuritiesCurrent"],
-  accountsReceivable: ["AccountsReceivableNetCurrent", "ReceivablesNetCurrent"],
-  inventory: ["InventoryNet", "InventoryFinishedGoodsNetOfReserves", "FIFOInventoryAmount"],
-  totalCurrentAssets: ["AssetsCurrent"],
-  ppAndENet: [
-    "PropertyPlantAndEquipmentNet",
-    "PropertyPlantAndEquipmentAndFinanceLeaseRightOfUseAssetAfterAccumulatedDepreciationAndAmortization"
-  ],
-  ppAndEGross: ["PropertyPlantAndEquipmentGross"],
-  goodwill: ["Goodwill"],
-  intangibleAssets: ["FiniteLivedIntangibleAssetsNet", "IntangibleAssetsNetExcludingGoodwill"],
-  totalAssets: ["Assets"],
-  accountsPayable: ["AccountsPayableCurrent", "AccountsPayableAndAccruedLiabilitiesCurrent"],
-  shortTermDebt: ["ShortTermBorrowings", "CommercialPaper", "NotesPayableCurrent"],
-  currentPortionLongTermDebt: ["LongTermDebtCurrent", "LongTermDebtAndCapitalLeaseObligationsCurrent"],
-  deferredRevenueCurrent: ["DeferredRevenueCurrent", "ContractWithCustomerLiabilityCurrent"],
-  totalCurrentLiabilities: ["LiabilitiesCurrent"],
-  longTermDebt: ["LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations", "LongTermDebt"],
-  operatingLeaseLiability: ["OperatingLeaseLiabilityNoncurrent"],
-  totalLiabilities: ["Liabilities"],
-  retainedEarnings: ["RetainedEarningsAccumulatedDeficit"],
-  treasuryStock: ["TreasuryStockValue", "TreasuryStockCommonValue"],
-  stockholdersEquity: ["StockholdersEquity", "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"],
-  sharesOutstanding: ["CommonStockSharesOutstanding", "EntityCommonStockSharesOutstanding"],
-  operatingCashFlow: [
-    "NetCashProvidedByUsedInOperatingActivities",
-    "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"
-  ],
-  capex: [
-    "PaymentsToAcquirePropertyPlantAndEquipment",
-    "CapitalExpendituresIncurringObligation",
-    "PaymentsForCapitalImprovements"
-  ],
-  acquisitions: ["PaymentsToAcquireBusinessesNetOfCashAcquired", "PaymentsToAcquireBusinessesAndInterestInAffiliates"],
-  purchasesOfInvestments: [
-    "PaymentsToAcquireAvailableForSaleSecurities",
-    "PaymentsToAcquireInvestments",
-    "PaymentsToAcquireMarketableSecurities"
-  ],
-  salesOfInvestments: [
-    "ProceedsFromSaleOfAvailableForSaleSecurities",
-    "ProceedsFromMaturitiesPrepaymentsAndCallsOfAvailableForSaleSecurities",
-    "ProceedsFromSaleMaturityAndCollectionsOfInvestments"
-  ],
-  investingCashFlow: ["NetCashProvidedByUsedInInvestingActivities"],
-  debtIssuance: ["ProceedsFromIssuanceOfLongTermDebt", "ProceedsFromDebtNetOfIssuanceCosts", "ProceedsFromLinesOfCredit"],
-  debtRepayment: ["RepaymentsOfLongTermDebt", "RepaymentsOfDebt", "RepaymentsOfLinesOfCredit"],
-  shareIssuance: ["ProceedsFromIssuanceOfCommonStock", "ProceedsFromStockOptionsExercised"],
-  shareBuybacks: ["PaymentsForRepurchaseOfCommonStock", "TreasuryStockValueAcquiredCostMethod"],
-  dividendsPaid: ["PaymentsOfDividendsCommonStock", "PaymentsOfDividends"],
-  financingCashFlow: ["NetCashProvidedByUsedInFinancingActivities"]
-} as const;
 
 type XbrlConcept = keyof typeof XBRL_TAGS;
 type XbrlTagMap = { [K in XbrlConcept]: readonly string[] };

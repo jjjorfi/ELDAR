@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 
 import { runRouteGuards } from "@/lib/api/route-security";
 import { withApiPerfHeaders } from "@/lib/api/responses";
+import { fetchTopSp500Movers } from "@/lib/home/sp500-movers";
 import { getHomeDashboardPayloadCached, getHomeDashboardPayloadWithMeta, parseSectorWindow } from "@/lib/home/dashboard-service";
+import type { HomeDashboardPayload } from "@/lib/home/dashboard-types";
 import { isNySessionOpen } from "@/lib/market/ny-session";
 import { AGGREGATE_SNAPSHOT_KEYS } from "@/lib/snapshots/contracts";
 import { getAggregateSnapshotForRead } from "@/lib/snapshots/service";
@@ -14,12 +16,26 @@ const CACHE_HEADER_OPEN = "public, max-age=20, s-maxage=45, stale-while-revalida
 const CACHE_HEADER_CLOSED = "public, max-age=90, s-maxage=240, stale-while-revalidate=480";
 const ALLOW_ON_DEMAND_DASHBOARD_FALLBACK =
   process.env.NODE_ENV !== "production" || process.env.ELDAR_ALLOW_DASHBOARD_FALLBACK === "1";
+const REQUIRED_MOVER_BUCKET_SIZE = 3;
 
 function aggregateDashboardKey(window: ReturnType<typeof parseSectorWindow>): string {
   if (window === "1M") return AGGREGATE_SNAPSHOT_KEYS.HOME_DASHBOARD_1M;
   if (window === "3M") return AGGREGATE_SNAPSHOT_KEYS.HOME_DASHBOARD_3M;
   if (window === "6M") return AGGREGATE_SNAPSHOT_KEYS.HOME_DASHBOARD_6M;
   return AGGREGATE_SNAPSHOT_KEYS.HOME_DASHBOARD_YTD;
+}
+
+function hasRequiredMoverBuckets(
+  movers: Array<{ changePercent: number }>,
+  perBucket = REQUIRED_MOVER_BUCKET_SIZE
+): boolean {
+  let winners = 0;
+  let losers = 0;
+  for (const mover of movers) {
+    if (mover.changePercent > 0) winners += 1;
+    if (mover.changePercent < 0) losers += 1;
+  }
+  return winners >= perBucket && losers >= perBucket;
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -34,7 +50,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   try {
     const url = new URL(request.url);
     const sectorWindow = parseSectorWindow(url.searchParams.get("sectorWindow"));
-    const snapshotRead = await getAggregateSnapshotForRead({
+    const snapshotRead = await getAggregateSnapshotForRead<HomeDashboardPayload>({
       key: aggregateDashboardKey(sectorWindow),
       priority: "hot",
       reason: "api-home-dashboard",
@@ -54,6 +70,43 @@ export async function GET(request: Request): Promise<NextResponse> {
       const computed = await getHomeDashboardPayloadWithMeta(sectorWindow);
       payload = computed.payload;
       cacheLayer = `ondemand-${computed.cacheLayer}`;
+    }
+
+    if (payload && !hasRequiredMoverBuckets(payload.marketMovers)) {
+      const repairedMovers = await fetchTopSp500Movers(REQUIRED_MOVER_BUCKET_SIZE);
+      if (hasRequiredMoverBuckets(repairedMovers)) {
+        payload = {
+          ...payload,
+          marketMovers: repairedMovers
+        };
+        cacheLayer = `${cacheLayer}+movers-repaired`;
+      }
+    }
+    if (payload && !hasRequiredMoverBuckets(payload.marketMovers) && ALLOW_ON_DEMAND_DASHBOARD_FALLBACK) {
+      const computed = await getHomeDashboardPayloadWithMeta(sectorWindow);
+      payload = computed.payload;
+      cacheLayer = `ondemand-${computed.cacheLayer}`;
+    }
+    if (payload && !hasRequiredMoverBuckets(payload.marketMovers)) {
+      return NextResponse.json(
+        {
+          pending: true,
+          sectorWindow,
+          refreshQueued: true
+        },
+        {
+          status: 202,
+          headers: withApiPerfHeaders(
+            {
+              "Cache-Control": "no-store"
+            },
+            {
+              startedAt,
+              cache: "warming"
+            }
+          )
+        }
+      );
     }
     if (!payload) {
       return NextResponse.json(

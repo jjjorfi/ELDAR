@@ -2,10 +2,10 @@ import {
   fetchAlphaVantageDailyHistory,
   fetchAlphaVantageFallbackData,
   fetchAlphaVantageQuoteSnapshot
-} from "@/lib/market/alpha-vantage";
+} from "@/lib/market/providers/alpha-vantage";
 import { getFetchSignal } from "@/lib/market/adapter-utils";
-import { fetchEodhdFallbackData, fetchEodhdQuoteSnapshot } from "@/lib/market/eodhd";
-import { fetchFmpFallbackData, fetchFmpQuoteSnapshot } from "@/lib/market/fmp";
+import { fetchEodhdFallbackData, fetchEodhdQuoteSnapshot } from "@/lib/market/providers/eodhd";
+import { fetchFmpFallbackData, fetchFmpQuoteSnapshot } from "@/lib/market/providers/fmp";
 import {
   fetchFinnhubLatestEarnings,
   fetchFinnhubInsiderSignal,
@@ -14,17 +14,17 @@ import {
   fetchFinnhubQuoteSnapshot,
   fetchFinnhubSentiment,
   fetchFinnhubCompanyProfile
-} from "@/lib/market/finnhub";
-import { extractFinnhubMetrics } from "@/lib/market/finnhub-metrics";
-import { fetchMassiveOptionFlow, fetchMassiveQuoteSnapshot, fetchMassiveShortInterest } from "@/lib/market/massive";
-import { mergePriceObservations } from "@/lib/market/price-merge";
+} from "@/lib/market/providers/finnhub";
+import { extractFinnhubMetrics } from "@/lib/market/providers/finnhub-metrics";
+import { fetchMassiveOptionFlow, fetchMassiveQuoteSnapshot, fetchMassiveShortInterest } from "@/lib/market/providers/massive";
+import { mergePriceObservations } from "@/lib/market/orchestration/price-merge";
 import { rsi, sma } from "@/lib/market/indicators";
-import { fetchMacroSignals } from "@/lib/market/macro";
-import { fetchSP500Directory } from "@/lib/market/sp500";
-import { fetchTemporaryHistoryFallback, fetchTemporaryQuoteFallback } from "@/lib/market/temporary-fallbacks";
-import { getLastKnownPrice } from "@/lib/storage";
+import { fetchMacroSignals } from "@/lib/market/orchestration/macro";
+import { fetchSP500Directory } from "@/lib/market/universe/sp500";
+import { fetchTemporaryHistoryFallback, fetchTemporaryQuoteFallback } from "@/lib/market/orchestration/temporary-fallbacks";
+import { getLastKnownPrice } from "@/lib/storage/index";
 import type { MarketSnapshot } from "@/lib/types";
-import { resolveSectorFromCandidates } from "@/lib/scoring/sector-config";
+import { resolveSectorFromCandidates } from "@/lib/scoring/sector/config";
 import { normalizeRatio, safeNumber } from "@/lib/utils";
 
 interface UpgradeHistoryEntry {
@@ -598,6 +598,7 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
           currency: null,
           marketCap: null,
           forwardPE: null,
+          forwardPEBasis: null,
           debtToEquity: null,
           profitMargin: null,
           revenueGrowth: null,
@@ -615,6 +616,7 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
           marketCap: null,
           currentPrice: null,
           forwardPE: null,
+          forwardPEBasis: null,
           debtToEquity: null,
           profitMargin: null,
           revenueGrowth: null,
@@ -820,23 +822,54 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
 
   const fcfYield = freeCashflow !== null && marketCap !== null && marketCap > 0 ? freeCashflow / marketCap : null;
 
-  const forwardPE =
-    eodhdFallback.forwardPE ??
+  const forwardPEFromEodhd = eodhdFallback.forwardPE;
+  const forwardPEFromSummary =
     fromRawNumber(summaryDetail.forwardPE) ??
     safeNumber(summaryDetail.forwardPE) ??
     fromRawNumber(keyStats.forwardPE) ??
-    safeNumber(keyStats.forwardPE) ??
-    fmpFallback.forwardPE ??
-    avFallback.forwardPE ??
-    finnhubMetrics.forwardPE;
+    safeNumber(keyStats.forwardPE);
+  const forwardPEFromFmp = fmpFallback.forwardPE;
+  const forwardPEFromAv = avFallback.forwardPE;
+  const forwardPEFromFinnhub = finnhubMetrics.forwardPE;
+
+  // Strict forward valuation policy:
+  // - accept forwardPE only when basis is explicitly NTM.
+  // - reject generic/trailing/unknown P/E from provider fallbacks.
+  const forwardPeCandidates: Array<{ value: number | null; basis: "NTM" | "TTM" | "UNKNOWN" | null }> = [
+    { value: forwardPEFromSummary, basis: "NTM" },
+    { value: forwardPEFromEodhd, basis: eodhdFallback.forwardPEBasis },
+    { value: forwardPEFromFmp, basis: fmpFallback.forwardPEBasis },
+    { value: forwardPEFromAv, basis: avFallback.forwardPEBasis },
+    { value: forwardPEFromFinnhub, basis: finnhubMetrics.forwardPEBasis }
+  ];
+  const forwardPeSelected = forwardPeCandidates.find(
+    (candidate) => candidate.value !== null && candidate.basis === "NTM"
+  );
+  const forwardPE = forwardPeSelected?.value ?? null;
+  const forwardPEBasis: "NTM" | "TTM" | "UNKNOWN" | null = forwardPeSelected ? "NTM" : null;
+
+  const earningsGrowthFromKeyStats =
+    fromRawNumber(keyStats.earningsQuarterlyGrowth) ??
+    safeNumber(keyStats.earningsQuarterlyGrowth);
+  const earningsGrowthFromFinancialData =
+    fromRawNumber(financialData.earningsGrowth) ??
+    safeNumber(financialData.earningsGrowth);
+  const earningsGrowthFromFinnhub = finnhubMetrics.earningsGrowth;
 
   const earningsQuarterlyGrowth = normalizeRatio(
-    fromRawNumber(keyStats.earningsQuarterlyGrowth) ??
-      safeNumber(keyStats.earningsQuarterlyGrowth) ??
-      fromRawNumber(financialData.earningsGrowth) ??
-      safeNumber(financialData.earningsGrowth) ??
-      finnhubMetrics.earningsGrowth
+    earningsGrowthFromKeyStats ??
+    earningsGrowthFromFinancialData ??
+    earningsGrowthFromFinnhub
   );
+
+  const earningsGrowthBasis: "YOY" | "QOQ" | "UNKNOWN" | null =
+    earningsGrowthFromKeyStats !== null
+      ? "YOY"
+      : earningsGrowthFromFinancialData !== null
+        ? "UNKNOWN"
+        : earningsGrowthFromFinnhub !== null
+          ? "UNKNOWN"
+          : null;
 
   const forwardEps =
     fromRawNumber(keyStats.forwardEps) ??
@@ -992,11 +1025,13 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
     fcfYield,
     debtToEquity,
     forwardPE,
+    forwardPEBasis,
     roic,
     roicTrend: finnhubMetrics.roicTrend,
     ffoYield: null,
     evEbitda,
     epsRevision30d,
+    earningsGrowthBasis,
     technical: {
       sma200,
       rs52Week,

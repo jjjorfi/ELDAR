@@ -8,7 +8,7 @@ import {
   getCompanyFinancials,
   isSecUnavailableError
 } from "../src/lib/financials/eldar-financials-pipeline";
-import { fetchSP500Symbols } from "../src/lib/market/sp500";
+import { fetchSP500Symbols } from "../src/lib/market/universe/sp500";
 
 type Confidence = "high" | "medium" | "low";
 

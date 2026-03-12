@@ -425,14 +425,14 @@ async function fetchFedOddsFromTradingEconomics(): Promise<FedOddsSnapshot | nul
     const delta = expectedRate - referenceRate;
 
     if (delta <= -0.1) {
-      return buildFedOddsSnapshot(0.7, 0.25, 0.05, nextMeeting.date, "TradingEconomics forecast proxy");
+      return buildFedOddsSnapshot(0.7, 0.25, 0.05, nextMeeting.date, "TradingEconomics forecast *");
     }
 
     if (delta >= 0.1) {
-      return buildFedOddsSnapshot(0.05, 0.25, 0.7, nextMeeting.date, "TradingEconomics forecast proxy");
+      return buildFedOddsSnapshot(0.05, 0.25, 0.7, nextMeeting.date, "TradingEconomics forecast *");
     }
 
-    return buildFedOddsSnapshot(0.15, 0.7, 0.15, nextMeeting.date, "TradingEconomics forecast proxy");
+    return buildFedOddsSnapshot(0.15, 0.7, 0.15, nextMeeting.date, "TradingEconomics forecast *");
   } catch {
     return null;
   }

@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE
 // Lightweight Google News RSS fallback for dashboard market headlines. This is
 // not part of scoring and should remain a last-resort continuity source when
 // provider-backed news endpoints are empty or rate-limited. It is focused on

@@ -8,7 +8,7 @@ import { runRouteGuards } from "@/lib/api/route-security";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type IndexCode = "US30" | "US100" | "US500";
+type IndexCode = "US2000" | "US100" | "US500";
 
 interface IndexConfig {
   code: IndexCode;
@@ -33,7 +33,7 @@ interface CacheState {
 }
 
 const INDEX_CONFIGS: IndexConfig[] = [
-  { code: "US30", label: "US30", symbol: "^dji", yahooSymbol: "^DJI" },
+  { code: "US2000", label: "RUT", symbol: "^rut", yahooSymbol: "^RUT" },
   { code: "US100", label: "US100", symbol: "^ndx", yahooSymbol: "^NDX" },
   { code: "US500", label: "US500", symbol: "^spx", yahooSymbol: "^GSPC" }
 ];

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getApiAuthContext } from "@/lib/api/auth-context";
 import { badRequest, internalServerError, jsonNoStore, unauthorized } from "@/lib/api/responses";
 import { runRouteGuards } from "@/lib/api/route-security";
-import { addToWatchlist, getWatchlist, removeFromWatchlist } from "@/lib/storage";
+import { addToWatchlist, getWatchlist, removeFromWatchlist } from "@/lib/storage/index";
 import { publishWatchlistDelta } from "@/lib/realtime/publisher";
 import { sanitizeSymbol } from "@/lib/utils";
 

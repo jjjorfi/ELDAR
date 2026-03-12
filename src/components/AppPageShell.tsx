@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE
 // Shared standalone-page shell used by sectors, macro, and journal. It keeps
 // the left sidebar, background, content width, and top spacing identical across
 // pages so UI changes remain uniform. Keep this shell visual-only.
@@ -41,12 +40,12 @@ export function AppPageShell({
   onOpenPortfolio,
   onToggleTheme,
   children,
-  maxWidthClassName = "max-w-6xl",
+  maxWidthClassName = "eldar-page-width-lg",
   contentClassName,
   background
 }: AppPageShellProps): JSX.Element {
   return (
-    <main className="min-h-screen overflow-x-hidden text-white" style={{ background: background ?? (themeMode === "dark" ? "#000000" : "#e9e5dc") }}>
+    <main className="min-h-screen overflow-x-hidden text-white" style={{ background: background ?? "var(--eldar-bg-primary)" }}>
       <AppLeftSidebar
         activeView={activeView}
         themeMode={themeMode}
@@ -60,8 +59,8 @@ export function AppPageShell({
         onOpenPortfolio={onOpenPortfolio}
         onToggleTheme={onToggleTheme}
       />
-      <div className={clsx("container mx-auto px-6 pb-20 pl-[104px] pr-10 pt-6", contentClassName)}>
-        <div className={clsx("mx-auto", maxWidthClassName)}>{children}</div>
+      <div className={clsx("eldar-main-layout pb-20", contentClassName)}>
+        <div className={clsx("mx-auto w-full", maxWidthClassName)}>{children}</div>
       </div>
     </main>
   );

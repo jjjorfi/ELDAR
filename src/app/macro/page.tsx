@@ -145,7 +145,7 @@ export default function MacroPage(): JSX.Element {
         <div className="eldar-page-section mb-6 px-4 py-3 text-sm text-zinc-100">{error}</div>
       ) : null}
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {macroRegime ? (
           <>
             <MacroRegimeNeedlePanel regime={macroRegime} />
@@ -153,7 +153,7 @@ export default function MacroPage(): JSX.Element {
             <MacroGateStatusRow gatesFired={macroRegime.gatesFired} />
           </>
         ) : (
-          <div className="eldar-page-section p-6">
+          <div className="eldar-page-section p-5">
             <p className="text-sm text-white/62">{loading ? "Loading macro regime..." : "Macro regime is unavailable."}</p>
           </div>
         )}
@@ -163,12 +163,12 @@ export default function MacroPage(): JSX.Element {
             <table className="min-w-full">
               <thead className="border-b border-white/15 bg-white/[0.04]">
                 <tr className="text-left text-xs uppercase tracking-[0.14em] text-white/70">
-                  <th className="px-4 py-3">Indicator</th>
-                  <th className="px-4 py-3">Latest</th>
-                  <th className="px-4 py-3">Move</th>
-                  <th className="px-4 py-3">Frequency</th>
-                  <th className="px-4 py-3">Series</th>
-                  <th className="px-4 py-3">As Of</th>
+                  <th className="px-4 py-2.5">Indicator</th>
+                  <th className="px-4 py-2.5">Latest</th>
+                  <th className="px-4 py-2.5">Move</th>
+                  <th className="px-4 py-2.5">Frequency</th>
+                  <th className="px-4 py-2.5">Series</th>
+                  <th className="px-4 py-2.5">As Of</th>
                 </tr>
               </thead>
               <tbody>
@@ -176,11 +176,11 @@ export default function MacroPage(): JSX.Element {
                   const tone = changeTone(item.change);
                   return (
                     <tr key={item.key} className="border-b border-white/10 text-sm text-white/90">
-                      <td className="px-4 py-3 font-semibold">{item.title}</td>
-                      <td className="px-4 py-3 font-mono text-white/85">{formatValue(item.value, item.unit)}</td>
+                      <td className="px-4 py-2.5 font-semibold">{item.title}</td>
+                      <td className="px-4 py-2.5 font-mono text-white/85">{formatValue(item.value, item.unit)}</td>
                       <td
                         className={clsx(
-                          "px-4 py-3 font-mono",
+                          "px-4 py-2.5 font-mono",
                           tone === "positive" && "text-emerald-300",
                           tone === "negative" && "text-red-300",
                           tone === "neutral" && "text-white/75"
@@ -188,9 +188,9 @@ export default function MacroPage(): JSX.Element {
                       >
                         {formatChange(item.change, item.changeMode)}
                       </td>
-                      <td className="px-4 py-3 text-white/70">{item.frequency}</td>
-                      <td className="px-4 py-3 font-mono text-white/70">{item.seriesId}</td>
-                      <td className="px-4 py-3 text-white/70">{item.date ?? "N/A"}</td>
+                      <td className="px-4 py-2.5 text-white/70">{item.frequency}</td>
+                      <td className="px-4 py-2.5 font-mono text-white/70">{item.seriesId}</td>
+                      <td className="px-4 py-2.5 text-white/70">{item.date ?? "N/A"}</td>
                     </tr>
                   );
                 })}

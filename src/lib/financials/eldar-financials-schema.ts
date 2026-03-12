@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE:
 // File Purpose:
 // - Canonical Drizzle schema for ELDAR financials persistence.
 // - Defines profile, quarterly financials, and daily price history tables.

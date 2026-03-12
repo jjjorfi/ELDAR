@@ -1,7 +1,7 @@
 import clsx from "clsx";
 
 import { RATING_BANDS } from "@/lib/rating";
-import type { PortfolioRating } from "@/lib/scoring/portfolio-types";
+import type { PortfolioRating } from "@/lib/scoring/portfolio/types";
 
 export function CompositeScoreBreakdown({ rating }: { rating: PortfolioRating }): JSX.Element {
   const available = rating.pillars.filter((pillar) => pillar.hasData);

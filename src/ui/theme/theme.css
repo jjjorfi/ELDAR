@@ -6,12 +6,12 @@
   --dg-space-48: 48px;
   --dg-space-64: 64px;
 
-  --dg-border: 1px solid rgba(226, 231, 238, 0.12);
-  --dg-bg-page: #0f1115;
-  --dg-bg-card: #1b1f27;
-  --dg-bg-table: #232833;
-  --dg-text-primary: #f3f5f6;
-  --dg-text-secondary: #b8bac2;
+  --dg-border: 1px solid var(--eldar-border-default);
+  --dg-bg-page: var(--eldar-bg-primary);
+  --dg-bg-card: var(--eldar-bg-surface);
+  --dg-bg-table: var(--eldar-bg-raised);
+  --dg-text-primary: var(--eldar-text-primary);
+  --dg-text-secondary: var(--eldar-text-secondary);
 
   --dg-motion-fast: 150ms;
   --dg-motion-base: 180ms;
@@ -20,29 +20,17 @@
 }
 
 .texture-bg {
-  background-image:
-    radial-gradient(950px 500px at 88% -8%, rgba(52, 121, 224, 0.15), transparent 62%),
-    radial-gradient(860px 420px at -12% 16%, rgba(25, 8, 151, 0.12), transparent 65%);
+  background-image: var(--eldar-texture-bg);
   background-blend-mode: normal;
 }
 
 .texture-card {
-  background-image: linear-gradient(
-    148deg,
-    rgba(255, 255, 255, 0.18) 0%,
-    rgba(255, 255, 255, 0.03) 42%,
-    rgba(255, 255, 255, 0.1) 100%
-  );
+  background-image: var(--eldar-texture-card);
   background-blend-mode: normal;
 }
 
 .texture-table {
-  background-image: linear-gradient(
-    148deg,
-    rgba(255, 255, 255, 0.14) 0%,
-    rgba(255, 255, 255, 0.02) 46%,
-    rgba(255, 255, 255, 0.07) 100%
-  );
+  background-image: var(--eldar-texture-table);
   background-blend-mode: normal;
 }
 
@@ -54,18 +42,12 @@
 }
 
 .primary-cta {
-  border-color: rgba(243, 245, 246, 0.64) !important;
-  box-shadow:
-    0 0 0 1px rgba(243, 245, 246, 0.22),
-    0 0 12px rgba(52, 121, 224, 0.22),
-    0 10px 24px rgba(2, 6, 14, 0.42) !important;
+  border-color: var(--eldar-primary-cta-border) !important;
+  box-shadow: var(--eldar-primary-cta-shadow) !important;
 }
 
 .primary-cta:hover {
-  box-shadow:
-    0 0 0 1px rgba(243, 245, 246, 0.3),
-    0 0 16px rgba(52, 121, 224, 0.26),
-    0 12px 26px rgba(2, 6, 14, 0.52) !important;
+  box-shadow: var(--eldar-primary-cta-hover-shadow) !important;
 }
 
 .section-gap-lg {
@@ -77,14 +59,14 @@
 }
 
 .text-crisp {
-  color: #f7f7f7;
+  color: var(--eldar-text-primary);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
 .evidence-accordion > details {
   border: var(--dg-border);
-  background: rgba(0, 0, 0, 0.32);
+  background: color-mix(in srgb, var(--eldar-bg-primary) 82%, transparent);
 }
 
 .evidence-accordion > details + details {
@@ -98,7 +80,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #b0b0b0;
+  color: var(--eldar-text-muted);
 }
 
 .evidence-accordion summary::-webkit-details-marker {

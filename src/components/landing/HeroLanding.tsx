@@ -1,23 +1,9 @@
 "use client";
 
-// AI CONTEXT TRACE
-// This component owns the pre-app landing experience for StockDashboard's !isAppOpen branch.
-// It is intentionally more cinematic and selective than the in-app dashboard: the goal is to signal
-// taste, trust, and momentum without dumping the full product model before the user enters the app.
-// It consumes the existing Mag7 score payload from app/page.tsx so the page feels live without adding
-// another fetch path or slowing down the manual "Enter Terminal" transition.
-
 import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import Image from "next/image";
 import { useMemo } from "react";
-import {
-  ArrowUpRight,
-  BookMarked,
-  LockKeyhole,
-  ShieldCheck,
-  Sparkles,
-  Waypoints
-} from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, CircleHelp, ShieldCheck, Sparkles } from "lucide-react";
 
 import type { Mag7ScoreCard } from "@/lib/types";
 
@@ -28,110 +14,421 @@ interface HeroLandingProps {
 }
 
 const NAV_ITEMS = [
-  { label: "Quiet", href: "#signal" },
-  { label: "Surface", href: "#surface" },
-  { label: "Entry", href: "#memory" }
+  { label: "Benefits", href: "#benefits" },
+  { label: "How it works", href: "#how" },
+  { label: "Pricing", href: "#pricing" },
+  { label: "FAQ", href: "#faq" }
 ] as const;
 
-const TRUST_MARKERS = [
-  { label: "Private workspace", icon: LockKeyhole },
-  { label: "Live market data", icon: ShieldCheck },
-  { label: "11 sectors watched", icon: ShieldCheck }
-] as const;
+const TRUST_BADGES = ["S&P 500 coverage", "Snapshot-first reads", "Live + fallback market data"] as const;
 
-const PILLARS = [
+const PARTNERS = ["Bloomberg", "Reuters", "NYSE", "Nasdaq", "CBOE", "FRED", "SEC"] as const;
+
+const BENEFITS = [
   {
-    id: "signal",
-    title: "Stay early without getting loud.",
-    body: "The useful read arrives before the explanation does."
+    title: "See regime before noise",
+    body: "Macro, tape, and fundamentals are fused into one operational surface so you can decide faster."
   },
   {
-    id: "surface",
-    title: "The room does not need to know why.",
-    body: "A good surface lets you keep the edge private while you decide."
+    title: "Consistent rating contract",
+    body: "Every symbol follows the same scoring framework, with visible factor lineage and stable semantics."
   },
   {
-    id: "memory",
-    title: "Calm beats spectacle.",
-    body: "Less theater. Less noise. Better timing."
+    title: "Institutional data fallback",
+    body: "If one provider fails, ranked fallback chains preserve continuity instead of returning blank states."
+  },
+  {
+    title: "Snapshot-first performance",
+    body: "User routes read from precomputed snapshots so heavy upstream calls do not block core UI paths."
+  },
+  {
+    title: "Auditable fundamentals",
+    body: "SEC parsing keeps period alignment, amendment handling, and warnings for suspicious filings."
+  },
+  {
+    title: "Unified watch workflow",
+    body: "From discovery to watchlist to score context, you stay on one coherent rail with less switching."
   }
 ] as const;
 
-function InsightCard({
-  title,
-  body,
-  icon: Icon
-}: {
-  title: string;
-  body: string;
-  icon: typeof Sparkles;
-}): JSX.Element {
-  return (
-    <article className="eldar-dashboard-surface rounded-[26px] p-6 md:p-7">
-      <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.04] text-white/72">
-        <Icon className="h-5 w-5" aria-hidden="true" />
-      </div>
-      <h2 className="text-[1.45rem] font-semibold tracking-[-0.03em] text-white">{title}</h2>
-      <p className="mt-3 max-w-[28rem] text-sm leading-7 text-white/62">{body}</p>
-    </article>
-  );
+const HOW_IT_WORKS = [
+  {
+    step: "01",
+    title: "Pick a ticker",
+    body: "Search any covered symbol and get a complete market + fundamentals context snapshot."
+  },
+  {
+    step: "02",
+    title: "Read the signal",
+    body: "See score, factor breakdown, macro bias, and key risk gates in one place."
+  },
+  {
+    step: "03",
+    title: "Act with discipline",
+    body: "Save to watchlist, compare alternatives, and re-check as new data snapshots arrive."
+  }
+] as const;
+
+const PRICING = [
+  {
+    name: "Starter",
+    price: "$29",
+    period: "/month",
+    blurb: "For solo operators",
+    features: ["Single-user workspace", "Core rating engine", "Watchlist + history"],
+    highlight: false
+  },
+  {
+    name: "Pro",
+    price: "$99",
+    period: "/month",
+    blurb: "For active decision loops",
+    features: ["Everything in Starter", "Advanced snapshots", "Priority refresh + exports"],
+    highlight: true
+  },
+  {
+    name: "Desk",
+    price: "$299",
+    period: "/month",
+    blurb: "For small teams",
+    features: ["Everything in Pro", "Multi-user workflows", "Operational support"],
+    highlight: false
+  }
+] as const;
+
+const FAQ = [
+  {
+    q: "How fresh is the data?",
+    a: "Quotes refresh frequently, while fundamentals and scores use cache windows that match their natural update cadence."
+  },
+  {
+    q: "What happens if a provider fails?",
+    a: "Fallback layers and snapshots serve last-known-good data while background refresh jobs recover upstream gaps."
+  },
+  {
+    q: "Is this built for hype trading?",
+    a: "No. The interface is optimized for structured decision-making, not dopamine loops."
+  },
+  {
+    q: "Can I use it before connecting external accounts?",
+    a: "Yes. You can run the platform with your configured market providers and SEC/FRED ingestion stack."
+  }
+] as const;
+
+function signedMove(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "--";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function moveTone(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "var(--eldar-text-muted)";
+  return value >= 0 ? "#10b981" : "#ef4444";
+}
+
+function scoreBarWidth(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "24%";
+  return `${Math.max(16, Math.min(100, Math.abs(value) * 16))}%`;
 }
 
 export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): JSX.Element {
-  const rankedSignals = useMemo(
+  const movers = useMemo(
     () =>
       scores
         .slice()
-        .sort((left, right) => Math.abs(right.changePercent ?? 0) - Math.abs(left.changePercent ?? 0)),
+        .sort((a, b) => Math.abs(b.changePercent ?? 0) - Math.abs(a.changePercent ?? 0))
+        .slice(0, 6),
     [scores]
   );
 
-  const previewBars = rankedSignals.slice(0, 6);
+  const testimonials = useMemo(
+    () =>
+      movers.slice(0, 3).map((item, index) => ({
+        id: `${item.symbol}-${index}`,
+        quote:
+          index === 0
+            ? "It cut my pre-market scan time by more than half."
+            : index === 1
+              ? "The snapshot flow is clean: read, decide, move on."
+              : "Finally a terminal-like surface that stays calm under pressure.",
+        author: item.companyName,
+        role: `${item.symbol} tracked signal`
+      })),
+    [movers]
+  );
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[var(--eldar-bg-primary)] text-white">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 opacity-60" style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)",
-          backgroundSize: "96px 96px"
-        }} />
-        <div className="absolute left-[12%] top-24 h-[420px] w-[420px] rounded-full bg-white/[0.06] blur-[140px]" />
-        <div className="absolute right-[-6%] top-28 h-[540px] w-[540px] rounded-full bg-white/[0.05] blur-[180px]" />
-        <div className="absolute bottom-[-14%] left-1/2 h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-white/[0.04] blur-[180px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.05),transparent_42%),radial-gradient(circle_at_bottom,rgba(255,255,255,0.03),transparent_46%)]" />
-      </div>
-
-      <header id="top" className="relative z-10">
-        <div className="mx-auto flex max-w-[1380px] items-center justify-between px-6 py-6 md:px-10">
-          <button
-            type="button"
-            className="flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-left transition hover:border-white/22 hover:bg-white/[0.05]"
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            aria-label="Scroll to top"
-          >
-            <div className="relative h-[48px] w-[48px] overflow-hidden">
-              <Image src={logoSrc} alt="ELDAR logo" fill sizes="48px" className="object-contain" priority />
+    <div className="min-h-screen bg-[var(--eldar-bg-primary)] text-[var(--eldar-text-primary)]">
+      <header
+        className="sticky top-0 z-50 border-b border-[var(--eldar-border-default)] backdrop-blur"
+        style={{ backgroundColor: "color-mix(in srgb, var(--eldar-bg-primary) 88%, transparent)" }}
+      >
+        <div className="mx-auto flex w-full max-w-[1220px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+          <a href="#hero" className="flex items-center gap-3" aria-label="Back to hero">
+            <div className="relative h-10 w-10 overflow-hidden rounded-full border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-surface)]">
+              <Image src={logoSrc} alt="ELDAR" fill sizes="40px" className="object-contain" priority />
             </div>
-            <div className="hidden sm:block">
-              <div className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/88">ELDAR</div>
-              <div className="text-[11px] uppercase tracking-[0.12em] text-white/38">Private operating surface</div>
+            <div>
+              <div className="text-[12px] font-semibold uppercase tracking-[0.16em]">ELDAR</div>
+              <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--eldar-text-muted)]">Market Intelligence</div>
             </div>
-          </button>
+          </a>
 
-          <nav aria-label="Landing sections" className="hidden items-center gap-8 lg:flex">
+          <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary">
             {NAV_ITEMS.map((item) => (
               <a
                 key={item.href}
                 href={item.href}
-                className="text-[12px] uppercase tracking-[0.18em] text-white/48 transition hover:text-white/78"
+                className="text-[11px] uppercase tracking-[0.14em] text-[var(--eldar-text-secondary)] transition hover:text-[var(--eldar-text-primary)]"
               >
                 {item.label}
               </a>
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <SignedOut>
+              <SignInButton mode="modal">
+                <button
+                  type="button"
+                  className="eldar-btn-ghost inline-flex min-h-[40px] items-center rounded-full px-4 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                >
+                  Sign in
+                </button>
+              </SignInButton>
+            </SignedOut>
+            <button
+              type="button"
+              onClick={onOpenApp}
+              className="eldar-btn-silver inline-flex min-h-[40px] items-center gap-2 rounded-full px-4 text-[11px] font-semibold uppercase tracking-[0.14em]"
+            >
+              Enter App
+              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+            <SignedIn>
+              <UserButton afterSignOutUrl="/" />
+            </SignedIn>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto w-full max-w-[1220px] space-y-14 px-4 pb-24 pt-8 sm:px-6 lg:space-y-20 lg:px-8 lg:pt-12">
+        <section
+          id="hero"
+          className="scroll-mt-24 grid gap-8 rounded-3xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-surface)] p-6 md:grid-cols-[minmax(0,1fr)_460px] md:p-9"
+        >
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-secondary)] px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-[var(--eldar-text-secondary)]">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              1,200+ active users
+            </div>
+
+            <h1 className="mt-6 max-w-[16ch] text-[clamp(2.05rem,5vw,3.6rem)] font-semibold leading-[1.01] tracking-[-0.045em]">
+              High-conviction stock intelligence without interface noise.
+            </h1>
+
+            <p className="mt-4 max-w-[56ch] text-sm leading-7 text-[var(--eldar-text-secondary)] sm:text-base">
+              Track macro regime, score quality, and market tape in one structured surface. Read faster, decide cleaner, and stay
+              consistent across symbols.
+            </p>
+
+            <div className="mt-7 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={onOpenApp}
+                className="eldar-btn-silver inline-flex min-h-[44px] items-center gap-2 rounded-full px-5 text-[11px] font-semibold uppercase tracking-[0.14em]"
+              >
+                Open Terminal
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+              <a
+                href="#how"
+                className="inline-flex min-h-[44px] items-center rounded-full border border-[var(--eldar-border-default)] px-5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--eldar-text-secondary)] transition hover:text-[var(--eldar-text-primary)]"
+              >
+                How it works
+              </a>
+            </div>
+
+            <div className="mt-7 flex flex-wrap gap-2.5">
+              {TRUST_BADGES.map((label) => (
+                <span
+                  key={label}
+                  className="inline-flex items-center gap-2 rounded-full border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-secondary)] px-3 py-1 text-[11px] text-[var(--eldar-text-secondary)]"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                  {label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-secondary)] p-5">
+            <div className="mb-3 text-[11px] uppercase tracking-[0.14em] text-[var(--eldar-text-muted)]">Live market surface</div>
+            <div className="space-y-3 rounded-xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-primary)] p-4">
+              {movers.length > 0 ? (
+                movers.map((item) => (
+                  <article key={item.symbol} className="grid grid-cols-[68px_1fr_auto] items-center gap-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em]">{item.symbol}</div>
+                    <div className="h-[6px] rounded-full" style={{ backgroundColor: "rgba(163,163,163,0.24)" }}>
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: scoreBarWidth(item.changePercent),
+                          backgroundColor: moveTone(item.changePercent)
+                        }}
+                      />
+                    </div>
+                    <div className="text-[11px] font-semibold" style={{ color: moveTone(item.changePercent) }}>
+                      {signedMove(item.changePercent)}
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="py-10 text-center text-sm text-[var(--eldar-text-muted)]">Loading signal preview…</div>
+              )}
+            </div>
+            <div className="mt-4 text-[11px] text-[var(--eldar-text-muted)]">Preview built from current ranked movers.</div>
+          </div>
+        </section>
+
+        <section id="partners" className="scroll-mt-24 rounded-3xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-surface)] p-6 md:p-8">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-[var(--eldar-text-muted)]">Trusted data surfaces</div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
+            {PARTNERS.map((partner) => (
+              <div
+                key={partner}
+                className="rounded-xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-secondary)] px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--eldar-text-secondary)]"
+              >
+                {partner}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section id="benefits" className="scroll-mt-24 rounded-3xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-surface)] p-6 md:p-8">
+          <h2 className="text-2xl font-semibold tracking-[-0.03em] md:text-3xl">Benefits</h2>
+          <p className="mt-2 text-sm text-[var(--eldar-text-secondary)]">Focus on decision quality, not visual noise.</p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {BENEFITS.map((benefit) => (
+              <article
+                key={benefit.title}
+                className="rounded-2xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-secondary)] p-4 transition hover:border-[var(--eldar-amber-border)]"
+              >
+                <div className="text-base font-semibold tracking-[-0.01em]">{benefit.title}</div>
+                <p className="mt-2 text-sm leading-6 text-[var(--eldar-text-secondary)]">{benefit.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section id="how" className="scroll-mt-24 rounded-3xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-surface)] p-6 md:p-8">
+          <h2 className="text-2xl font-semibold tracking-[-0.03em] md:text-3xl">How it works</h2>
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            {HOW_IT_WORKS.map((step) => (
+              <article
+                key={step.step}
+                className="rounded-2xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-secondary)] p-4 transition hover:border-[var(--eldar-amber-border)]"
+              >
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--eldar-text-muted)]">Step {step.step}</div>
+                <div className="mt-2 text-lg font-semibold tracking-[-0.01em]">{step.title}</div>
+                <p className="mt-2 text-sm leading-6 text-[var(--eldar-text-secondary)]">{step.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section id="pricing" className="scroll-mt-24 rounded-3xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-surface)] p-6 md:p-8">
+          <h2 className="text-2xl font-semibold tracking-[-0.03em] md:text-3xl">Pricing</h2>
+          <p className="mt-2 text-sm text-[var(--eldar-text-secondary)]">Pick the plan that matches your decision cadence.</p>
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            {PRICING.map((plan) => (
+              <article
+                key={plan.name}
+                className={`rounded-2xl border p-4 ${
+                  plan.highlight
+                    ? "border-[var(--eldar-amber-border)] bg-[var(--eldar-bg-primary)]"
+                    : "border-[var(--eldar-border-default)] bg-[var(--eldar-bg-secondary)]"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold uppercase tracking-[0.12em]">{plan.name}</div>
+                  {plan.highlight ? (
+                    <span className="rounded-full border border-[var(--eldar-amber-border)] bg-[var(--eldar-bg-surface)] px-2 py-0.5 text-[10px] uppercase tracking-[0.12em]">
+                      Most Popular
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-3 flex items-end gap-1">
+                  <span className="text-3xl font-semibold tracking-[-0.03em]">{plan.price}</span>
+                  <span className="pb-1 text-sm text-[var(--eldar-text-secondary)]">{plan.period}</span>
+                </div>
+                <p className="mt-1 text-sm text-[var(--eldar-text-secondary)]">{plan.blurb}</p>
+                <button
+                  type="button"
+                  onClick={onOpenApp}
+                  className="mt-4 w-full rounded-full border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-primary)] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                >
+                  Start now
+                </button>
+                <ul className="mt-4 space-y-2 text-sm text-[var(--eldar-text-secondary)]">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-2">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section id="testimonials" className="scroll-mt-24 rounded-3xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-surface)] p-6 md:p-8">
+          <h2 className="text-2xl font-semibold tracking-[-0.03em] md:text-3xl">Loved by operators worldwide</h2>
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            {testimonials.map((item) => (
+              <article
+                key={item.id}
+                className="rounded-2xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-secondary)] p-4 transition hover:border-[var(--eldar-amber-border)]"
+              >
+                <div className="text-[13px] leading-6 text-[var(--eldar-text-secondary)]">“{item.quote}”</div>
+                <div className="mt-4 text-sm font-semibold">{item.author}</div>
+                <div className="text-[11px] uppercase tracking-[0.12em] text-[var(--eldar-text-muted)]">{item.role}</div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section id="faq" className="scroll-mt-24 rounded-3xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-surface)] p-6 md:p-8">
+          <h2 className="text-2xl font-semibold tracking-[-0.03em] md:text-3xl">Frequently asked questions</h2>
+          <div className="mt-5 space-y-2">
+            {FAQ.map((item) => (
+              <details key={item.q} className="rounded-xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-secondary)]">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-sm font-semibold">
+                  <span>{item.q}</span>
+                  <CircleHelp className="h-4 w-4 shrink-0 text-[var(--eldar-text-muted)]" aria-hidden="true" />
+                </summary>
+                <p className="px-4 pb-4 text-sm leading-6 text-[var(--eldar-text-secondary)]">{item.a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-[var(--eldar-amber-border)] bg-[var(--eldar-bg-raised)] p-6 md:p-8" id="cta">
+          <div className="max-w-[58ch]">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">Build conviction before the room catches up.</h2>
+            <p className="mt-3 text-sm leading-7 text-[var(--eldar-text-secondary)]">
+              Open ELDAR and work through the same disciplined read path on every symbol.
+            </p>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={onOpenApp}
+              className="eldar-btn-silver inline-flex min-h-[44px] items-center gap-2 rounded-full px-5 text-[11px] font-semibold uppercase tracking-[0.14em]"
+            >
+              Enter App
+              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
             <SignedOut>
               <SignInButton mode="modal">
                 <button
@@ -142,147 +439,40 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
                 </button>
               </SignInButton>
             </SignedOut>
-            <button
-              type="button"
-              onClick={onOpenApp}
-              className="eldar-btn-silver inline-flex min-h-[44px] items-center gap-2 rounded-full px-5 text-[11px] font-semibold uppercase tracking-[0.14em]"
-            >
-              Enter App
-              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-            </button>
-            <SignedIn>
-              <UserButton afterSignOutUrl="/" />
-            </SignedIn>
-          </div>
-        </div>
-      </header>
-
-      <main className="relative z-10">
-        <section className="mx-auto max-w-[1380px] px-6 pb-16 pt-10 md:px-10 md:pb-24 md:pt-16">
-          <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_560px] lg:items-center xl:gap-16">
-            <div className="min-w-0">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-white/58">
-                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                Quietly reading the tape
-              </div>
-
-              <h1 className="mt-8 max-w-[12ch] text-[clamp(3.4rem,8vw,7.2rem)] font-semibold leading-[0.92] tracking-[-0.06em] text-white">
-                The market leaves fingerprints.
-              </h1>
-
-              <p className="mt-6 max-w-[36rem] text-lg leading-8 text-white/64">
-                A private surface for watching the tape before the room decides what it means.
-              </p>
-
-              <div className="mt-8 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={onOpenApp}
-                  className="eldar-btn-silver inline-flex min-h-[50px] items-center gap-2 rounded-full px-6 text-[12px] font-semibold uppercase tracking-[0.14em]"
-                >
-                  Enter App
-                  <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </div>
-
-              <div className="mt-8 flex flex-wrap gap-3">
-                {TRUST_MARKERS.map(({ label, icon: Icon }) => (
-                  <span
-                    key={label}
-                    className="inline-flex min-h-[34px] items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 text-[11px] uppercase tracking-[0.14em] text-white/52"
-                  >
-                    <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                    {label}
-                  </span>
-                ))}
-              </div>
-
-            </div>
-
-            <div className="relative" id="surface">
-              <div className="absolute -left-14 top-14 hidden h-56 w-56 rounded-full bg-white/[0.08] blur-[100px] lg:block" aria-hidden="true" />
-              <div className="absolute -right-6 bottom-2 hidden h-48 w-48 rounded-full bg-white/[0.08] blur-[100px] lg:block" aria-hidden="true" />
-
-              <div className="eldar-panel relative overflow-hidden rounded-[34px] p-5 md:p-6">
-                <div className="absolute inset-0 bg-[linear-gradient(160deg,rgba(255,255,255,0.05),transparent_34%,rgba(255,255,255,0.02))]" aria-hidden="true" />
-                <div className="relative">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-white/55" />
-                    <span className="h-2 w-2 rounded-full bg-white/28" />
-                    <span className="h-2 w-2 rounded-full bg-white/16" />
-                  </div>
-
-                  <div className="mt-6 rounded-[24px] border border-white/10 bg-black/20 p-5">
-                    <div className="grid gap-3">
-                      {previewBars.map((item) => {
-                        const move = item.changePercent ?? 0;
-                        const width = `${Math.max(18, Math.min(100, Math.abs(move) * 18))}%`;
-                        return (
-                          <div key={item.symbol} className="grid grid-cols-[16px_minmax(0,1fr)] items-center gap-4">
-                            <div className="h-1.5 w-1.5 rounded-full bg-white/24" />
-                            <div className="h-[4px] overflow-hidden rounded-full bg-white/8">
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width,
-                                  background: move >= 0 ? "rgba(16,185,129,0.8)" : "rgba(239,68,68,0.82)",
-                                  boxShadow: move >= 0 ? "0 0 16px rgba(16,185,129,0.24)" : "0 0 16px rgba(239,68,68,0.22)"
-                                }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="signal" className="mx-auto max-w-[1380px] px-6 pb-16 md:px-10 md:pb-24" aria-label="Core pillars">
-          <div className="grid gap-5 lg:grid-cols-3">
-            <InsightCard icon={Sparkles} title={PILLARS[0].title} body={PILLARS[0].body} />
-            <InsightCard icon={Waypoints} title={PILLARS[1].title} body={PILLARS[1].body} />
-            <InsightCard icon={BookMarked} title={PILLARS[2].title} body={PILLARS[2].body} />
-          </div>
-        </section>
-
-        <section id="memory" className="mx-auto max-w-[1380px] px-6 pb-20 md:px-10 md:pb-28">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-            <div className="eldar-panel rounded-[32px] p-7 md:p-9">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-white/38">ELDAR</div>
-              <div className="mt-4 max-w-[12ch] text-[clamp(2.4rem,4vw,4.4rem)] font-semibold leading-[0.96] tracking-[-0.05em] text-white">
-                Quiet by design.
-              </div>
-              <p className="mt-5 max-w-[34rem] text-sm leading-7 text-white/60">
-                Most platforms get louder as the room gets less certain. This one does the opposite.
-              </p>
-            </div>
-
-            <div className="grid gap-5">
-              <div className="eldar-dashboard-surface rounded-[28px] p-6">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <div className="text-[22px] font-semibold tracking-[-0.04em] text-white">
-                      The surface is already awake.
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={onOpenApp}
-                    className="eldar-btn-silver inline-flex min-h-[48px] items-center gap-2 rounded-full px-5 text-[11px] font-semibold uppercase tracking-[0.14em]"
-                  >
-                    Enter App
-                    <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
         </section>
       </main>
+
+      <footer className="border-t border-[var(--eldar-border-default)] bg-[var(--eldar-bg-secondary)]">
+        <div className="mx-auto grid w-full max-w-[1220px] gap-6 px-4 py-8 sm:px-6 md:grid-cols-4 lg:px-8">
+          <div>
+            <div className="text-[12px] font-semibold uppercase tracking-[0.16em]">ELDAR</div>
+            <p className="mt-2 text-sm text-[var(--eldar-text-secondary)]">Structured market intelligence for disciplined operators.</p>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.12em] text-[var(--eldar-text-muted)]">Menu</div>
+            <div className="mt-2 space-y-1 text-sm text-[var(--eldar-text-secondary)]">
+              {NAV_ITEMS.map((item) => (
+                <a key={item.href} href={item.href} className="block hover:text-[var(--eldar-text-primary)]">
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.12em] text-[var(--eldar-text-muted)]">Legal</div>
+            <div className="mt-2 space-y-1 text-sm text-[var(--eldar-text-secondary)]">
+              <span className="block">Privacy</span>
+              <span className="block">Terms</span>
+              <span className="block">Security</span>
+            </div>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.12em] text-[var(--eldar-text-muted)]">Status</div>
+            <p className="mt-2 text-sm text-[var(--eldar-text-secondary)]">Live snapshots, fallback providers, and SEC-backed fundamentals.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

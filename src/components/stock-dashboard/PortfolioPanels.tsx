@@ -73,7 +73,7 @@ export function PortfolioMainPanel({
   onWheelSelect
 }: PortfolioMainPanelProps): JSX.Element {
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-white md:text-3xl">Portfolio Health Checker</h1>
@@ -108,7 +108,7 @@ export function PortfolioMainPanel({
               >
                 <span className="flex items-center gap-2 text-slate-900">
                   <Search className="h-4 w-4" />
-                  {portfolioInputTicker ? portfolioInputTicker : "Ticker or company..."}
+                  {portfolioInputTicker ? portfolioInputTicker : "Search"}
                 </span>
                 <span className="rounded-md border border-black/20 bg-black/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-700">
                   /

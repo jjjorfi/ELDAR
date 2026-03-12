@@ -1,7 +1,7 @@
 import { sql } from "@vercel/postgres";
 
 import { cacheGetJson, cacheSetJson } from "@/lib/cache/redis";
-import type { PersistedPortfolioSnapshot, PortfolioRating, PortfolioSnapshotHolding } from "@/lib/scoring/portfolio-types";
+import type { PersistedPortfolioSnapshot, PortfolioRating, PortfolioSnapshotHolding } from "@/lib/scoring/portfolio/types";
 import {
   ensurePortfolioStore,
   hasPostgres,

@@ -47,9 +47,9 @@ export function ratingLabelFromKey(rating: RatingLabel): string {
 
 export function ratingLabelToneClass(label: string): string {
   const normalized = label.toLowerCase();
-  if (normalized.includes("strongly bullish") || normalized.includes("strong buy")) return "text-[#FFBF00]";
-  if (normalized.includes("bullish") || normalized.includes("buy")) return "text-emerald-300";
-  if (normalized.includes("bearish") || normalized.includes("sell")) return "text-red-300";
+  if (normalized.includes("strongly bullish")) return "text-[#FFBF00]";
+  if (normalized.includes("bullish")) return "text-emerald-300";
+  if (normalized.includes("bearish")) return "text-red-300";
   return "text-slate-300";
 }
 

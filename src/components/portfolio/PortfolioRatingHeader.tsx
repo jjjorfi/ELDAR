@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-import type { PortfolioRating } from "@/lib/scoring/portfolio-types";
+import type { PortfolioRating } from "@/lib/scoring/portfolio/types";
 
 const PILLAR_ORDER = [
   { key: "return", label: "RETURN" },

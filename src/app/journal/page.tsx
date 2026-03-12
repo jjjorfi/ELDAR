@@ -421,7 +421,7 @@ export default function JournalPage(): JSX.Element {
   };
 
   const renderTabs = (): JSX.Element => (
-    <div className="mb-5 flex flex-wrap items-center gap-2">
+    <div className="mb-4 flex flex-wrap items-center gap-2">
       {[
         { key: "active", label: "Active Trades" },
         { key: "closed", label: "Closed Trades" },
@@ -432,7 +432,7 @@ export default function JournalPage(): JSX.Element {
           type="button"
           onClick={() => setTab(item.key as JournalTab)}
           className={clsx(
-            "h-11 rounded-xl border px-4 text-xs font-semibold uppercase tracking-[0.12em] transition",
+            "h-10 rounded-xl border px-3.5 text-xs font-semibold uppercase tracking-[0.12em] transition",
             tab === item.key
               ? "border-white/50 bg-white/10 text-white"
               : "border-white/18 bg-zinc-950/45 text-white/75 hover:border-white/30 hover:text-white"
@@ -452,7 +452,7 @@ export default function JournalPage(): JSX.Element {
           type="button"
           onClick={() => selectEntry(entry)}
           className={clsx(
-            "card-grain rough-border w-full rounded-2xl border bg-zinc-950/45 px-5 py-4 text-left transition",
+            "card-grain rough-border w-full rounded-2xl border bg-zinc-950/45 px-4 py-3.5 text-left transition",
             selectedId === entry.id ? "border-white/35" : "border-white/15 hover:border-white/30"
           )}
         >
@@ -493,7 +493,7 @@ export default function JournalPage(): JSX.Element {
         <select
           value={sortKey}
           onChange={(event) => setSortKey(event.target.value as ClosedSortKey)}
-          className="h-11 rounded-xl border border-white/15 bg-zinc-950/50 px-3 text-sm text-white outline-none"
+          className="h-10 rounded-xl border border-white/15 bg-zinc-950/50 px-3 text-sm text-white outline-none"
         >
           <option value="createdAt">Sort by date</option>
           <option value="returnPct">Sort by return</option>
@@ -502,7 +502,7 @@ export default function JournalPage(): JSX.Element {
         <select
           value={sortDirection}
           onChange={(event) => setSortDirection(event.target.value as "asc" | "desc")}
-          className="h-11 rounded-xl border border-white/15 bg-zinc-950/50 px-3 text-sm text-white outline-none"
+          className="h-10 rounded-xl border border-white/15 bg-zinc-950/50 px-3 text-sm text-white outline-none"
         >
           <option value="desc">Descending</option>
           <option value="asc">Ascending</option>
@@ -514,7 +514,7 @@ export default function JournalPage(): JSX.Element {
           type="button"
           onClick={() => selectEntry(entry)}
           className={clsx(
-            "card-grain rough-border w-full rounded-2xl border bg-zinc-950/45 px-5 py-4 text-left transition",
+            "card-grain rough-border w-full rounded-2xl border bg-zinc-950/45 px-4 py-3.5 text-left transition",
             selectedId === entry.id ? "border-white/35" : "border-white/15 hover:border-white/30"
           )}
         >
@@ -940,7 +940,6 @@ export default function JournalPage(): JSX.Element {
       onOpenJournal={() => undefined}
       onOpenPortfolio={() => openDashboardView("portfolio")}
       onToggleTheme={() => setThemeMode((prev) => (prev === "dark" ? "light" : "dark"))}
-      contentClassName="pb-12"
     >
       <AppPageHeader
         title="Investment Journal"
@@ -962,15 +961,15 @@ export default function JournalPage(): JSX.Element {
           <p className="text-base text-white/85">Sign in to access your private investment journal.</p>
         </div>
       ) : (
-        <>
-          <div className="mb-4">
+        <div className="space-y-3">
+          <div>
             <div className="relative max-w-md">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search trades"
-                className="eldar-field-surface h-11 w-full pl-10 pr-3 text-sm text-white outline-none"
+                className="eldar-field-surface h-10 w-full pl-10 pr-3 text-sm text-white outline-none"
               />
             </div>
           </div>
@@ -986,12 +985,12 @@ export default function JournalPage(): JSX.Element {
           ) : (
             renderReview()
           )}
-        </>
+        </div>
       )}
 
       {newTradeOpen ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-          <div className="eldar-page-section w-full max-w-md p-5">
+            <div className="eldar-page-section w-full max-w-md p-4">
             <h2 className="text-xl font-semibold text-white">New trade</h2>
             <div className="mt-4 space-y-3">
               <div className="relative">

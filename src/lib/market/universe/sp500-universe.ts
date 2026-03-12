@@ -1,4 +1,4 @@
-import type { SP500DirectoryEntry } from "@/lib/market/sp500";
+import type { SP500DirectoryEntry } from "@/lib/market/universe/sp500";
 
 export type SP500DirectoryMap = Record<string, SP500DirectoryEntry>;
 

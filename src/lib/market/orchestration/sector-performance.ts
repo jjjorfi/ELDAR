@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE
 // This module centralizes sector ETF performance fetching for both the home dashboard
 // and the standalone sectors page. It fetches one-year daily Yahoo chart history,
 // computes windowed returns (YTD/1M/3M/6M), and caches parsed history in-memory so
@@ -6,7 +5,7 @@
 // start still pays the first Yahoo fetch cost until the cache is warm again.
 
 import { getFetchSignal } from "@/lib/market/adapter-utils";
-import { fetchTemporaryHistoryFallback } from "@/lib/market/temporary-fallbacks";
+import { fetchTemporaryHistoryFallback } from "@/lib/market/orchestration/temporary-fallbacks";
 import { cacheGetJson, cacheSetJson } from "@/lib/cache/redis";
 
 export type SectorPerformanceWindow = "YTD" | "1M" | "3M" | "6M";

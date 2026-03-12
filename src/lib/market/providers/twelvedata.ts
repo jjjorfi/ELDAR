@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE
 // This file adds Twelve Data as a temporary quote/history fallback while ELDAR
 // is still on free-tier market data. It only feeds quote/history rescue paths
 // through temporary-fallbacks.ts and should be demoted or removed once premium

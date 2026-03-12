@@ -52,6 +52,7 @@ interface ResultsSidebarProps {
   currentRating: PersistedAnalysis;
   stockContextLoading: boolean;
   stockContext: StockContextLike | null;
+  fallbackSimilarStocks: SimilarStock[];
   stockContextError: string;
   sectorRelative: SectorRelativeState;
   isNewsExpanded: boolean;
@@ -81,6 +82,7 @@ export function ResultsSidebar({
   currentRating,
   stockContextLoading,
   stockContext,
+  fallbackSimilarStocks,
   stockContextError,
   sectorRelative,
   isNewsExpanded,
@@ -105,34 +107,42 @@ export function ResultsSidebar({
   ratingLabelToneClass,
   upgradePath
 }: ResultsSidebarProps): JSX.Element {
+  const visibleSimilarStocks = (stockContext?.similarStocks?.length ?? 0) > 0
+    ? stockContext?.similarStocks ?? []
+    : fallbackSimilarStocks;
+
   return (
-    <aside className="space-y-6">
-      <div className="eldar-panel reveal-block rounded-3xl p-5" style={{ transitionDelay: "120ms" }}>
+    <aside className="space-y-4">
+      <div className="eldar-panel reveal-block rounded-3xl p-4" style={{ transitionDelay: "120ms" }}>
         <h3 className="eldar-caption mb-3 text-xs text-white/60">SECTOR CONTEXT</h3>
         {stockContextLoading ? (
           <LinesSkeleton rows={4} />
         ) : (
           <div className="space-y-3">
-            <div className="rounded-2xl border border-white/15 bg-zinc-950/45 px-4 py-3">
+            <div className="space-y-2 rounded-2xl border border-white/15 bg-zinc-950/45 px-3 py-2.5">
               <p className="text-xs uppercase tracking-[0.14em] text-white/55">{stockContext?.sector ?? currentRating.sector}</p>
-              <p className="mt-2 text-sm text-white/80">
-                ELDAR Sector avg:{" "}
-                {typeof stockContext?.sectorAverageScore === "number" ? stockContext.sectorAverageScore.toFixed(1) : currentRating.score.toFixed(1)}
-              </p>
-              <p className="mt-1 text-sm text-white/80">
-                <span>{currentRating.symbol} vs sector</span>
-                <span className="mx-2 font-mono">
-                  {sectorRelative.arrow} {sectorRelative.value}
+              <div className="flex items-center justify-between gap-2 text-sm text-white/80">
+                <span className="text-white/65">Sector avg</span>
+                <span className="font-mono">
+                  {typeof stockContext?.sectorAverageScore === "number" ? stockContext.sectorAverageScore.toFixed(1) : currentRating.score.toFixed(1)}
                 </span>
-                <span className={clsx("font-semibold", sectorRelative.toneClass)}>{sectorRelative.label}</span>
-              </p>
+              </div>
+              <div className="flex items-center justify-between gap-2 text-sm text-white/80">
+                <span className="min-w-0 flex-1 text-white/65">{currentRating.symbol} vs sector</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono">
+                    {sectorRelative.arrow} {sectorRelative.value}
+                  </span>
+                  <span className={clsx("font-semibold", sectorRelative.toneClass)}>{sectorRelative.label}</span>
+                </div>
+              </div>
             </div>
             {stockContextError ? <p className="text-xs text-zinc-200/80">{stockContextError}</p> : null}
           </div>
         )}
       </div>
 
-      <div className="eldar-panel reveal-block rounded-3xl p-5" style={{ transitionDelay: "180ms" }}>
+      <div className="eldar-panel reveal-block rounded-3xl p-4" style={{ transitionDelay: "180ms" }}>
         <div className="mb-3 flex items-center justify-between gap-3">
           <h3 className="eldar-caption text-xs text-white/60">RELATED NEWS</h3>
           <button
@@ -158,9 +168,9 @@ export function ResultsSidebar({
                 href={item.url ?? `https://finance.yahoo.com/quote/${encodeURIComponent(currentRating.symbol)}/news`}
                 target="_blank"
                 rel="noreferrer"
-                className="block rounded-xl border border-white/15 bg-zinc-950/45 px-3 py-2 text-xs text-white/80 transition hover:border-white/30 hover:bg-zinc-900/60 hover:text-white"
+                className="flex min-h-[42px] items-center rounded-xl border border-white/15 bg-zinc-950/45 px-3 py-2 text-xs text-white/80 transition hover:border-white/30 hover:bg-zinc-900/60 hover:text-white"
               >
-                <span className="text-white/95">- {item.headline}</span>
+                <span className="block w-full truncate text-white/95">{item.headline}</span>
               </a>
             ))
           )}
@@ -175,7 +185,7 @@ export function ResultsSidebar({
         </div>
       </div>
 
-      <div className="eldar-panel reveal-block rounded-3xl p-5" style={{ transitionDelay: "240ms" }}>
+      <div className="eldar-panel reveal-block rounded-3xl p-4" style={{ transitionDelay: "240ms" }}>
         <div className="mb-3 flex items-center justify-between gap-2">
           <h3 className="eldar-caption text-xs text-white/60">JOURNAL</h3>
           <button
@@ -222,7 +232,7 @@ export function ResultsSidebar({
         {journalRelatedError ? <p className="mt-2 text-[10px] text-zinc-200/80">{journalRelatedError}</p> : null}
       </div>
 
-      <div className="eldar-panel reveal-block rounded-3xl p-5" style={{ transitionDelay: "300ms" }}>
+      <div className="eldar-panel reveal-block rounded-3xl p-4" style={{ transitionDelay: "300ms" }}>
         <div className="mb-3 flex items-center">
           <h3 className="eldar-caption text-xs text-white/60">SIMILAR STOCKS</h3>
         </div>
@@ -235,13 +245,13 @@ export function ResultsSidebar({
         >
           {stockContextLoading ? (
             <LinesSkeleton rows={3} />
-          ) : (stockContext?.similarStocks?.length ?? 0) === 0 ? (
+          ) : visibleSimilarStocks.length === 0 ? (
             <EmptyState icon="📊" message="No same-sector stocks available" action={{ label: "Back to search", onClick: onOpenCommandPalette }} />
           ) : (
-            (stockContext?.similarStocks ?? []).slice(0, 3).map((item) => (
+            visibleSimilarStocks.slice(0, 3).map((item) => (
               <div
                 key={item.symbol}
-                className="flex min-h-[44px] min-w-[240px] items-center gap-2 rounded-2xl border border-white/20 bg-zinc-950/50 px-3 py-2.5 md:min-w-0"
+                className="flex min-h-[42px] min-w-[220px] items-center gap-2 rounded-2xl border border-white/20 bg-zinc-950/50 px-3 py-2 md:min-w-0"
               >
                 <button
                   onClick={() => onAnalyzeSymbol(item.symbol)}
@@ -360,7 +370,7 @@ export function ResultsSidebar({
         ) : null}
       </div>
 
-      <div className="eldar-panel reveal-block rounded-3xl p-5" style={{ transitionDelay: "340ms" }}>
+      <div className="eldar-panel reveal-block rounded-3xl p-4" style={{ transitionDelay: "340ms" }}>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.12em] text-white">WHAT WOULD CHANGE THE RATING</h3>
         {upgradePath.targetLabel ? (
           <p className="mb-3 text-sm text-white/75">To reach {upgradePath.targetLabel}:</p>

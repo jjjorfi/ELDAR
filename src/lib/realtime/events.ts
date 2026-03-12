@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE:
 // File Purpose:
 // - Defines shared Socket.IO event names, room naming helpers, and payload contracts.
 // - Used by BOTH Next.js API routes (publishers) and frontend listeners.
@@ -45,7 +44,7 @@ export interface MarketMoversPayload {
 
 export interface IndicesYtdPayload {
   indices: Array<{
-    code: "US30" | "US100" | "US500";
+    code: "US2000" | "US100" | "US500";
     label: string;
     symbol: string;
     current: number | null;

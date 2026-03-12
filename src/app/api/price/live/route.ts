@@ -44,7 +44,10 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     return NextResponse.json(payload, {
       headers: withApiPerfHeaders(
-        { "Cache-Control": CACHE_HEADER },
+        {
+          "Cache-Control": CACHE_HEADER,
+          "X-ELDAR-Data-State": payload.source
+        },
         {
           startedAt,
           cache

@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE
 // This file adds marketstack as a temporary end-of-day fallback while ELDAR is
 // still operating on constrained free-tier data. It is intentionally limited to
 // quote/history rescue paths and should be removed or downgraded once premium

@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE:
 // File Purpose:
 // - Adapts canonical CompanyFinancials output to engine-facing inputs.
 // - Keeps pipeline independent from scoring model interfaces.
@@ -128,11 +127,13 @@ export function toMarketSnapshot(financials: CompanyFinancials): MarketSnapshot 
     fcfYield: latestRatio?.fcfYield ?? null,
     debtToEquity: latestRatio?.debtToEquity ?? null,
     forwardPE: null,
+    forwardPEBasis: null,
     roic: latestRatio?.roic ?? null,
     roicTrend: financials.growth.ebitMarginExpansionYoY,
     ffoYield: null,
     evEbitda: latestRatio?.evToEbitda ?? null,
     epsRevision30d: null,
+    earningsGrowthBasis: financials.growth.epsGrowthYoY !== null ? "YOY" : null,
     technical: {
       sma200: financials.prices.ma200,
       rs52Week: null,

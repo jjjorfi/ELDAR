@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE:
 // File Purpose:
 // - Issues short-lived JWTs for WebSocket handshake authentication.
 // - JWT payload contains user identity and optional org identity for room joins.

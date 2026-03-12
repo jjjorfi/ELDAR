@@ -16,6 +16,7 @@ export interface FmpFallbackData {
   marketCap: number | null;
   currentPrice: number | null;
   forwardPE: number | null;
+  forwardPEBasis: "NTM" | null;
   debtToEquity: number | null;
   profitMargin: number | null;
   revenueGrowth: number | null;
@@ -167,6 +168,7 @@ function emptyFallback(): FmpFallbackData {
     marketCap: null,
     currentPrice: null,
     forwardPE: null,
+    forwardPEBasis: null,
     debtToEquity: null,
     profitMargin: null,
     revenueGrowth: null,
@@ -319,7 +321,13 @@ export async function fetchFmpFallbackData(symbol: string): Promise<FmpFallbackD
   const currentPrice = extractFirstPrice(stableQuotePayload) ?? extractFirstPrice(v3QuotePayload) ?? asNumber(profile.price);
   const marketCap = asNumber(profile.mktCap);
 
-  const forwardPE = asNumber(profile.pe) ?? asNumber(ratios.peRatioTTM) ?? asNumber(ratios.priceToEarningsRatioTTM);
+  // Strict contract: forwardPE only from explicit forward fields.
+  const forwardPE =
+    asNumber(profile.forwardPE) ??
+    asNumber(profile.forwardPe) ??
+    asNumber(ratios.forwardPE) ??
+    asNumber(ratios.forwardPeRatio);
+  const forwardPEBasis = forwardPE !== null ? "NTM" : null;
   const debtToEquity = normalizeRatio(
     asNumber(ratios.debtEquityRatioTTM) ?? asNumber(ratios.debtToEquity) ?? asNumber(profile.debtToEquity)
   );
@@ -334,6 +342,7 @@ export async function fetchFmpFallbackData(symbol: string): Promise<FmpFallbackD
     marketCap,
     currentPrice,
     forwardPE,
+    forwardPEBasis,
     debtToEquity,
     profitMargin,
     revenueGrowth,

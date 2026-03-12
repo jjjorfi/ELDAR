@@ -4,7 +4,7 @@ import { runRouteGuards } from "@/lib/api/route-security";
 import { isAuthorizedAdminRequest } from "@/lib/security/admin";
 import { listDefaultAggregateKeys } from "@/lib/snapshots/aggregate";
 import { requestAggregateSnapshotRefresh, requestSnapshotRefresh } from "@/lib/snapshots/service";
-import { getRecentAnalyses } from "@/lib/storage";
+import { getRecentAnalyses } from "@/lib/storage/index";
 import { sanitizeSymbol } from "@/lib/utils";
 
 export const runtime = "nodejs";

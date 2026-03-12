@@ -1,5 +1,5 @@
-import { getFinnhubApiKeys } from "@/lib/market/finnhub";
-import { normalizeSectorName } from "@/lib/scoring/sector-config";
+import { getFinnhubApiKeys } from "@/lib/market/providers/finnhub";
+import { normalizeSectorName } from "@/lib/scoring/sector/config";
 
 const WIKIPEDIA_SP500_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies";
 const DATAHUB_SP500_CSV_URL = "https://datahub.io/core/s-and-p-500-companies/r/constituents.csv";

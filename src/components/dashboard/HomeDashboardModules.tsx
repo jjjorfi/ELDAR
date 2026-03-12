@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE
 // Extracted home dashboard display modules from StockDashboard. These are
 // presentational-only and intentionally keep the same visuals/behavior while
 // shrinking the main dashboard component. Any data/state changes should stay in
@@ -439,6 +438,115 @@ export function SnapshotTile({ item }: { item: HomeSnapshotItem }): JSX.Element 
           )}
         />
       </div>
+    </div>
+  );
+}
+
+export interface MarketSnapshotSeries {
+  label: "SPX" | "NDX" | "RUT";
+  points: number[];
+  changePercent: number | null;
+}
+
+function buildTrendPath(points: number[], width: number, height: number): string {
+  if (points.length < 2) return "";
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const span = Math.max(max - min, 0.000001);
+
+  return points
+    .map((point, index) => {
+      const x = (index / (points.length - 1)) * width;
+      const y = height - ((point - min) / span) * height;
+      return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(" ");
+}
+
+function seriesStroke(label: MarketSnapshotSeries["label"]): string {
+  if (label === "SPX") return "#FF5E5E";
+  if (label === "NDX") return "#47D9FF";
+  return "#FF8F66";
+}
+
+function seriesGlow(label: MarketSnapshotSeries["label"]): string {
+  if (label === "SPX") return "rgba(255,94,94,0.55)";
+  if (label === "NDX") return "rgba(71,217,255,0.55)";
+  return "rgba(255,143,102,0.55)";
+}
+
+export function MarketSnapshotChart({ series }: { series: MarketSnapshotSeries[] }): JSX.Element {
+  const width = 480;
+  const height = 132;
+  const rows = series.map((item) => {
+    const points = item.points.filter((point) => Number.isFinite(point));
+    return {
+      ...item,
+      points,
+      path: buildTrendPath(points, width, height),
+      stroke: seriesStroke(item.label),
+      glow: seriesGlow(item.label)
+    };
+  });
+  const hasTrend = rows.some((row) => row.path.length > 0);
+
+  return (
+    <div className="eldar-dashboard-surface mt-3 px-4 py-4">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        {rows.map((row) => (
+          <div
+            key={`legend-${row.label}`}
+            className="inline-flex items-center gap-2 rounded-full px-2.5 py-1.5"
+            style={{
+              border: "1px solid rgba(255,255,255,0.12)",
+              backgroundColor: "rgba(255,255,255,0.04)"
+            }}
+          >
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: row.stroke }} />
+            <span className="text-[10px] uppercase tracking-[0.14em] text-white/68">{row.label}</span>
+            <span className={clsx("text-[10px] font-medium", dashboardValueToneClass(row.changePercent))}>
+              {row.changePercent === null ? "N/A" : formatSignedPercent(row.changePercent, 2)}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {hasTrend ? (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+          <svg viewBox={`0 0 ${width} ${height}`} className="h-[132px] w-full" role="img" aria-label="SPX NDX RUT trend chart">
+            {[0.25, 0.5, 0.75].map((ratio) => (
+              <line
+                key={`grid-${ratio}`}
+                x1={0}
+                y1={height * ratio}
+                x2={width}
+                y2={height * ratio}
+                stroke="rgba(255,255,255,0.08)"
+                strokeWidth={1}
+                strokeDasharray="4 6"
+              />
+            ))}
+            {rows.map((row) =>
+              row.path ? (
+                <path
+                  key={`path-${row.label}`}
+                  d={row.path}
+                  fill="none"
+                  stroke={row.stroke}
+                  strokeWidth={2.2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ filter: `drop-shadow(0 0 7px ${row.glow})` }}
+                />
+              ) : null
+            )}
+          </svg>
+        </div>
+      ) : (
+        <div className="flex h-[132px] items-center justify-center rounded-2xl border border-dashed border-white/12 bg-white/[0.02] text-sm text-white/50">
+          Index trend data is syncing.
+        </div>
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api/auth-context";
 import { internalServerError, jsonNoStore, unauthorized } from "@/lib/api/responses";
 import { runRouteGuards } from "@/lib/api/route-security";
-import { getRecentAnalyses } from "@/lib/storage";
+import { getRecentAnalyses } from "@/lib/storage/index";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

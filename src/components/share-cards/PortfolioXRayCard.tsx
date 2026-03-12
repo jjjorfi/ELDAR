@@ -78,12 +78,12 @@ export function PortfolioXRayCard({
         <div style={{ marginTop: 24, display: "flex", alignItems: "center", gap: 26 }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 30, fontWeight: 700, color: "#10B981" }}>{strongBuyPct}%</div>
-            <div style={{ fontSize: 11, color: "#666", letterSpacing: "0.12em" }}>STRONG BUY</div>
+            <div style={{ fontSize: 11, color: "#666", letterSpacing: "0.12em" }}>STRONGLY BULLISH</div>
           </div>
           <div style={{ width: 1, height: 36, background: "#1f1f1f" }} />
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 30, fontWeight: 700, color: "#EF4444" }}>{strongSellPct}%</div>
-            <div style={{ fontSize: 11, color: "#666", letterSpacing: "0.12em" }}>STRONG SELL</div>
+            <div style={{ fontSize: 11, color: "#666", letterSpacing: "0.12em" }}>STRONGLY BEARISH</div>
           </div>
         </div>
       </div>

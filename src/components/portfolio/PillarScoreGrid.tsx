@@ -1,6 +1,6 @@
 import clsx from "clsx";
 
-import type { PillarResult } from "@/lib/scoring/portfolio-types";
+import type { PillarResult } from "@/lib/scoring/portfolio/types";
 
 function statusIcon(score: number, flags: string[]): "✓" | "⚠" | "✗" {
   if (flags.length > 0) return "⚠";

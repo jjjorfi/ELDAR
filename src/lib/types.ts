@@ -12,6 +12,9 @@ export type RatingLabel =
   | "SELL"
   | "STRONG_SELL";
 
+export type PeDisplayBasis = "NTM" | "TTM" | "UNAVAILABLE";
+export type EpsGrowthDisplayBasis = "YOY" | "QOQ" | "FORWARD_DELTA" | "UNAVAILABLE";
+
 export interface FactorResult {
   category:
     | "Fundamental"
@@ -77,8 +80,10 @@ export interface AnalysisResult {
   fundamentals: {
     forwardPE: number | null;
     trailingPE: number | null;
+    peBasis: PeDisplayBasis;
     revenueGrowth: number | null;
     earningsQuarterlyGrowth: number | null;
+    epsGrowthBasis: EpsGrowthDisplayBasis;
     fcfYield: number | null;
     evEbitda: number | null;
     ffoYield: number | null;
@@ -104,12 +109,14 @@ export interface MarketSnapshot {
   fcfYield: number | null;
   debtToEquity: number | null;
   forwardPE: number | null;
+  forwardPEBasis: "NTM" | "TTM" | "UNKNOWN" | null;
   roic: number | null;
   /** ROIC current year minus ROIC prior year (e.g. +0.03 = +3pp improvement). */
   roicTrend: number | null;
   ffoYield: number | null;
   evEbitda: number | null;
   epsRevision30d: number | null;
+  earningsGrowthBasis: "YOY" | "QOQ" | "UNKNOWN" | null;
 
   // ── Technical ───────────────────────────────────────────────────────────
   technical: {

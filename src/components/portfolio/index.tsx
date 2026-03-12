@@ -1,6 +1,6 @@
 "use client";
 
-import type { PortfolioRating } from "@/lib/scoring/portfolio-types";
+import type { PortfolioRating } from "@/lib/scoring/portfolio/types";
 
 import { HoldingsAlphaTable } from "@/components/portfolio/HoldingsAlphaTable";
 import { PillarScoreGrid } from "@/components/portfolio/PillarScoreGrid";

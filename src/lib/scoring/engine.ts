@@ -4,7 +4,7 @@ import {
   getSectorWeights,
   type SectorConfig,
   type SectorWeights
-} from "@/lib/scoring/sector-config";
+} from "@/lib/scoring/sector/config";
 import { SCORING_MODEL_VERSION } from "@/lib/scoring/version";
 import type { AnalysisResult, FactorResult, MarketSnapshot } from "@/lib/types";
 
@@ -556,6 +556,35 @@ export function scoreSnapshot(snapshot: MarketSnapshot): AnalysisResult {
 
   // ── Entry alert (20-day Z-Score) ──────────────────────────────────────────
   const entryAlert = buildEntryAlert(snapshot.technical.priceZScore20d);
+  const trailingPE =
+    typeof snapshot.trailingEps === "number" &&
+    Number.isFinite(snapshot.trailingEps) &&
+    snapshot.trailingEps > 0 &&
+    snapshot.currentPrice > 0
+      ? snapshot.currentPrice / snapshot.trailingEps
+      : null;
+
+  const peBasis: AnalysisResult["fundamentals"]["peBasis"] =
+    snapshot.forwardPE !== null
+      ? snapshot.forwardPEBasis === "NTM"
+        ? "NTM"
+        : snapshot.forwardPEBasis === "TTM"
+          ? "TTM"
+          : "UNAVAILABLE"
+      : trailingPE !== null
+        ? "TTM"
+        : "UNAVAILABLE";
+
+  const epsGrowthBasis: AnalysisResult["fundamentals"]["epsGrowthBasis"] =
+    snapshot.earningsQuarterlyGrowth !== null
+      ? snapshot.earningsGrowthBasis === "YOY"
+        ? "YOY"
+        : snapshot.earningsGrowthBasis === "QOQ"
+          ? "QOQ"
+          : "UNAVAILABLE"
+      : snapshot.forwardEps !== null && snapshot.trailingEps !== null && snapshot.trailingEps !== 0
+        ? "FORWARD_DELTA"
+        : "UNAVAILABLE";
 
   return {
     modelVersion: SCORING_MODEL_VERSION,
@@ -574,15 +603,11 @@ export function scoreSnapshot(snapshot: MarketSnapshot): AnalysisResult {
     squeezeRisk,
     fundamentals: {
       forwardPE: snapshot.forwardPE,
-      trailingPE:
-        typeof snapshot.trailingEps === "number" &&
-        Number.isFinite(snapshot.trailingEps) &&
-        snapshot.trailingEps > 0 &&
-        snapshot.currentPrice > 0
-          ? snapshot.currentPrice / snapshot.trailingEps
-          : null,
+      trailingPE,
+      peBasis,
       revenueGrowth: snapshot.revenueGrowth,
       earningsQuarterlyGrowth: snapshot.earningsQuarterlyGrowth,
+      epsGrowthBasis,
       fcfYield: snapshot.fcfYield,
       evEbitda: snapshot.evEbitda,
       ffoYield: snapshot.ffoYield

@@ -14,7 +14,13 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "phase1:migrate-shims": "node scripts/phase1/migrate-shim-imports.mjs",
+    "guard:retired-shims": "node scripts/phase1/check-retired-shims.mjs",
+    "check:import-cycles": "node scripts/phase1/check-import-cycles.mjs",
+    "guard:route-boundaries": "node scripts/phase5/check-route-boundaries.mjs",
+    "guard:widget-boundaries": "node scripts/phase5/check-widget-boundaries.mjs",
     "perf:smoke": "tsx scripts/perf-smoke.ts",
+    "test:normalize": "tsx --test src/lib/normalize/normalize.test.ts",
     "docs:function-trail": "node scripts/generate-function-trail.mjs",
     "test:security": "tsx --test --test-concurrency=1 src/lib/security/guard.test.ts",
     "security:gate": "bash ./security-gate.sh"

@@ -1,15 +1,14 @@
-// AI CONTEXT TRACE
 // This file centralizes temporary free-tier quote/history fallback policy. It is
 // intentionally a bridge layer while the project is still building on limited
 // provider quotas, and it should be easy to remove once premium data is live.
 // Gotcha: do not add new fundamentals logic here; this layer is only for quote
 // and time-series continuity so the UI stays responsive during the build phase.
 
-import { fetchAlphaVantageDailyHistory, fetchAlphaVantageQuoteSnapshot } from "@/lib/market/alpha-vantage";
-import { fetchAlpacaDailyHistory, fetchAlpacaQuoteSnapshot } from "@/lib/market/alpaca";
-import { fetchGoogleFinanceQuoteSnapshot } from "@/lib/market/google-finance";
-import { fetchMarketstackDailyHistory, fetchMarketstackQuoteSnapshot } from "@/lib/market/marketstack";
-import { fetchTwelveDataDailyHistory, fetchTwelveDataQuoteSnapshot } from "@/lib/market/twelvedata";
+import { fetchAlphaVantageDailyHistory, fetchAlphaVantageQuoteSnapshot } from "@/lib/market/providers/alpha-vantage";
+import { fetchAlpacaDailyHistory, fetchAlpacaQuoteSnapshot } from "@/lib/market/providers/alpaca";
+import { fetchGoogleFinanceQuoteSnapshot } from "@/lib/market/providers/google-finance";
+import { fetchMarketstackDailyHistory, fetchMarketstackQuoteSnapshot } from "@/lib/market/providers/marketstack";
+import { fetchTwelveDataDailyHistory, fetchTwelveDataQuoteSnapshot } from "@/lib/market/providers/twelvedata";
 
 type QuoteSource = "ALPACA" | "TWELVEDATA" | "GOOGLE_FINANCE" | "MARKETSTACK" | "ALPHA_VANTAGE";
 type HistorySource = "ALPACA" | "TWELVEDATA" | "MARKETSTACK" | "ALPHA_VANTAGE";

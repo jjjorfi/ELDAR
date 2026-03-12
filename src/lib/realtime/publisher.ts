@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE:
 // File Purpose:
 // - Bridges Next.js API mutations to the dedicated Socket.IO server (Option 2).
 // - Sends DELTA events only (no heavy datasets) via an internal publish endpoint.

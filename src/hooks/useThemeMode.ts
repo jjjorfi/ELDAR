@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE
 // Small shared hook for persisting the app theme mode. Standalone pages use it
 // so theme behavior stays uniform without duplicating localStorage/document
 // wiring in each page component.

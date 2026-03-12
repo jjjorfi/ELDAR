@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE
 // ELDAR Macro Regime Engine V2.
 // This is a dedicated macro overlay model and must not be blended into the
 // stock/portfolio scoring engines. Any logic change that affects output should

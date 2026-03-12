@@ -9,11 +9,11 @@ import {
   unauthorized
 } from "@/lib/api/responses";
 import { runRouteGuards } from "@/lib/api/route-security";
-import { fetchSP500Directory } from "@/lib/market/sp500";
-import { resolveSp500DirectorySymbol } from "@/lib/market/sp500-universe";
-import { scorePortfolio } from "@/lib/scoring/portfolio-engine";
-import type { PortfolioInputHolding } from "@/lib/scoring/portfolio-types";
-import { getLatestPortfolioSnapshot, savePortfolioSnapshot } from "@/lib/storage";
+import { fetchSP500Directory } from "@/lib/market/universe/sp500";
+import { resolveSp500DirectorySymbol } from "@/lib/market/universe/sp500-universe";
+import { scorePortfolio } from "@/lib/scoring/portfolio/engine";
+import type { PortfolioInputHolding } from "@/lib/scoring/portfolio/types";
+import { getLatestPortfolioSnapshot, savePortfolioSnapshot } from "@/lib/storage/index";
 
 export const runtime = "nodejs";
 

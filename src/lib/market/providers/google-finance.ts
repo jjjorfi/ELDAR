@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE
 // This file adds Google Finance page scraping as a temporary quote fallback.
 // Google Finance does not expose an official public API for this use case, so
 // this adapter is intentionally low-rank and limited to quote continuity only.

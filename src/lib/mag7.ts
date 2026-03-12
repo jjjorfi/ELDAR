@@ -1,14 +1,14 @@
 import { analyzeStock } from "@/lib/analyze";
-import { fetchAlphaVantageQuoteSnapshot } from "@/lib/market/alpha-vantage";
-import { fetchAlpacaQuoteSnapshot } from "@/lib/market/alpaca";
-import { fetchEodhdQuoteSnapshot } from "@/lib/market/eodhd";
-import { fetchFinnhubQuoteSnapshot } from "@/lib/market/finnhub";
-import { fetchFmpQuoteSnapshot } from "@/lib/market/fmp";
-import { fetchMassiveQuoteSnapshot } from "@/lib/market/massive";
+import { fetchAlphaVantageQuoteSnapshot } from "@/lib/market/providers/alpha-vantage";
+import { fetchAlpacaQuoteSnapshot } from "@/lib/market/providers/alpaca";
+import { fetchEodhdQuoteSnapshot } from "@/lib/market/providers/eodhd";
+import { fetchFinnhubQuoteSnapshot } from "@/lib/market/providers/finnhub";
+import { fetchFmpQuoteSnapshot } from "@/lib/market/providers/fmp";
+import { fetchMassiveQuoteSnapshot } from "@/lib/market/providers/massive";
 import { isNySessionOpen } from "@/lib/market/ny-session";
-import { mergePriceObservations } from "@/lib/market/price-merge";
-import { fetchYahooQuoteSnapshot } from "@/lib/market/yahoo";
-import { getMag7Scores, saveMag7Scores } from "@/lib/storage";
+import { mergePriceObservations } from "@/lib/market/orchestration/price-merge";
+import { fetchYahooQuoteSnapshot } from "@/lib/market/providers/yahoo";
+import { getMag7Scores, saveMag7Scores } from "@/lib/storage/index";
 import type { Mag7ScoreCard } from "@/lib/types";
 
 export const MAG7_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"] as const;

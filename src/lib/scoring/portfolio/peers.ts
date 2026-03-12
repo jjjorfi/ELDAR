@@ -1,4 +1,4 @@
-import type { PortfolioInputHolding } from "@/lib/scoring/portfolio-types";
+import type { PortfolioInputHolding } from "@/lib/scoring/portfolio/types";
 
 function normalizeSectorName(value: string | null): string {
   if (!value) return "Other";

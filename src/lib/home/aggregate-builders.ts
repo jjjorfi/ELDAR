@@ -2,12 +2,12 @@ import { getHomeDashboardPayload } from "@/lib/home/dashboard-service";
 import type { SectorRotationWindow } from "@/lib/home/dashboard-types";
 import type { HomeDashboardPayload } from "@/lib/home/dashboard-types";
 import { fetchTopSp500Movers } from "@/lib/home/sp500-movers";
-import { GICS_SECTOR_ETFS } from "@/lib/market/gics-sectors";
+import { GICS_SECTOR_ETFS } from "@/lib/market/universe/gics-sectors";
 import {
   classifySectorSentiment,
   DEFAULT_SECTOR_WINDOW,
   fetchSectorPerformance
-} from "@/lib/market/sector-performance";
+} from "@/lib/market/orchestration/sector-performance";
 import { buildFredMacroPayload } from "@/lib/macro/fred-snapshot";
 
 export interface SectorSentimentPayload {

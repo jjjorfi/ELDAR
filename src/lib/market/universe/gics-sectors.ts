@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE
 // Shared GICS sector definitions used by the dashboard, sectors page, and
 // sector sentiment APIs. This keeps the 11-sector universe consistent
 // everywhere so no surface silently drifts or truncates sectors.

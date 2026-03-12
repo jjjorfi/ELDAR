@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import type { PortfolioRating } from "@/lib/scoring/portfolio-types";
+import type { PortfolioRating } from "@/lib/scoring/portfolio/types";
 import { RATING_BANDS } from "@/lib/rating";
 
 export function HoldingsAlphaTable({ rating }: { rating: PortfolioRating }): JSX.Element {

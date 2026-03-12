@@ -1,9 +1,9 @@
 import { getFetchSignal } from "@/lib/market/adapter-utils";
-import { fetchAlphaVantageQuoteSnapshot } from "@/lib/market/alpha-vantage";
-import { fetchEodhdQuoteSnapshot } from "@/lib/market/eodhd";
-import { fetchFinnhubQuoteSnapshot } from "@/lib/market/finnhub";
-import { fetchFmpQuoteSnapshot } from "@/lib/market/fmp";
-import { fetchTemporaryQuoteFallback } from "@/lib/market/temporary-fallbacks";
+import { fetchAlphaVantageQuoteSnapshot } from "@/lib/market/providers/alpha-vantage";
+import { fetchEodhdQuoteSnapshot } from "@/lib/market/providers/eodhd";
+import { fetchFinnhubQuoteSnapshot } from "@/lib/market/providers/finnhub";
+import { fetchFmpQuoteSnapshot } from "@/lib/market/providers/fmp";
+import { fetchTemporaryQuoteFallback } from "@/lib/market/orchestration/temporary-fallbacks";
 
 const YAHOO_QUOTE_URL = "https://query1.finance.yahoo.com/v7/finance/quote";
 const LOG_TTL_MS = 60_000;

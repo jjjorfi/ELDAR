@@ -1,15 +1,14 @@
-// AI CONTEXT TRACE
 // Shared home dashboard types for the dashboard API, StockDashboard UI, and
 // home dashboard modules. Keeping these centralized prevents route/UI drift
 // and lets us refactor dashboard rendering without changing the payload shape.
 
-import type { SectorPerformanceWindow } from "@/lib/market/sector-performance";
+import type { SectorPerformanceWindow } from "@/lib/market/orchestration/sector-performance";
 import type {
   GateFired,
   MacroInputV2,
   MacroRegimeV2,
   MacroScoreV2
-} from "@/lib/scoring/eldar-macro-v2";
+} from "@/lib/scoring/macro/eldar-macro-v2";
 
 export type SectorRotationWindow = SectorPerformanceWindow;
 

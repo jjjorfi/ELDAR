@@ -1,5 +1,6 @@
 export interface FinnhubMetrics {
   forwardPE: number | null;
+  forwardPEBasis: "NTM" | "UNKNOWN" | null;
   earningsGrowth: number | null;
   revenueGrowth: number | null;
   roe: number | null;
@@ -29,6 +30,7 @@ export interface FinnhubMetrics {
 function emptyMetrics(): FinnhubMetrics {
   return {
     forwardPE: null,
+    forwardPEBasis: null,
     earningsGrowth: null,
     revenueGrowth: null,
     roe: null,
@@ -152,7 +154,7 @@ export function extractFinnhubMetrics(payload: unknown): FinnhubMetrics {
   const roeCurrent = toDecimalPercent(roeCurrentRaw);
   const roePrior = toDecimalPercent(roePriorRaw);
 
-  // Prefer ROIC delta when available; fall back to ROE delta as a conservative proxy.
+  // Prefer ROIC delta when available; fall back to ROE delta as a conservative substitute.
   const roicTrend =
     roicCurrent !== null && roicPrior !== null
       ? roicCurrent - roicPrior
@@ -172,6 +174,7 @@ export function extractFinnhubMetrics(payload: unknown): FinnhubMetrics {
 
   return {
     forwardPE: typeof m.forwardPE === "number" ? m.forwardPE : null,
+    forwardPEBasis: typeof m.forwardPE === "number" ? "NTM" : null,
     earningsGrowth: toDecimalPercent(pick("epsGrowthTTMYoy", "epsGrowth5Y")),
     revenueGrowth: toDecimalPercent(pick("revenueGrowthTTMYoy", "revenueGrowth5Y")),
     roe: toDecimalPercent(pick("roeTTM", "roeRfy")),

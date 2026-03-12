@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE
 // Shared sessionStorage helpers for returning users to the dashboard in a
 // specific state. Standalone pages and the global command palette both write
 // this payload before routing home. Gotcha: this intentionally writes only UI

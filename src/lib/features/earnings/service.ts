@@ -1,7 +1,7 @@
-import { fetchFmpEarningsCalendar, type FmpEarningsItem } from "@/lib/market/fmp";
-import { fetchFinnhubEarningsCalendar, type FinnhubEarningsCalendarItem } from "@/lib/market/finnhub";
-import { fetchSP500Directory } from "@/lib/market/sp500";
-import { buildSp500SymbolUniverse } from "@/lib/market/sp500-universe";
+import { fetchFmpEarningsCalendar, type FmpEarningsItem } from "@/lib/market/providers/fmp";
+import { fetchFinnhubEarningsCalendar, type FinnhubEarningsCalendarItem } from "@/lib/market/providers/finnhub";
+import { fetchSP500Directory } from "@/lib/market/universe/sp500";
+import { buildSp500SymbolUniverse } from "@/lib/market/universe/sp500-universe";
 import { publishEarnings } from "@/lib/realtime/publisher";
 
 export const EARNINGS_CACHE_HEADER = "public, max-age=1800, s-maxage=21600, stale-while-revalidate=43200";

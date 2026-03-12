@@ -1,13 +1,13 @@
 import type { RatingLabel } from "@/lib/types";
-import { applyConfidenceGates } from "@/lib/scoring/portfolio-gating";
-import { classifyPeerGroup } from "@/lib/scoring/portfolio-peers";
+import { applyConfidenceGates } from "@/lib/scoring/portfolio/gating";
+import { classifyPeerGroup } from "@/lib/scoring/portfolio/peers";
 import type {
   HoldingWithScore,
   PillarResult,
   PortfolioEngineInput,
   PortfolioInputHolding,
   PortfolioRating
-} from "@/lib/scoring/portfolio-types";
+} from "@/lib/scoring/portfolio/types";
 
 const MODEL_VERSION = "portfolio-v1.0";
 const RISK_FREE_RATE = 0.043;

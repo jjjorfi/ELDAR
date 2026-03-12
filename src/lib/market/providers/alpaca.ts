@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE
 // This file adds Alpaca market data as a temporary quote/history bridge while
 // premium provider entitlements are still being expanded. It only feeds
 // continuity paths and should be reviewed once the long-term paid stack is

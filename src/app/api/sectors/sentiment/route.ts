@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { runRouteGuards } from "@/lib/api/route-security";
 import { cacheGetJson, cacheSetJson } from "@/lib/cache/redis";
-import { GICS_SECTOR_ETFS } from "@/lib/market/gics-sectors";
+import { GICS_SECTOR_ETFS } from "@/lib/market/universe/gics-sectors";
 import { AGGREGATE_SNAPSHOT_KEYS } from "@/lib/snapshots/contracts";
 import { getAggregateSnapshotForRead } from "@/lib/snapshots/service";
 

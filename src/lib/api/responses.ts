@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE:
 // This file centralizes API response helpers used by Next.js route handlers.
 // It keeps status codes/messages/headers consistent while avoiding repeated
 // `NextResponse.json(...)` boilerplate in each route file.

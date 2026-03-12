@@ -1,7 +1,7 @@
-import { fetchMarketSnapshot } from "@/lib/market/yahoo";
+import { fetchMarketSnapshot } from "@/lib/market/providers/yahoo";
 import { toMarketSnapshot } from "@/lib/financials/eldar-financials-adapter";
 import { getCompanyFinancials } from "@/lib/financials/eldar-financials-pipeline";
-import { fetchSecFundamentalsFallback } from "@/lib/market/sec-companyfacts";
+import { fetchSecFundamentalsFallback } from "@/lib/market/providers/sec-companyfacts";
 import { isNySessionOpen } from "@/lib/market/ny-session";
 import { scoreSnapshot } from "@/lib/scoring/engine";
 import type { AnalysisResult } from "@/lib/types";
@@ -105,35 +105,74 @@ export async function analyzeStock(symbol: string): Promise<AnalysisResult> {
     const fallbackMarketCap =
       canonicalFundamentals?.marketCap ??
       fallbackMarketCapFromShares;
-    const effectiveMarketCap = snapshot.marketCap ?? fallbackMarketCap ?? null;
+    const effectiveMarketCap = canonicalFundamentals?.marketCap ?? snapshot.marketCap ?? fallbackMarketCap ?? null;
+    const effectiveForwardPE = coalesceNumber(canonicalFundamentals?.forwardPE, snapshot.forwardPE);
+    const effectiveForwardPEBasis: typeof snapshot.forwardPEBasis =
+      effectiveForwardPE === null
+        ? null
+        : canonicalFundamentals?.forwardPE !== null
+            ? (canonicalFundamentals?.forwardPEBasis ?? "UNKNOWN")
+            : snapshot.forwardPE !== null
+              ? (snapshot.forwardPEBasis ?? "UNKNOWN")
+              : "UNKNOWN";
+    const effectiveTrailingEps = coalesceNumber(
+      canonicalFundamentals?.trailingEps,
+      snapshot.trailingEps,
+      secFallback?.trailingEpsTtm
+    );
+    const effectiveRevenueGrowth = coalesceNumber(
+      canonicalFundamentals?.revenueGrowth,
+      snapshot.revenueGrowth,
+      secFallback?.revenueGrowth
+    );
+    const effectiveFcfYield =
+      coalesceNumber(canonicalFundamentals?.fcfYield, snapshot.fcfYield) ??
+      (secFallback &&
+      typeof secFallback.ttmFreeCashflow === "number" &&
+      Number.isFinite(secFallback.ttmFreeCashflow) &&
+      effectiveMarketCap !== null &&
+      effectiveMarketCap > 0
+        ? secFallback.ttmFreeCashflow / effectiveMarketCap
+        : null);
+    const effectiveDebtToEquity = coalesceNumber(canonicalFundamentals?.debtToEquity, snapshot.debtToEquity);
+    const effectiveEvEbitda = coalesceNumber(canonicalFundamentals?.evEbitda, snapshot.evEbitda);
+    const effectiveRoic = coalesceNumber(canonicalFundamentals?.roic, snapshot.roic);
+    const effectiveRoicTrend = coalesceNumber(canonicalFundamentals?.roicTrend, snapshot.roicTrend);
+    const effectiveEarningsQuarterlyGrowth = coalesceNumber(
+      canonicalFundamentals?.earningsQuarterlyGrowth,
+      snapshot.earningsQuarterlyGrowth,
+      secFallback?.earningsQuarterlyGrowth
+    );
+    const effectiveEarningsGrowthBasis: typeof snapshot.earningsGrowthBasis =
+      effectiveEarningsQuarterlyGrowth === null
+        ? null
+        : canonicalFundamentals?.earningsQuarterlyGrowth !== null
+          ? (canonicalFundamentals?.earningsGrowthBasis ?? "UNKNOWN")
+          : snapshot.earningsQuarterlyGrowth !== null
+            ? (snapshot.earningsGrowthBasis ?? "UNKNOWN")
+            : secFallback?.earningsQuarterlyGrowth !== null
+              ? "YOY"
+              : "UNKNOWN";
 
     const snapshotWithFallback = {
       ...snapshot,
-      sector: snapshot.sector ?? canonicalFundamentals?.sector ?? null,
+      sector: canonicalFundamentals?.sector ?? snapshot.sector ?? null,
       marketCap: effectiveMarketCap,
-      trailingEps: coalesceNumber(snapshot.trailingEps, canonicalFundamentals?.trailingEps, secFallback?.trailingEpsTtm),
-      revenueGrowth: coalesceNumber(snapshot.revenueGrowth, canonicalFundamentals?.revenueGrowth, secFallback?.revenueGrowth),
-      earningsQuarterlyGrowth: coalesceNumber(
-        snapshot.earningsQuarterlyGrowth,
-        canonicalFundamentals?.earningsQuarterlyGrowth,
-        secFallback?.earningsQuarterlyGrowth
-      ),
-      debtToEquity: coalesceNumber(snapshot.debtToEquity, canonicalFundamentals?.debtToEquity),
-      evEbitda: coalesceNumber(snapshot.evEbitda, canonicalFundamentals?.evEbitda),
-      roic: coalesceNumber(snapshot.roic, canonicalFundamentals?.roic),
-      roicTrend: coalesceNumber(snapshot.roicTrend, canonicalFundamentals?.roicTrend),
-      fcfYield:
-        coalesceNumber(snapshot.fcfYield, canonicalFundamentals?.fcfYield) ??
-        (secFallback &&
-        typeof secFallback.ttmFreeCashflow === "number" &&
-        Number.isFinite(secFallback.ttmFreeCashflow) &&
-        effectiveMarketCap !== null &&
-        effectiveMarketCap > 0
-          ? secFallback.ttmFreeCashflow / effectiveMarketCap
-          : null)
+      forwardPE: effectiveForwardPE,
+      forwardPEBasis: effectiveForwardPEBasis,
+      trailingEps: effectiveTrailingEps,
+      revenueGrowth: effectiveRevenueGrowth,
+      earningsQuarterlyGrowth: effectiveEarningsQuarterlyGrowth,
+      earningsGrowthBasis: effectiveEarningsGrowthBasis,
+      debtToEquity: effectiveDebtToEquity,
+      evEbitda: effectiveEvEbitda,
+      roic: effectiveRoic,
+      roicTrend: effectiveRoicTrend,
+      fcfYield: effectiveFcfYield
     };
 
-    const result = scoreSnapshot(snapshotWithFallback);
+    const result: AnalysisResult = scoreSnapshot(snapshotWithFallback);
+
     const ttlMs = isNySessionOpen() ? ANALYZE_CACHE_OPEN_TTL_MS : ANALYZE_CACHE_CLOSED_TTL_MS;
     analysisCache.set(normalizedSymbol, {
       expiresAt: Date.now() + ttlMs,

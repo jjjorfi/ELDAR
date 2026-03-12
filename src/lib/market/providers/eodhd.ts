@@ -17,6 +17,7 @@ export interface EodhdFallbackData {
   marketCap: number | null;
   currentPrice: number | null;
   forwardPE: number | null;
+  forwardPEBasis: "NTM" | null;
   debtToEquity: number | null;
   profitMargin: number | null;
   revenueGrowth: number | null;
@@ -205,6 +206,7 @@ function emptyFallback(): EodhdFallbackData {
     marketCap: null,
     currentPrice: null,
     forwardPE: null,
+    forwardPEBasis: null,
     debtToEquity: null,
     profitMargin: null,
     revenueGrowth: null,
@@ -226,6 +228,7 @@ export async function fetchEodhdQuoteSnapshot(symbol: string): Promise<EodhdQuot
   }
 
   const quote = await fetchEodhd<unknown>(`real-time/${encodeURIComponent(eodSymbol(symbol))}`);
+
   return {
     price: extractQuotePrice(quote),
     asOfMs: extractQuoteTimestampMs(quote)
@@ -283,6 +286,8 @@ export async function fetchEodhdFallbackData(symbol: string): Promise<EodhdFallb
     asNumber(highlights.FreeCashFlow) ??
     asNumber(latestCashflowRow.freeCashFlow) ??
     asNumber(latestCashflowRow.free_cash_flow);
+  // Strict contract: do not treat trailing/generic PERatio as forwardPE.
+  const forwardPE = asNumber(valuation.ForwardPE) ?? asNumber(highlights.ForwardPE);
 
   return {
     companyName: asString(general.Name) ?? asString(general.Code),
@@ -291,10 +296,8 @@ export async function fetchEodhdFallbackData(symbol: string): Promise<EodhdFallb
     currency: asString(general.CurrencyCode) ?? asString(general.CurrencyName),
     marketCap: asNumber(highlights.MarketCapitalization) ?? asNumber(quote.market_cap),
     currentPrice: extractQuotePrice(quotePayload),
-    forwardPE:
-      asNumber(valuation.ForwardPE) ??
-      asNumber(highlights.ForwardPE) ??
-      asNumber(highlights.PERatio),
+    forwardPE,
+    forwardPEBasis: forwardPE !== null ? "NTM" : null,
     debtToEquity: normalizeRatio(asNumber(highlights.DebtToEquity)),
     profitMargin: normalizeRatio(asNumber(highlights.ProfitMargin)),
     revenueGrowth: normalizeRatio(

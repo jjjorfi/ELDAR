@@ -1,7 +1,7 @@
 import { resolveDomainForTicker } from "@/lib/branding/ticker-domain";
 import { fetchJsonOrNull, setUrlSearchParams } from "@/lib/market/adapter-utils";
-import { fetchSP500Directory, fetchSP500SectorMap } from "@/lib/market/sp500";
-import { resolveSectorFromCandidates } from "@/lib/scoring/sector-config";
+import { fetchSP500Directory, fetchSP500SectorMap } from "@/lib/market/universe/sp500";
+import { resolveSectorFromCandidates } from "@/lib/scoring/sector/config";
 import { sanitizeSymbol } from "@/lib/utils";
 
 const FMP_STABLE_BASE_URL = "https://financialmodelingprep.com/stable";

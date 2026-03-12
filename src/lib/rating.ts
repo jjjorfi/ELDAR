@@ -114,5 +114,5 @@ export function ratingColor(rating: RatingLabel): (typeof RATING_BANDS)[RatingLa
 }
 
 export function ratingDisplayLabel(rating: RatingLabel): string {
-  return rating.replace(/_/g, " ");
+  return RATING_BANDS[rating].label;
 }

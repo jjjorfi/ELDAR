@@ -1,7 +1,7 @@
 import { StockDashboard } from "@/components/StockDashboard";
 import { auth } from "@clerk/nextjs/server";
 import { getHomepageMag7Scores } from "@/lib/mag7";
-import { getRecentAnalyses, getWatchlist } from "@/lib/storage";
+import { getRecentAnalyses, getWatchlist } from "@/lib/storage/index";
 
 export const dynamic = "force-dynamic";
 

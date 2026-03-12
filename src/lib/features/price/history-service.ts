@@ -1,3 +1,4 @@
+import { cacheGetJson, cacheSetJson } from "@/lib/cache/redis";
 import { getFetchSignal } from "@/lib/market/adapter-utils";
 import { fetchTemporaryHistoryFallback } from "@/lib/market/orchestration/temporary-fallbacks";
 import { fetchSP500Directory } from "@/lib/market/universe/sp500";
@@ -24,6 +25,7 @@ const RANGE_MAP: Record<PriceRange, { range: string; interval: string }> = {
 };
 
 const CACHE_TTL_MS = 2 * 60 * 1000;
+const REDIS_CACHE_TTL_SECONDS = 10 * 60;
 const FETCH_TIMEOUT_MS = 3_500;
 const routeCache = new Map<string, { expiresAt: number; payload: PriceHistoryPayload }>();
 const routeInFlight = new Map<string, Promise<PriceHistoryPayload>>();
@@ -185,11 +187,21 @@ async function buildPriceHistoryPayload(symbol: string, range: PriceRange): Prom
 export async function getPriceHistoryPayloadCached(
   symbol: string,
   range: PriceRange
-): Promise<{ payload: PriceHistoryPayload; cache: "memory" | "in-flight" | "computed" }> {
+): Promise<{ payload: PriceHistoryPayload; cache: "memory" | "redis" | "in-flight" | "computed" }> {
   const cacheKey = `${symbol}:${range}`;
+  const redisKey = `price:history:v2:${cacheKey}`;
   const cached = routeCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return { payload: cached.payload, cache: "memory" };
+  }
+
+  const redisCached = await cacheGetJson<PriceHistoryPayload>(redisKey);
+  if (redisCached) {
+    routeCache.set(cacheKey, {
+      expiresAt: Date.now() + CACHE_TTL_MS,
+      payload: redisCached
+    });
+    return { payload: redisCached, cache: "redis" };
   }
 
   let inFlight = routeInFlight.get(cacheKey);
@@ -206,5 +218,6 @@ export async function getPriceHistoryPayloadCached(
     expiresAt: Date.now() + CACHE_TTL_MS,
     payload
   });
+  await cacheSetJson(redisKey, payload, REDIS_CACHE_TTL_SECONDS);
   return { payload, cache: hadInFlight ? "in-flight" : "computed" };
 }

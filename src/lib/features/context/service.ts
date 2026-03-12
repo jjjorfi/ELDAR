@@ -1,9 +1,10 @@
-import { GICS_SECTORS } from "@/lib/market/gics-sectors";
+import { GICS_SECTORS } from "@/lib/market/universe/gics-sectors";
 import { isNySessionOpen } from "@/lib/market/ny-session";
-import { fetchSP500Directory } from "@/lib/market/sp500";
-import { buildSp500SymbolUniverse, resolveSp500DirectorySymbol } from "@/lib/market/sp500-universe";
-import { resolveSectorFromCandidates } from "@/lib/scoring/sector-config";
-import { getCachedAnalysis, getRecentAnalyses, getWatchlist } from "@/lib/storage";
+import { fetchSP500Directory } from "@/lib/market/universe/sp500";
+import { buildSp500SymbolUniverse, resolveSp500DirectorySymbol } from "@/lib/market/universe/sp500-universe";
+import { fetchGoogleNewsByQuery } from "@/lib/market/providers/google-news";
+import { resolveSectorFromCandidates } from "@/lib/scoring/sector/config";
+import { getCachedAnalysis, getRecentAnalyses, getWatchlist } from "@/lib/storage/index";
 import { getSnapshotForRead } from "@/lib/snapshots/service";
 import type { PersistedAnalysis } from "@/lib/types";
 import { sanitizeSymbol } from "@/lib/utils";
@@ -135,22 +136,49 @@ function fetchSectorFallbackNews(sector: string): ContextNewsItem[] {
   return [sectorNewsFallbackHeadline(sector, sectorDefinition?.etf ?? null)];
 }
 
+function mapGoogleNewsToContextItems(
+  items: Awaited<ReturnType<typeof fetchGoogleNewsByQuery>>
+): ContextNewsItem[] {
+  return items
+    .map((item) => ({
+      headline: item.headline,
+      url: item.url,
+      source: item.source,
+      publishedAt: item.publishedAt
+    }))
+    .filter((item) => item.headline.trim().length > 0);
+}
+
+function isGenericFallbackHeadline(item: ContextNewsItem): boolean {
+  const normalized = item.headline.trim().toLowerCase();
+  return normalized.endsWith("sector headlines") || normalized === "market headlines";
+}
+
+async function fetchNewsFallbackChain(symbol: string, sector: string): Promise<ContextNewsItem[]> {
+  const stockNews = mapGoogleNewsToContextItems(await fetchGoogleNewsByQuery(`${symbol} stock`, [symbol], 6));
+  if (stockNews.length > 0) return stockNews;
+
+  const sectorNews = mapGoogleNewsToContextItems(await fetchGoogleNewsByQuery(`${sector} sector stocks`, [symbol], 6));
+  if (sectorNews.length > 0) return sectorNews;
+
+  const marketNews = mapGoogleNewsToContextItems(await fetchGoogleNewsByQuery("S&P 500 market", [symbol], 6));
+  if (marketNews.length > 0) return marketNews;
+
+  return fetchSectorFallbackNews(sector);
+}
+
 async function refreshAnalysisScore(
   symbol: string,
   fallback: PersistedAnalysis | null,
   liveMode: boolean,
-  userId: string | null
+  userId: string | null,
+  snapshotAnalysis: PersistedAnalysis | null
 ): Promise<PersistedAnalysis | null> {
-  const cacheMinutes = liveMode ? 1 : 15;
-  const read = await getSnapshotForRead({
-    symbol,
-    priority: liveMode ? "hot" : "watchlist",
-    reason: "api-context",
-    requestedBy: userId
-  });
-  if (read.snapshot?.modules.analysis.data) {
-    return read.snapshot.modules.analysis.data;
+  if (snapshotAnalysis) {
+    return snapshotAnalysis;
   }
+
+  const cacheMinutes = liveMode ? 1 : 15;
 
   const cached = await getCachedAnalysis(symbol, cacheMinutes, userId);
   if (cached) return cached;
@@ -182,7 +210,7 @@ async function buildContextPayload(options: BuildContextPayloadOptions): Promise
       .filter((item): item is PersistedAnalysis => Boolean(item))
   ]).filter((item) => options.symbolUniverse.has(item.symbol));
   const currentFallback = snapshotAnalysis ?? cachedAnalysis ?? allAnalyses.find((item) => item.symbol === options.symbol) ?? null;
-  const currentLive = await refreshAnalysisScore(options.symbol, currentFallback, options.liveMode, options.userId);
+  const currentLive = await refreshAnalysisScore(options.symbol, currentFallback, options.liveMode, options.userId, snapshotAnalysis);
 
   const sectorAnalyses = allAnalyses.filter((item) => resolveSectorFromCandidates([item.sector]) === sector);
   const comparableSectorAnalyses = sectorAnalyses.filter((item) => item.symbol !== options.symbol);
@@ -195,8 +223,47 @@ async function buildContextPayload(options: BuildContextPayloadOptions): Promise
       companyName: entry.companyName
     }));
 
-  const randomSimilar = shuffleInPlace(sameSectorDirectory).slice(0, 6);
-  const similarStocks: ContextSimilarStock[] = randomSimilar;
+  const similarCandidates: ContextSimilarStock[] = [];
+  const seenSymbols = new Set<string>();
+  const pushSimilar = (symbol: string, companyName: string): void => {
+    const normalized = symbol.trim().toUpperCase();
+    if (!normalized || normalized === options.symbol || seenSymbols.has(normalized)) return;
+    seenSymbols.add(normalized);
+    similarCandidates.push({ symbol: normalized, companyName });
+  };
+
+  for (const candidate of shuffleInPlace(sameSectorDirectory)) {
+    pushSimilar(candidate.symbol, candidate.companyName);
+    if (similarCandidates.length >= 6) break;
+  }
+
+  if (similarCandidates.length < 6) {
+    for (const entry of rankedComparable) {
+      const directoryName = options.directoryMap[entry.symbol]?.companyName ?? entry.companyName;
+      pushSimilar(entry.symbol, directoryName);
+      if (similarCandidates.length >= 6) break;
+    }
+  }
+
+  if (similarCandidates.length < 6) {
+    const rankedUniverse = [...allAnalyses].sort((left, right) => right.score - left.score);
+    for (const entry of rankedUniverse) {
+      const directoryName = options.directoryMap[entry.symbol]?.companyName ?? entry.companyName;
+      pushSimilar(entry.symbol, directoryName);
+      if (similarCandidates.length >= 6) break;
+    }
+  }
+
+  if (similarCandidates.length < 6) {
+    const directoryFallback = Object.values(options.directoryMap)
+      .sort((left, right) => left.symbol.localeCompare(right.symbol));
+    for (const entry of directoryFallback) {
+      pushSimilar(entry.symbol, entry.companyName);
+      if (similarCandidates.length >= 6) break;
+    }
+  }
+
+  const similarStocks: ContextSimilarStock[] = similarCandidates.slice(0, 6);
 
   const scoringBaseline = rankedComparable.map((item) => item.score);
   if (currentLive && resolveSectorFromCandidates([currentLive.sector]) === sector) {
@@ -222,8 +289,8 @@ async function buildContextPayload(options: BuildContextPayloadOptions): Promise
     source: item.source,
     publishedAt: item.publishedAt
   }));
-  if (news.length === 0) {
-    news = fetchSectorFallbackNews(sector);
+  if (news.length === 0 || news.every(isGenericFallbackHeadline)) {
+    news = await fetchNewsFallbackChain(options.symbol, sector);
   }
 
   return {

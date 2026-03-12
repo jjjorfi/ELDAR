@@ -18,6 +18,7 @@ export interface AlphaVantageFallbackData {
   currency: string | null;
   marketCap: number | null;
   forwardPE: number | null;
+  forwardPEBasis: "NTM" | null;
   debtToEquity: number | null;
   profitMargin: number | null;
   revenueGrowth: number | null;
@@ -139,6 +140,7 @@ function parseOverview(
       currency: null,
       marketCap: null,
       forwardPE: null,
+      forwardPEBasis: null,
       debtToEquity: null,
       profitMargin: null,
       revenueGrowth: null,
@@ -152,7 +154,9 @@ function parseOverview(
   const currency = typeof payload.Currency === "string" ? payload.Currency : null;
 
   const marketCap = parseNumeric(payload.MarketCapitalization);
-  const forwardPE = parseNumeric(payload.ForwardPE) ?? parseNumeric(payload.PERatio);
+  // Strict contract: forwardPE only accepts explicitly forward/NTM fields.
+  const forwardPE = parseNumeric(payload.ForwardPE);
+  const forwardPEBasis = forwardPE !== null ? "NTM" : null;
   const debtToEquity = parseRatio(payload.DebtToEquityRatio);
   const profitMargin = parseRatio(payload.ProfitMargin);
   const revenueGrowth = parseRatio(payload.QuarterlyRevenueGrowthYOY);
@@ -165,6 +169,7 @@ function parseOverview(
     currency,
     marketCap,
     forwardPE,
+    forwardPEBasis,
     debtToEquity,
     profitMargin,
     revenueGrowth,
@@ -363,6 +368,7 @@ export async function fetchAlphaVantageFallbackData(symbol: string): Promise<Alp
       currency: null,
       marketCap: null,
       forwardPE: null,
+      forwardPEBasis: null,
       debtToEquity: null,
       profitMargin: null,
       revenueGrowth: null,

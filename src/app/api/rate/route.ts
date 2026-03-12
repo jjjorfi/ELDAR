@@ -4,9 +4,9 @@ import { z } from "zod";
 
 import { badRequest, jsonError, jsonNoStore, withApiPerfHeaders } from "@/lib/api/responses";
 import { runRouteGuards } from "@/lib/api/route-security";
-import { fetchSP500Directory } from "@/lib/market/sp500";
-import { resolveSp500DirectorySymbol } from "@/lib/market/sp500-universe";
-import { getCachedAnalysis } from "@/lib/storage";
+import { fetchSP500Directory } from "@/lib/market/universe/sp500";
+import { resolveSp500DirectorySymbol } from "@/lib/market/universe/sp500-universe";
+import { getCachedAnalysis } from "@/lib/storage/index";
 import { getSnapshotForRead } from "@/lib/snapshots/service";
 import type { PersistedAnalysis } from "@/lib/types";
 import { sanitizeSymbol } from "@/lib/utils";

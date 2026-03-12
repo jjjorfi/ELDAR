@@ -9,7 +9,7 @@ import { AppPageShell } from "@/components/AppPageShell";
 import { useDashboardPaletteShortcut } from "@/hooks/useDashboardPaletteShortcut";
 import { usePopupWheelScroll } from "@/hooks/usePopupWheelScroll";
 import { useThemeMode } from "@/hooks/useThemeMode";
-import { GICS_SECTORS, GICS_SECTOR_ORDER } from "@/lib/market/gics-sectors";
+import { GICS_SECTORS, GICS_SECTOR_ORDER } from "@/lib/market/universe/gics-sectors";
 import { stashDashboardIntent } from "@/lib/ui/dashboard-intent";
 
 const LOCAL_SECTOR_SENTIMENT_STORAGE_KEY = "eldar:sectors:sentiment";
@@ -124,7 +124,7 @@ function sentimentLabel(sentiment: "bullish" | "neutral" | "bearish"): string {
 function sentimentClass(sentiment: "bullish" | "neutral" | "bearish"): string {
   if (sentiment === "bullish") return "text-emerald-300";
   if (sentiment === "bearish") return "text-red-300";
-  return "text-amber-300";
+  return "text-white/78";
 }
 
 function sentimentRank(sentiment: "bullish" | "neutral" | "bearish"): number {
@@ -155,10 +155,11 @@ function sortLabel(mode: SectorSortMode, target: "bias" | "move"): "—" | "↓"
   return "—";
 }
 
-function heatTileTone(sentiment: "bullish" | "neutral" | "bearish"): string {
-  if (sentiment === "bullish") return "border-emerald-300/35 bg-emerald-300/10";
-  if (sentiment === "bearish") return "border-red-300/35 bg-red-300/10";
-  return "border-white/15 bg-zinc-950/45";
+function moveClass(changePercent: number | null): string {
+  if (typeof changePercent !== "number") return "text-white/55";
+  if (changePercent > 0) return "text-emerald-300";
+  if (changePercent < 0) return "text-red-300";
+  return "text-white/60";
 }
 
 export default function SectorsPage(): JSX.Element {
@@ -336,7 +337,6 @@ export default function SectorsPage(): JSX.Element {
       onToggleTheme={() => setThemeMode((prev) => (prev === "dark" ? "light" : "dark"))}
     >
       <AppPageHeader
-        eyebrow="Market Structure"
         title="Sectors"
         subtitle={undefined}
         actions={
@@ -346,7 +346,7 @@ export default function SectorsPage(): JSX.Element {
               onClick={() => setViewMode("heatmap")}
               aria-pressed={viewMode === "heatmap"}
               className={clsx(
-                "eldar-page-toggle px-3 text-[10px] uppercase tracking-[0.12em]",
+                "eldar-page-toggle h-9 rounded-xl px-3 text-[10px] uppercase tracking-[0.12em]",
                 viewMode === "heatmap" && "border-white/28 bg-white/[0.09] text-white"
               )}
             >
@@ -357,7 +357,7 @@ export default function SectorsPage(): JSX.Element {
               onClick={() => setViewMode("table")}
               aria-pressed={viewMode === "table"}
               className={clsx(
-                "eldar-page-toggle px-3 text-[10px] uppercase tracking-[0.12em]",
+                "eldar-page-toggle h-9 rounded-xl px-3 text-[10px] uppercase tracking-[0.12em]",
                 viewMode === "table" && "border-white/28 bg-white/[0.09] text-white"
               )}
             >
@@ -374,151 +374,151 @@ export default function SectorsPage(): JSX.Element {
         }
       />
 
-      {viewMode === "heatmap" ? (
-        <div className="eldar-page-section p-2">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {sortedRows.map((row, index) => {
-              const live = sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf];
-              const moveValue = typeof live.changePercent === "number" ? live.changePercent : 0;
-              const biasRank = biasRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
-              const moveRank = moveRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
+      <div className="space-y-3">
+        {viewMode === "heatmap" ? (
+          <div className="eldar-page-section p-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {sortedRows.map((row, index) => {
+                const live = sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf];
+                const moveValue = typeof live.changePercent === "number" ? live.changePercent : 0;
+                const biasRank = biasRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
+                const moveRank = moveRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
 
-              return (
-                <button
-                  key={`tile-${row.etf}`}
-                  type="button"
-                  className={clsx(
-                    "eldar-dashboard-surface min-h-[148px] px-5 py-4 text-left transition hover:border-white/30",
-                    heatTileTone(live.sentiment)
-                  )}
-                  onClick={() => setActiveSectorEtf(row.etf)}
-                  style={{ animation: `fadeUp 0.4s ease-out ${Math.min(index, 10) * 0.05}s both` }}
-                >
-                  <div className="mb-2">
-                    <p className="text-[9px] uppercase tracking-[0.14em] text-white/45">
-                      #{biasRank} · {row.etf}
-                    </p>
-                    <p className="mt-2 text-base font-bold text-white">{row.displayName}</p>
-                  </div>
-                  <div className="mt-5">
-                    <p
-                      className={clsx(
-                        "text-2xl font-black",
-                        moveValue > 0 ? "text-emerald-300" : moveValue < 0 ? "text-red-300" : "text-white/75"
-                      )}
-                    >
-                      {moveValue > 0 ? "+" : ""}
-                      {moveValue.toFixed(2)}%
-                    </p>
-                    <p className={clsx("mt-1 text-[10px] font-semibold uppercase tracking-[0.12em]", sentimentClass(live.sentiment))}>
-                      {sentimentLabel(live.sentiment)}
-                      <span className="ml-2 text-white/50">#{moveRank}</span>
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={`tile-${row.etf}`}
+                    type="button"
+                    className={clsx(
+                      "eldar-dashboard-surface flex min-h-[148px] flex-col justify-between px-4 py-3 text-left transition hover:border-white/30",
+                      "border-white/14 bg-white/[0.035]"
+                    )}
+                    onClick={() => setActiveSectorEtf(row.etf)}
+                    style={{ animation: `fadeUp 0.4s ease-out ${Math.min(index, 10) * 0.05}s both` }}
+                  >
+                    <div className="mb-2">
+                      <p className="text-[9px] uppercase tracking-[0.14em] text-white/45">
+                        #{biasRank} · {row.etf}
+                      </p>
+                      <p className="mt-1.5 text-base font-bold text-white">{row.displayName}</p>
+                    </div>
+                    <div>
+                      <p className={clsx("text-xl font-black", moveClass(live.changePercent))}>
+                        {moveValue > 0 ? "+" : ""}
+                        {moveValue.toFixed(2)}%
+                      </p>
+                      <p className={clsx("mt-1 text-[10px] font-semibold uppercase tracking-[0.12em]", sentimentClass(live.sentiment))}>
+                        {sentimentLabel(live.sentiment)}
+                        <span className="ml-2 text-white/50">#{moveRank}</span>
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="eldar-page-section overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead className="border-b border-white/15 bg-white/[0.04]">
-                <tr className="text-left text-xs uppercase tracking-[0.14em] text-white/70">
-                  <th className="px-4 py-3">Sector</th>
-                  <th className="px-4 py-3">ETF</th>
-                  <th className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => setSortMode((prev) => nextSortMode(prev, "bias"))}
-                      className="inline-flex items-center gap-2 text-left transition hover:text-white"
-                    >
-                      Bias
-                      <span className="text-[11px] text-white/55">{sortLabel(sortMode, "bias")}</span>
-                    </button>
-                  </th>
-                  <th className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => setSortMode((prev) => nextSortMode(prev, "move"))}
-                      className="inline-flex items-center gap-2 text-left transition hover:text-white"
-                    >
-                      Move
-                      <span className="text-[11px] text-white/55">{sortLabel(sortMode, "move")}</span>
-                    </button>
-                  </th>
-                  <th className="px-4 py-3">Top Tickers</th>
-                  <th className="px-4 py-3">Focus Area</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedRows.map((row) => {
-                  const live = sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf];
-                  const moveValue = typeof live.changePercent === "number" ? live.changePercent : 0;
-                  const biasRank = biasRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
-                  const moveRank = moveRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
+        ) : (
+          <div className="eldar-page-section overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead className="border-b border-white/15 bg-white/[0.04]">
+                  <tr className="text-left text-xs uppercase tracking-[0.14em] text-white/70">
+                    <th className="px-4 py-2.5">Sector</th>
+                    <th className="px-4 py-2.5">ETF</th>
+                    <th className="px-4 py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setSortMode((prev) => nextSortMode(prev, "bias"))}
+                        className="inline-flex items-center gap-2 text-left transition hover:text-white"
+                      >
+                        Bias
+                        <span className="text-[11px] text-white/55">{sortLabel(sortMode, "bias")}</span>
+                      </button>
+                    </th>
+                    <th className="px-4 py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setSortMode((prev) => nextSortMode(prev, "move"))}
+                        className="inline-flex items-center gap-2 text-left transition hover:text-white"
+                      >
+                        Move
+                        <span className="text-[11px] text-white/55">{sortLabel(sortMode, "move")}</span>
+                      </button>
+                    </th>
+                    <th className="px-4 py-2.5">Top Tickers</th>
+                    <th className="px-4 py-2.5">Focus Area</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedRows.map((row) => {
+                    const live = sentimentMap[row.etf] ?? fallbackSentimentMap[row.etf];
+                    const moveValue = typeof live.changePercent === "number" ? live.changePercent : 0;
+                    const biasRank = biasRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
+                    const moveRank = moveRankMap[row.etf] ?? (GICS_SECTOR_ORDER[row.etf] ?? 0) + 1;
 
-                  return (
-                    <tr
-                      key={row.etf}
-                      className="cursor-pointer border-b border-white/10 text-sm text-white/90 transition hover:bg-white/[0.03]"
-                      onClick={() => setActiveSectorEtf(row.etf)}
-                    >
-                      <td className="px-4 py-3 font-semibold">{row.sector}</td>
-                      <td className="px-4 py-3 font-mono text-white/80">{row.etf}</td>
-                      <td className="px-4 py-3 font-semibold">
-                        <span className={sentimentClass(live.sentiment)}>{sentimentLabel(live.sentiment)}</span>
-                        <span className="ml-2 font-mono text-[10px] text-white/50">#{biasRank}</span>
-                      </td>
-                      <td className="px-4 py-3 font-mono">
-                        <span className={clsx(moveValue > 0 ? "text-emerald-300" : moveValue < 0 ? "text-red-300" : "text-white/75")}>
-                          {moveValue > 0 ? "+" : ""}
-                          {moveValue.toFixed(2)}%
-                        </span>
-                        <span className="ml-2 text-[10px] text-white/50">#{moveRank}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1.5">
-                          {row.topTickers.map((symbol) => (
-                            <button
-                              key={`${row.etf}-${symbol}`}
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openDashboardView("home", symbol, { autoAnalyze: true });
-                              }}
-                              className="rounded-md border border-white/15 bg-white/[0.04] px-2 py-1 font-mono text-[10px] text-white/75 transition hover:border-white/35 hover:text-white"
-                            >
-                              {symbol}
-                            </button>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-white/75">{row.focusArea}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                    return (
+                      <tr
+                        key={row.etf}
+                        className="cursor-pointer border-b border-white/10 text-sm text-white/90 transition hover:bg-white/[0.03]"
+                        onClick={() => setActiveSectorEtf(row.etf)}
+                      >
+                        <td className="px-4 py-2.5 font-semibold">{row.sector}</td>
+                        <td className="px-4 py-2.5 font-mono text-white/80">{row.etf}</td>
+                        <td className="px-4 py-2.5 font-semibold">
+                          <span className={sentimentClass(live.sentiment)}>{sentimentLabel(live.sentiment)}</span>
+                          <span className="ml-2 font-mono text-[10px] text-white/50">#{biasRank}</span>
+                        </td>
+                        <td className="px-4 py-2.5 font-mono">
+                          <span className={moveClass(live.changePercent)}>
+                            {moveValue > 0 ? "+" : ""}
+                            {moveValue.toFixed(2)}%
+                          </span>
+                          <span className="ml-2 text-[10px] text-white/50">#{moveRank}</span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex flex-wrap gap-1.5">
+                            {row.topTickers.map((symbol) => (
+                              <button
+                                key={`${row.etf}-${symbol}`}
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openDashboardView("home", symbol, { autoAnalyze: true });
+                                }}
+                                className="rounded-md border border-white/15 bg-white/[0.04] px-2 py-1 font-mono text-[10px] text-white/75 transition hover:border-white/35 hover:text-white"
+                              >
+                                {symbol}
+                              </button>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 text-white/75">{row.focusArea}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {activeSector ? (
-        <div className="fixed inset-0 z-[95]">
+        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4">
           <button
             type="button"
-            aria-label="Close drawer"
+            aria-label="Close panel"
             className="absolute inset-0 bg-black/45"
             onClick={() => setActiveSectorEtf(null)}
           />
-          <aside onWheelCapture={handlePopupWheel} className="eldar-scrollbar card-grain rough-border absolute right-0 top-0 h-full w-full max-w-[480px] overflow-y-auto overscroll-contain border-l border-white/15 bg-[#0a0a0a] p-5 shadow-2xl shadow-black/70">
-            <div className="sticky top-0 z-10 mb-4 flex items-center justify-between border-b border-white/10 bg-[#0a0a0a] pb-3">
+          <div
+            onWheelCapture={handlePopupWheel}
+            className="eldar-scrollbar card-grain rough-border relative z-10 w-full max-w-3xl overflow-y-auto overscroll-contain rounded-3xl border border-white/15 bg-[var(--eldar-bg-primary)] p-5 shadow-2xl shadow-black/70 max-h-[86vh]"
+          >
+            <div className="mb-4 flex items-start justify-between gap-4 border-b border-white/10 pb-3">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Sector Detail</p>
-                <p className="mt-1 font-semibold text-white">{activeSector.row.sector}</p>
-                <p className="mt-0.5 font-mono text-xs text-white/65">{activeSector.row.etf}</p>
+                <p className="mt-1 text-lg font-semibold text-white">{activeSector.row.sector}</p>
+                <p className="mt-0.5 font-mono text-xs text-white/65">{activeSector.row.etf} · {activeSector.row.displayName}</p>
               </div>
               <button
                 type="button"
@@ -529,33 +529,38 @@ export default function SectorsPage(): JSX.Element {
               </button>
             </div>
 
-            <div className="space-y-3">
-              <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div
+                className={clsx(
+                  "eldar-dashboard-muted-surface p-3",
+                  activeSector.live.sentiment === "bullish" && "border-emerald-400/25 bg-emerald-400/[0.07]",
+                  activeSector.live.sentiment === "bearish" && "border-red-400/25 bg-red-400/[0.07]"
+                )}
+              >
                 <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Bias</p>
                 <p className={clsx("mt-1 text-sm font-semibold", sentimentClass(activeSector.live.sentiment))}>
                   {sentimentLabel(activeSector.live.sentiment)}
                 </p>
               </div>
-              <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+              <div
+                className={clsx(
+                  "eldar-dashboard-muted-surface p-3",
+                  typeof activeSector.live.changePercent === "number" && activeSector.live.changePercent > 0 && "border-emerald-400/25 bg-emerald-400/[0.07]",
+                  typeof activeSector.live.changePercent === "number" && activeSector.live.changePercent < 0 && "border-red-400/25 bg-red-400/[0.07]"
+                )}
+              >
                 <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Move</p>
-                <p
-                  className={clsx(
-                    "mt-1 font-mono text-lg font-semibold",
-                    (activeSector.live.changePercent ?? 0) > 0 && "text-emerald-300",
-                    (activeSector.live.changePercent ?? 0) < 0 && "text-red-300",
-                    activeSector.live.changePercent === null && "text-white"
-                  )}
-                >
+                <p className={clsx("mt-1 font-mono text-lg font-semibold", moveClass(activeSector.live.changePercent))}>
                   {typeof activeSector.live.changePercent === "number"
                     ? `${activeSector.live.changePercent > 0 ? "+" : ""}${activeSector.live.changePercent.toFixed(2)}%`
                     : "Pending"}
                 </p>
               </div>
-              <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+              <div className="eldar-dashboard-muted-surface p-3">
                 <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Focus Area</p>
                 <p className="mt-1 text-sm text-white/78">{activeSector.row.focusArea}</p>
               </div>
-              <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+              <div className="eldar-dashboard-muted-surface p-3 md:col-span-2">
                 <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Top Tickers</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {activeSector.row.topTickers.map((symbol) => (
@@ -571,7 +576,7 @@ export default function SectorsPage(): JSX.Element {
                 </div>
               </div>
             </div>
-          </aside>
+          </div>
         </div>
       ) : null}
     </AppPageShell>

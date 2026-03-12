@@ -17,7 +17,7 @@ import {
   Zap
 } from "lucide-react";
 
-import { normalizeSectorName } from "@/lib/scoring/sector-config";
+import { normalizeSectorName } from "@/lib/scoring/sector/config";
 
 interface CompanyLogoProps {
   ticker: string;

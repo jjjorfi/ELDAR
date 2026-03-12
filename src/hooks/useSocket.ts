@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE:
 // File Purpose:
 // - Provides a singleton Socket.IO client connection for the Next.js frontend.
 // - Handles auth token fetch, connection lifecycle states, and heartbeat pong replies.

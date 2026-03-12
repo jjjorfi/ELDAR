@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { sql } from "@vercel/postgres";
 
-import type { PersistedPortfolioSnapshot } from "@/lib/scoring/portfolio-types";
+import type { PersistedPortfolioSnapshot } from "@/lib/scoring/portfolio/types";
 import { SCORING_MODEL_VERSION } from "@/lib/scoring/version";
 import { ratingNoteForLabel } from "@/lib/rating";
 import type { AnalysisResult, Mag7ScoreCard, PersistedAnalysis } from "@/lib/types";
@@ -82,13 +82,29 @@ export function normalizePersistedAnalysis(payload: unknown): PersistedAnalysis 
   const toFiniteNumber = (value: unknown): number | null =>
     typeof value === "number" && Number.isFinite(value) ? value : null;
 
+  const rawPeBasis =
+    typeof record.fundamentals?.peBasis === "string"
+      ? record.fundamentals.peBasis.toUpperCase()
+      : null;
+  const rawEpsGrowthBasis =
+    typeof record.fundamentals?.epsGrowthBasis === "string"
+      ? record.fundamentals.epsGrowthBasis.toUpperCase()
+      : null;
+
   return {
     ...record,
     fundamentals: {
       forwardPE: toFiniteNumber(record.fundamentals?.forwardPE),
       trailingPE: toFiniteNumber(record.fundamentals?.trailingPE),
+      peBasis: rawPeBasis === "NTM" || rawPeBasis === "TTM" ? rawPeBasis : "UNAVAILABLE",
       revenueGrowth: toFiniteNumber(record.fundamentals?.revenueGrowth),
       earningsQuarterlyGrowth: toFiniteNumber(record.fundamentals?.earningsQuarterlyGrowth),
+      epsGrowthBasis:
+        rawEpsGrowthBasis === "YOY" ||
+        rawEpsGrowthBasis === "QOQ" ||
+        rawEpsGrowthBasis === "FORWARD_DELTA"
+          ? rawEpsGrowthBasis
+          : "UNAVAILABLE",
       fcfYield: toFiniteNumber(record.fundamentals?.fcfYield),
       evEbitda: toFiniteNumber(record.fundamentals?.evEbitda),
       ffoYield: toFiniteNumber(record.fundamentals?.ffoYield)

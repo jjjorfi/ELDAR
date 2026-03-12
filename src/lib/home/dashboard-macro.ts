@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE
 // Dedicated macro builder for the home dashboard. This keeps the V2 macro
 // regime engine and its data plumbing out of the main dashboard service so the
 // home payload stays thin and cached.
@@ -13,7 +12,7 @@ import {
   type MacroInputV2,
   type MacroRegimeV2,
   type MacroScoreV2
-} from "@/lib/scoring/eldar-macro-v2";
+} from "@/lib/scoring/macro/eldar-macro-v2";
 
 const MACRO_CACHE_TTL_MS = 5 * 60_000;
 const MACRO_REDIS_TTL_SECONDS = 300;

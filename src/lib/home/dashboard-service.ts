@@ -2,13 +2,13 @@ import { cacheGetJson, cacheSetJson } from "@/lib/cache/redis";
 import {
   DEFAULT_SECTOR_WINDOW,
   fetchSectorPerformance
-} from "@/lib/market/sector-performance";
-import { GICS_SECTORS, GICS_SECTOR_ETFS } from "@/lib/market/gics-sectors";
+} from "@/lib/market/orchestration/sector-performance";
+import { GICS_SECTORS, GICS_SECTOR_ETFS } from "@/lib/market/universe/gics-sectors";
 import { buildDashboardNewsFocusSymbols, getDashboardMarketNews } from "@/lib/home/dashboard-news";
 import { getDashboardMacroRegime } from "@/lib/home/dashboard-macro";
 import { fetchTopSp500Movers } from "@/lib/home/sp500-movers";
-import { normalizeSectorName } from "@/lib/scoring/sector-config";
-import { getRecentAnalyses } from "@/lib/storage";
+import { normalizeSectorName } from "@/lib/scoring/sector/config";
+import { getRecentAnalyses } from "@/lib/storage/index";
 import type { PersistedAnalysis } from "@/lib/types";
 
 import { fetchDashboardQuoteMap, type QuoteRow, quoteValue } from "@/lib/home/dashboard-quotes";
@@ -21,6 +21,7 @@ import type {
 
 const CACHE_TTL_MS = 180_000;
 const REDIS_TTL_SECONDS = 180;
+const REQUIRED_MOVER_BUCKET_SIZE = 3;
 
 export type Tone = "positive" | "neutral" | "negative";
 export type HomeDashboardCacheLayer = "memory" | "redis" | "in-flight" | "computed";
@@ -56,6 +57,82 @@ function ratingBandFromScore(score: number): "STRONG" | "CONSTRUCTIVE" | "NEUTRA
   if (score >= 6.3) return "CONSTRUCTIVE";
   if (score >= 4.1) return "NEUTRAL";
   return "WEAK";
+}
+
+function countMoverBuckets(items: HomeDashboardPayload["marketMovers"]): { winners: number; losers: number } {
+  let winners = 0;
+  let losers = 0;
+  for (const item of items) {
+    if (item.changePercent > 0) winners += 1;
+    if (item.changePercent < 0) losers += 1;
+  }
+  return { winners, losers };
+}
+
+function hasRequiredMoverBuckets(items: HomeDashboardPayload["marketMovers"], perBucket = REQUIRED_MOVER_BUCKET_SIZE): boolean {
+  const counts = countMoverBuckets(items);
+  return counts.winners >= perBucket && counts.losers >= perBucket;
+}
+
+function normalizeMoverBuckets(
+  current: HomeDashboardPayload["marketMovers"],
+  previous: HomeDashboardPayload["marketMovers"],
+  perBucket: number
+): HomeDashboardPayload["marketMovers"] {
+  const seen = new Set<string>();
+  const winners: HomeDashboardPayload["marketMovers"] = [];
+  const losers: HomeDashboardPayload["marketMovers"] = [];
+
+  const addBySign = (
+    target: HomeDashboardPayload["marketMovers"],
+    source: HomeDashboardPayload["marketMovers"],
+    sign: "W" | "L"
+  ): void => {
+    for (const item of source) {
+      if (target.length >= perBucket) break;
+      if (seen.has(item.symbol)) continue;
+      if (sign === "W" && item.changePercent <= 0) continue;
+      if (sign === "L" && item.changePercent >= 0) continue;
+      target.push(item);
+      seen.add(item.symbol);
+    }
+  };
+
+  addBySign(
+    winners,
+    [...current]
+      .filter((item) => item.changePercent > 0)
+      .sort((a, b) => b.changePercent - a.changePercent || a.symbol.localeCompare(b.symbol)),
+    "W"
+  );
+  addBySign(
+    losers,
+    [...current]
+      .filter((item) => item.changePercent < 0)
+      .sort((a, b) => a.changePercent - b.changePercent || a.symbol.localeCompare(b.symbol)),
+    "L"
+  );
+
+  if (winners.length < perBucket || losers.length < perBucket) {
+    addBySign(
+      winners,
+      [...previous]
+        .filter((item) => item.changePercent > 0)
+        .sort((a, b) => b.changePercent - a.changePercent || a.symbol.localeCompare(b.symbol)),
+      "W"
+    );
+    addBySign(
+      losers,
+      [...previous]
+        .filter((item) => item.changePercent < 0)
+        .sort((a, b) => a.changePercent - b.changePercent || a.symbol.localeCompare(b.symbol)),
+      "L"
+    );
+  }
+
+  return [...winners, ...losers].sort(
+    (a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent) || b.changePercent - a.changePercent || a.symbol.localeCompare(b.symbol)
+  );
 }
 
 function latestBySymbol(rows: PersistedAnalysis[]): Map<string, PersistedAnalysis> {
@@ -144,15 +221,10 @@ async function buildPayload(
     fetchDashboardQuoteMap(coreSymbols, []),
     getDashboardMarketNews(newsFocusSymbols),
   ]);
-  const dxy = quoteValue(quoteMap, "DX-Y.NYB", "DX=F");
-  const vix = quoteValue(quoteMap, "^VIX");
-
   let snapshot: SnapshotItem[] = [
     { symbol: "^GSPC", label: "SPX", price: quoteValue(quoteMap, "^GSPC")?.regularMarketPrice ?? null, changePercent: quoteValue(quoteMap, "^GSPC")?.regularMarketChangePercent ?? null },
     { symbol: "^NDX", label: "NDX", price: quoteValue(quoteMap, "^NDX")?.regularMarketPrice ?? null, changePercent: quoteValue(quoteMap, "^NDX")?.regularMarketChangePercent ?? null },
-    { symbol: "^RUT", label: "RUT", price: quoteValue(quoteMap, "^RUT")?.regularMarketPrice ?? null, changePercent: quoteValue(quoteMap, "^RUT")?.regularMarketChangePercent ?? null },
-    { symbol: dxy?.symbol ?? "DX-Y.NYB", label: "DXY", price: dxy?.regularMarketPrice ?? null, changePercent: dxy?.regularMarketChangePercent ?? null },
-    { symbol: "^VIX", label: "VIX", price: vix?.regularMarketPrice ?? null, changePercent: vix?.regularMarketChangePercent ?? null }
+    { symbol: "^RUT", label: "RUT", price: quoteValue(quoteMap, "^RUT")?.regularMarketPrice ?? null, changePercent: quoteValue(quoteMap, "^RUT")?.regularMarketChangePercent ?? null }
   ];
 
   let regime = macroRegime;
@@ -181,14 +253,20 @@ async function buildPayload(
       };
     });
 
-    if (marketMovers.length < 3 && previous.marketMovers.length > 0) {
-      const seen = new Set(marketMovers.map((item) => item.symbol));
-      const carryForward = previous.marketMovers.filter((item) => !seen.has(item.symbol));
-      marketMovers = [...marketMovers, ...carryForward].slice(0, 3);
+    const currentBuckets = countMoverBuckets(marketMovers);
+    if ((currentBuckets.winners < 3 || currentBuckets.losers < 3) && previous.marketMovers.length > 0) {
+      marketMovers = normalizeMoverBuckets(marketMovers, previous.marketMovers, 3);
     }
 
     if (regime.metrics.length === 0) {
       regime = previous.regime;
+    }
+  }
+
+  if (previous && marketMovers.length > 0) {
+    const currentBuckets = countMoverBuckets(marketMovers);
+    if (currentBuckets.winners < 3 || currentBuckets.losers < 3) {
+      marketMovers = normalizeMoverBuckets(marketMovers, previous.marketMovers, 3);
     }
   }
 
@@ -205,7 +283,7 @@ async function buildPayload(
 
 export async function getHomeDashboardPayloadWithMeta(window: SectorRotationWindow): Promise<HomeDashboardPayloadResult> {
   const memoryCached = payloadCacheByWindow.get(window);
-  if (memoryCached && Date.now() < memoryCached.expiresAt) {
+  if (memoryCached && Date.now() < memoryCached.expiresAt && hasRequiredMoverBuckets(memoryCached.payload.marketMovers)) {
     return {
       payload: memoryCached.payload,
       cacheLayer: "memory"
@@ -213,7 +291,7 @@ export async function getHomeDashboardPayloadWithMeta(window: SectorRotationWind
   }
 
   const redisCached = await cacheGetJson<HomeDashboardPayload>(dashboardRedisKey(window));
-  if (redisCached) {
+  if (redisCached && hasRequiredMoverBuckets(redisCached.marketMovers)) {
     payloadCacheByWindow.set(window, {
       expiresAt: Date.now() + CACHE_TTL_MS,
       payload: redisCached
@@ -254,12 +332,12 @@ export async function getHomeDashboardPayload(window: SectorRotationWindow): Pro
 
 export async function getHomeDashboardPayloadCached(window: SectorRotationWindow): Promise<HomeDashboardPayload | null> {
   const memoryCached = payloadCacheByWindow.get(window);
-  if (memoryCached && Date.now() < memoryCached.expiresAt) {
+  if (memoryCached && Date.now() < memoryCached.expiresAt && hasRequiredMoverBuckets(memoryCached.payload.marketMovers)) {
     return memoryCached.payload;
   }
 
   const redisCached = await cacheGetJson<HomeDashboardPayload>(dashboardRedisKey(window));
-  if (!redisCached) {
+  if (!redisCached || !hasRequiredMoverBuckets(redisCached.marketMovers)) {
     return null;
   }
 

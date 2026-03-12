@@ -1,6 +1,6 @@
 import clsx from "clsx";
 
-import type { PortfolioRating } from "@/lib/scoring/portfolio-types";
+import type { PortfolioRating } from "@/lib/scoring/portfolio/types";
 
 function toPath(values: number[], width: number, height: number): string {
   if (values.length === 0) return "";

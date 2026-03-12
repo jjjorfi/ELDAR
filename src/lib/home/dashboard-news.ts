@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE
 // Builds the dashboard's market-news module. This file keeps headline ranking
 // and provider fallback logic out of the dashboard route/service so the home
 // payload stays thin. Current default focus is broad S&P 500 mega-cap names, but the
@@ -7,9 +6,9 @@
 
 import { cacheGetJson, cacheSetJson } from "@/lib/cache/redis";
 import { withTimeoutFallback } from "@/lib/async/timeout";
-import { fetchAlphaVantageNewsHeadlines } from "@/lib/market/alpha-vantage";
-import { fetchFinnhubCompanyNews } from "@/lib/market/finnhub";
-import { fetchGoogleNewsHeadlines } from "@/lib/market/google-news";
+import { fetchAlphaVantageNewsHeadlines } from "@/lib/market/providers/alpha-vantage";
+import { fetchFinnhubCompanyNews } from "@/lib/market/providers/finnhub";
+import { fetchGoogleNewsHeadlines } from "@/lib/market/providers/google-news";
 
 import type { HomeNewsItem } from "@/lib/home/dashboard-types";
 

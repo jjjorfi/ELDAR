@@ -1,6 +1,6 @@
 import { getFetchSignal } from "@/lib/market/adapter-utils";
 import { cacheGetJson, cacheSetJson } from "@/lib/cache/redis";
-import { fetchSP500Directory } from "@/lib/market/sp500";
+import { fetchSP500Directory } from "@/lib/market/universe/sp500";
 import type { HomeMarketMoverItem } from "@/lib/home/dashboard-types";
 
 type DirectoryMap = Record<string, { companyName: string }>;
@@ -12,13 +12,20 @@ const MAX_SYMBOLS = 520;
 const FETCH_TIMEOUT_MS = 1_200;
 const CACHE_TTL_MS = 120_000;
 const REDIS_TTL_SECONDS = 120;
+const LAST_VALID_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const LAST_VALID_REDIS_TTL_SECONDS = 7 * 24 * 60 * 60;
 const DEFAULT_FALLBACK_SYMBOLS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"];
 
 let moversCache: { expiresAt: number; movers: HomeMarketMoverItem[] } | null = null;
+let lastValidMoversCache: { expiresAt: number; movers: HomeMarketMoverItem[] } | null = null;
 let moversInFlight: Promise<HomeMarketMoverItem[]> | null = null;
 
 function moversRedisKey(limit: number): string {
-  return `home:movers:v1:${limit}`;
+  return `home:movers:v2:${limit}`;
+}
+
+function moversLastValidRedisKey(limit: number): string {
+  return `home:movers:last-valid:v1:${limit}`;
 }
 
 function safeNumber(value: unknown): number | null {
@@ -99,6 +106,77 @@ function sortBiggestMoves(items: HomeMarketMoverItem[]): HomeMarketMoverItem[] {
   );
 }
 
+function sortWinners(items: HomeMarketMoverItem[]): HomeMarketMoverItem[] {
+  return [...items]
+    .filter((item) => item.changePercent > 0)
+    .sort((a, b) => b.changePercent - a.changePercent || a.symbol.localeCompare(b.symbol));
+}
+
+function sortLosers(items: HomeMarketMoverItem[]): HomeMarketMoverItem[] {
+  return [...items]
+    .filter((item) => item.changePercent < 0)
+    .sort((a, b) => a.changePercent - b.changePercent || a.symbol.localeCompare(b.symbol));
+}
+
+function dedupeByStrongestMove(items: HomeMarketMoverItem[]): HomeMarketMoverItem[] {
+  const deduped = new Map<string, HomeMarketMoverItem>();
+  for (const item of items) {
+    const existing = deduped.get(item.symbol);
+    if (!existing || Math.abs(item.changePercent) > Math.abs(existing.changePercent)) {
+      deduped.set(item.symbol, item);
+    }
+  }
+  return Array.from(deduped.values());
+}
+
+function hasRequiredBuckets(items: HomeMarketMoverItem[], perBucket: number): boolean {
+  return sortWinners(items).length >= perBucket && sortLosers(items).length >= perBucket;
+}
+
+async function getLastValidMovers(limit: number): Promise<HomeMarketMoverItem[] | null> {
+  if (lastValidMoversCache && lastValidMoversCache.expiresAt > Date.now() && hasRequiredBuckets(lastValidMoversCache.movers, limit)) {
+    return lastValidMoversCache.movers;
+  }
+
+  const redisCached = await cacheGetJson<HomeMarketMoverItem[]>(moversLastValidRedisKey(limit));
+  if (Array.isArray(redisCached) && hasRequiredBuckets(redisCached, limit)) {
+    lastValidMoversCache = {
+      expiresAt: Date.now() + LAST_VALID_CACHE_TTL_MS,
+      movers: redisCached
+    };
+    return redisCached;
+  }
+
+  return null;
+}
+
+async function persistLastValidMovers(limit: number, movers: HomeMarketMoverItem[]): Promise<void> {
+  lastValidMoversCache = {
+    expiresAt: Date.now() + LAST_VALID_CACHE_TTL_MS,
+    movers
+  };
+  await cacheSetJson(moversLastValidRedisKey(limit), movers, LAST_VALID_REDIS_TTL_SECONDS);
+}
+
+function fillBucketFromPrior(
+  current: HomeMarketMoverItem[],
+  prior: HomeMarketMoverItem[],
+  perBucket: number,
+  direction: "W" | "L"
+): HomeMarketMoverItem[] {
+  if (current.length >= perBucket) return current.slice(0, perBucket);
+  const seen = new Set(current.map((item) => item.symbol));
+  const candidates = direction === "W" ? sortWinners(prior) : sortLosers(prior);
+  const merged = current.slice();
+  for (const candidate of candidates) {
+    if (merged.length >= perBucket) break;
+    if (seen.has(candidate.symbol)) continue;
+    merged.push(candidate);
+    seen.add(candidate.symbol);
+  }
+  return merged.slice(0, perBucket);
+}
+
 async function fetchYahooScreenerRows(scrId: "day_gainers" | "day_losers", count = 250): Promise<Array<Record<string, unknown>>> {
   const url = new URL(YAHOO_SCREENER_URL);
   url.searchParams.set("formatted", "true");
@@ -162,47 +240,71 @@ async function loadDirectory(): Promise<DirectoryMap> {
   );
 }
 
-async function buildMovers(limit: number): Promise<HomeMarketMoverItem[]> {
+async function buildMovers(limit: number, prior: HomeMarketMoverItem[] = []): Promise<HomeMarketMoverItem[]> {
   const directory = await loadDirectory();
   const hasSp500Directory = Object.keys(directory).length >= 450;
+  const pool: HomeMarketMoverItem[] = [];
 
   const [gainersRows, losersRows] = await Promise.all([
     fetchYahooScreenerRows("day_gainers", 250),
     fetchYahooScreenerRows("day_losers", 250)
   ]);
-  let movers = sortBiggestMoves(mapQuoteRows([...gainersRows, ...losersRows], directory, hasSp500Directory)).slice(0, limit);
+  pool.push(...mapQuoteRows([...gainersRows, ...losersRows], directory, hasSp500Directory));
+  let dedupedPool = dedupeByStrongestMove(pool);
+  let winners = sortWinners(dedupedPool);
+  let losers = sortLosers(dedupedPool);
 
-  if (movers.length < limit) {
+  if (winners.length < limit || losers.length < limit) {
     const universe = Object.keys(directory).slice(0, MAX_SYMBOLS).map(toYahooSymbol);
     const bulkRows = await fetchYahooQuotes(universe);
-    movers = sortBiggestMoves(mapQuoteRows(bulkRows, directory, hasSp500Directory)).slice(0, limit);
+    pool.push(...mapQuoteRows(bulkRows, directory, hasSp500Directory));
+    dedupedPool = dedupeByStrongestMove(pool);
+    winners = sortWinners(dedupedPool);
+    losers = sortLosers(dedupedPool);
   }
 
-  if (movers.length < limit) {
+  if (winners.length < limit || losers.length < limit) {
     const fallbackRows = await fetchYahooQuotes(DEFAULT_FALLBACK_SYMBOLS.map(toYahooSymbol));
-    movers = sortBiggestMoves(mapQuoteRows(fallbackRows, directory, false)).slice(0, limit);
+    pool.push(...mapQuoteRows(fallbackRows, directory, false));
+    dedupedPool = dedupeByStrongestMove(pool);
+    winners = sortWinners(dedupedPool);
+    losers = sortLosers(dedupedPool);
   }
 
-  return movers;
+  const topWinners = fillBucketFromPrior(winners, prior, limit, "W");
+  const topLosers = fillBucketFromPrior(losers, prior, limit, "L");
+  return sortBiggestMoves([...topWinners, ...topLosers]);
 }
 
 export async function fetchTopSp500Movers(limit = 3): Promise<HomeMarketMoverItem[]> {
   const normalizedLimit = Math.max(1, Math.min(limit, 20));
-  if (moversCache && moversCache.expiresAt > Date.now() && moversCache.movers.length >= normalizedLimit) {
-    return moversCache.movers.slice(0, normalizedLimit);
+  const requiredTotal = normalizedLimit * 2;
+  if (moversCache && moversCache.expiresAt > Date.now() && hasRequiredBuckets(moversCache.movers, normalizedLimit)) {
+    lastValidMoversCache = {
+      expiresAt: Date.now() + LAST_VALID_CACHE_TTL_MS,
+      movers: moversCache.movers
+    };
+    return moversCache.movers.slice(0, requiredTotal);
   }
 
   const redisCached = await cacheGetJson<HomeMarketMoverItem[]>(moversRedisKey(normalizedLimit));
-  if (Array.isArray(redisCached) && redisCached.length >= normalizedLimit) {
+  if (Array.isArray(redisCached) && hasRequiredBuckets(redisCached, normalizedLimit)) {
     moversCache = {
       expiresAt: Date.now() + CACHE_TTL_MS,
       movers: redisCached
     };
-    return redisCached.slice(0, normalizedLimit);
+    lastValidMoversCache = {
+      expiresAt: Date.now() + LAST_VALID_CACHE_TTL_MS,
+      movers: redisCached
+    };
+    return redisCached.slice(0, requiredTotal);
   }
 
+  const lastValid = await getLastValidMovers(normalizedLimit);
+
   if (!moversInFlight) {
-    moversInFlight = buildMovers(normalizedLimit)
+    const prior = Array.isArray(redisCached) ? redisCached : moversCache?.movers ?? lastValid ?? [];
+    moversInFlight = buildMovers(normalizedLimit, prior)
       .then((movers) => {
         moversCache = {
           expiresAt: Date.now() + CACHE_TTL_MS,
@@ -217,5 +319,12 @@ export async function fetchTopSp500Movers(limit = 3): Promise<HomeMarketMoverIte
 
   const movers = await moversInFlight;
   await cacheSetJson(moversRedisKey(normalizedLimit), movers, REDIS_TTL_SECONDS);
-  return movers.slice(0, normalizedLimit);
+  if (hasRequiredBuckets(movers, normalizedLimit)) {
+    await persistLastValidMovers(normalizedLimit, movers);
+    return movers.slice(0, requiredTotal);
+  }
+  if (lastValid && hasRequiredBuckets(lastValid, normalizedLimit)) {
+    return lastValid.slice(0, requiredTotal);
+  }
+  return movers.slice(0, requiredTotal);
 }

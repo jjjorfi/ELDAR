@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE
 // Shared keyboard shortcut hook that opens the dashboard command palette from
 // standalone pages. This keeps `/` and Cmd/Ctrl+K behavior consistent across
 // sectors, macro, and journal without duplicating event listeners.
