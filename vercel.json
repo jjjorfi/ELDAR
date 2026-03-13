@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/mag7",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-tv-fundamentals",
+      "schedule": "30 21 * * 1-5"
     }
   ]
 }

@@ -1,9 +1,12 @@
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 const BASE_URL = process.env.AUDIT_BASE_URL || "http://127.0.0.1:3000";
 const DATAHUB_SP500_CSV_URL = "https://datahub.io/core/s-and-p-500-companies/r/constituents.csv";
 const FALLBACK_SYMBOLS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "BRK.B", "LLY", "AVGO", "TSLA"];
+const REPO_ROOT = process.cwd();
+const DEFAULT_AUDIT_OUTPUT_DIR = path.join(os.homedir(), ".eldar", "audits");
 
 function sanitizeSymbol(raw) {
   return String(raw ?? "")
@@ -101,6 +104,20 @@ function nowStamp() {
   return new Date().toISOString().replace(/[:.]/g, "-");
 }
 
+function resolveAuditOutputDir() {
+  const configured = process.env.ELDAR_AUDIT_DIR?.trim();
+  const candidate = path.resolve(configured && configured.length > 0 ? configured : DEFAULT_AUDIT_OUTPUT_DIR);
+  const relativeToRepo = path.relative(REPO_ROOT, candidate);
+  const pointsInsideRepo =
+    relativeToRepo === "" || (!relativeToRepo.startsWith("..") && !path.isAbsolute(relativeToRepo));
+
+  if (pointsInsideRepo && process.env.ELDAR_ALLOW_REPO_AUDIT_OUTPUT !== "1") {
+    return DEFAULT_AUDIT_OUTPUT_DIR;
+  }
+
+  return candidate;
+}
+
 async function runAudit() {
   const symbols = await fetchSP500Symbols();
 
@@ -177,8 +194,10 @@ async function runAudit() {
   };
 
   const stamp = nowStamp();
-  const jsonPath = path.join("audit", `stock-analysis-audit-${stamp}.json`);
-  const mdPath = path.join("audit", `stock-analysis-audit-${stamp}.md`);
+  const outDir = resolveAuditOutputDir();
+  await fs.mkdir(outDir, { recursive: true });
+  const jsonPath = path.join(outDir, `stock-analysis-audit-${stamp}.json`);
+  const mdPath = path.join(outDir, `stock-analysis-audit-${stamp}.md`);
 
   await fs.writeFile(jsonPath, JSON.stringify(output, null, 2), "utf8");
 

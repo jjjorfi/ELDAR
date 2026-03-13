@@ -4,13 +4,8 @@ import { Fragment_Mono, Inter } from "next/font/google";
 
 import { SmoothScrollProvider } from "@/components/SmoothScrollProvider";
 import { ThemedClerkProvider } from "@/components/ThemedClerkProvider";
-import { AppAmbientChrome } from "@/components/ui/AppAmbientChrome";
-import { KeyboardShortcuts } from "@/components/ui/BrowserChrome";
 import { ContextMenuRoot } from "@/components/ui/CopyContextMenu";
 import { GlobalCommandPalette } from "@/components/ui/GlobalCommandPalette";
-import { KonamiEasterEgg } from "@/components/ui/KonamiEasterEgg";
-import { LoadingScreen } from "@/components/ui/LoadingScreen";
-import { AppTickerBar } from "@/components/ui/TickerBar";
 
 import "./globals.css";
 import "@/ui/theme/theme.css";
@@ -77,6 +72,8 @@ export default function RootLayout({ children }: { children: ReactNode }): JSX.E
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link rel="icon" href="/brand/eldar-logo-512.png" sizes="512x512" type="image/png" />
+        <link rel="apple-touch-icon" href="/brand/eldar-logo-512.png" />
         <script
           dangerouslySetInnerHTML={{
             __html: `(() => {
@@ -91,16 +88,11 @@ export default function RootLayout({ children }: { children: ReactNode }): JSX.E
         />
       </head>
       <body className={`${inter.variable} ${fragmentMono.variable} relative min-h-screen bg-ink text-slate-100`}>
-        <LoadingScreen />
-        <AppAmbientChrome />
-        <KonamiEasterEgg />
-        <KeyboardShortcuts />
         <ContextMenuRoot />
         {clerkEnabled ? (
           <ThemedClerkProvider>
             <div className="relative z-[1]">
               <SmoothScrollProvider />
-              <AppTickerBar />
               <PageVignette />
               {children}
               <GlobalCommandPalette />
@@ -109,7 +101,6 @@ export default function RootLayout({ children }: { children: ReactNode }): JSX.E
         ) : (
           <div className="relative z-[1]">
             <SmoothScrollProvider />
-            <AppTickerBar />
             <PageVignette />
             {children}
             <GlobalCommandPalette />

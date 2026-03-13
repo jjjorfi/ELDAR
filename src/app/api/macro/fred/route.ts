@@ -2,6 +2,7 @@ import type { NextResponse } from "next/server";
 
 import { errorResponse, okResponse } from "@/lib/api";
 import { runRouteGuards } from "@/lib/api/route-security";
+import { resolveHomeDashboardPayload } from "@/lib/home/dashboard-read";
 import { log } from "@/lib/logger";
 import type { MacroFredPayload } from "@/lib/macro/fred-snapshot";
 import { AGGREGATE_SNAPSHOT_KEYS } from "@/lib/snapshots/contracts";
@@ -33,14 +34,17 @@ export async function GET(request: Request): Promise<NextResponse> {
     });
 
     const payload = snapshotRead.snapshot?.payload ?? null;
+    const homeDashboard = await resolveHomeDashboardPayload("YTD");
+    const alignedMacroRegime = homeDashboard.payload?.regime ?? payload?.macroRegime ?? null;
+
     if (!payload) {
       return okResponse(
         {
           indicators: [],
           fetchedAt: null,
-          macroRegime: null,
+          macroRegime: alignedMacroRegime,
           pending: true,
-          refreshQueued: snapshotRead.enqueued
+          refreshQueued: snapshotRead.enqueued || homeDashboard.enqueued
         },
         {
           status: 202,
@@ -52,15 +56,21 @@ export async function GET(request: Request): Promise<NextResponse> {
       );
     }
 
+    const responsePayload: MacroFredPayload = {
+      ...payload,
+      macroRegime: alignedMacroRegime
+    };
+
     log({
       level: "info",
       service: "api-macro-fred",
       message: "Macro FRED snapshot served",
       state: snapshotRead.state,
+      dashboardState: homeDashboard.snapshotState,
       durationMs: Date.now() - startedAt
     });
 
-    return okResponse(payload, {
+    return okResponse(responsePayload, {
       headers: {
         "Cache-Control": CACHE_HEADER,
         "X-ELDAR-Data-State": snapshotRead.state + (snapshotRead.enqueued ? "+queued" : "")

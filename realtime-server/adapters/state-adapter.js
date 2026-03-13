@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE:
 // File Purpose:
 // - Implements pluggable state storage for realtime throttling/state (Adapter Pattern).
 // - Provides real Redis-backed state when enabled, with automatic fallback to in-memory.

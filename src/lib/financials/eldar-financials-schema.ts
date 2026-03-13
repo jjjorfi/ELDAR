@@ -123,3 +123,56 @@ export const eldarFinancialsCache = pgTable("eldar_financials_cache", {
   pricesRefreshedAt: timestamp("prices_refreshed_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow()
 });
+
+export interface TradingViewFundamentalsRecord {
+  ticker: string;
+  source: "tradingview";
+  fetchedAt: string;
+  peRatioTTM: number | null;
+  forwardPE: number | null;
+  pbRatio: number | null;
+  psRatioTTM: number | null;
+  evEbitda: number | null;
+  marketCapUSD: number | null;
+  grossMarginPct: number | null;
+  operatingMarginPct: number | null;
+  netMarginPct: number | null;
+  roePct: number | null;
+  roaPct: number | null;
+  roicPct: number | null;
+  revenueGrowthYoYPct: number | null;
+  epsGrowthYoYPct: number | null;
+  freeCashFlowTTM: number | null;
+  operatingCashFlowTTM: number | null;
+  netIncomeTTM: number | null;
+  revenueTTM: number | null;
+  debtToEquity: number | null;
+  currentRatio: number | null;
+  quickRatio: number | null;
+  totalDebt: number | null;
+  totalAssets: number | null;
+  cash: number | null;
+  epsDilutedTTM: number | null;
+  dividendYieldPct: number | null;
+  analystRecommendation: number | null;
+  rsi14: number | null;
+  sma20: number | null;
+  sma50: number | null;
+  sma200: number | null;
+  priceClose: number | null;
+  changePct1D: number | null;
+  avgVolume30D: number | null;
+}
+
+export const eldarTvFundamentals = pgTable(
+  "eldar_tv_fundamentals",
+  {
+    ticker: text("ticker").primaryKey(),
+    data: jsonb("data").$type<TradingViewFundamentalsRecord>().notNull(),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow()
+  },
+  (table) => ({
+    fetchedAtIdx: index("idx_tv_fund_fetched").on(table.fetchedAt)
+  })
+);

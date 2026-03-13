@@ -157,7 +157,7 @@ export function HeroLanding({ logoSrc, onOpenApp }: HeroLandingProps): JSX.Eleme
       >
         <div className="mx-auto flex w-full max-w-[1220px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <a href="#hero" className="flex items-center gap-3" aria-label="Back to hero">
-            <div className="relative h-10 w-10 overflow-hidden rounded-full border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-surface)]">
+            <div className="eldar-logo-mark relative h-10 w-10 overflow-hidden">
               <Image src={logoSrc} alt="ELDAR" fill sizes="40px" className="object-contain" priority />
             </div>
             <div>

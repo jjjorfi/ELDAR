@@ -209,6 +209,7 @@ async function buildPayload(
 
   const coreSymbols = [
     "^GSPC",
+    "^DJI",
     "^NDX",
     "^RUT",
     "DX-Y.NYB",
@@ -224,6 +225,7 @@ async function buildPayload(
   ]);
   let snapshot: SnapshotItem[] = [
     { symbol: "^GSPC", label: "SPX", price: quoteValue(quoteMap, "^GSPC")?.regularMarketPrice ?? null, changePercent: quoteValue(quoteMap, "^GSPC")?.regularMarketChangePercent ?? null },
+    { symbol: "^DJI", label: "DOW", price: quoteValue(quoteMap, "^DJI")?.regularMarketPrice ?? null, changePercent: quoteValue(quoteMap, "^DJI")?.regularMarketChangePercent ?? null },
     { symbol: "^NDX", label: "NDX", price: quoteValue(quoteMap, "^NDX")?.regularMarketPrice ?? null, changePercent: quoteValue(quoteMap, "^NDX")?.regularMarketChangePercent ?? null },
     { symbol: "^RUT", label: "RUT", price: quoteValue(quoteMap, "^RUT")?.regularMarketPrice ?? null, changePercent: quoteValue(quoteMap, "^RUT")?.regularMarketChangePercent ?? null }
   ];

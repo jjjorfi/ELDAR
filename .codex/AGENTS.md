@@ -350,3 +350,33 @@ Before every `git push`:  confirm you are on the right branch
 Never commit what you haven't read.
 Never push what you haven't tested.
 Never force push to main.
+
+## CRITICAL SYSTEM PROTECTION
+
+The following files are protected and must never be deleted or renamed casually:
+
+```
+src/lib/financials/eldar-financials-adapter.ts
+src/lib/financials/eldar-financials-pipeline.ts
+src/lib/financials/eldar-financials-schema.ts
+src/lib/financials/eldar-financials-taxonomy.ts
+src/lib/financials/eldar-financials-types.ts
+src/lib/normalize/adapters/fundamentals/edgar.adapter.ts
+src/lib/scoring/engine.ts
+src/lib/scoring/macro/eldar-macro-v2.ts
+```
+
+Rules:
+
+- Modifying these files is allowed when the user explicitly asks for that critical system to change.
+- Deleting or renaming any protected file is never allowed unless you first ask the user and the user explicitly approves in the conversation.
+- Before touching a protected file, state which protected file is changing and why.
+- If a deletion or rename is explicitly approved, run:
+
+```bash
+ELDAR_ALLOW_CRITICAL_SYSTEM_DELETIONS=1 \
+ELDAR_CRITICAL_DELETION_REASON="short reason" \
+npm run guard:critical-systems
+```
+
+- `security-gate.sh` will fail automatically when these files are deleted or renamed without that explicit acknowledgment.

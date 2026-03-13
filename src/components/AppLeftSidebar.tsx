@@ -113,7 +113,7 @@ export function AppLeftSidebar({
       <div className="flex h-full flex-col items-center justify-between px-1 pb-4 pt-6">
         <div className="flex w-full flex-col items-center gap-3">
           <button type="button" className="eldar-logo-button flex cursor-pointer items-center justify-center" onClick={onOpenDashboard}>
-            <div className="relative h-[60px] w-[60px] overflow-hidden">
+            <div className="eldar-logo-mark relative h-[60px] w-[60px] overflow-hidden">
               <Image src={ELDAR_BRAND_LOGO} alt="ELDAR logo" fill sizes="60px" className="object-contain" priority />
             </div>
           </button>

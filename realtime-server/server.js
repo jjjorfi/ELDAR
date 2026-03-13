@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE:
 // File Purpose:
 // - Dedicated Socket.IO runtime for ELDAR realtime deltas.
 // - Handles JWT handshake, room isolation, heartbeats, throttled emits, and internal publish endpoint.

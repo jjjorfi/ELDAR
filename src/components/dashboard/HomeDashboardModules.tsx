@@ -148,7 +148,7 @@ function formatGaugeRange(min: number, max: number): string {
 
 export function DashboardMetricTile({ metric }: { metric: HomeRegimeMetric }): JSX.Element {
   return (
-    <div className="eldar-dashboard-surface px-4 py-3">
+    <div className="eldar-dashboard-surface min-h-[102px] px-4 py-3">
       <p className="text-[10px] uppercase tracking-[0.16em] text-white/42">{metric.label}</p>
       <p className="mt-3 text-[24px] font-semibold tracking-[-0.03em] text-white">{metric.displayValue}</p>
       <p className={clsx("mt-2 text-[11px] font-medium", dashboardToneClass(metric.tone))}>
@@ -186,8 +186,8 @@ export function MacroEnvironmentCard({
         <div className="mb-5">
           <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Macro Environment</p>
         </div>
-        <div className="grid gap-5 md:grid-cols-[280px_minmax(0,1fr)]">
-          <div className="min-h-[244px]" />
+        <div className="grid gap-5 md:grid-cols-[260px_minmax(0,1fr)]">
+          <div className="min-h-[204px]" />
           <LinesSkeleton rows={5} />
         </div>
       </section>
@@ -198,7 +198,7 @@ export function MacroEnvironmentCard({
   if (!activeRegime) {
     return (
       <section className="eldar-panel texture-none xl:col-span-8 p-6">
-        <div className="flex min-h-[280px] items-center justify-center rounded-[24px] border border-dashed border-white/10 text-center text-sm text-white/46">
+        <div className="flex min-h-[216px] items-center justify-center rounded-[24px] border border-dashed border-white/10 text-center text-sm text-white/46">
           Macro regime data is unavailable.
         </div>
       </section>
@@ -232,10 +232,10 @@ export function MacroEnvironmentCard({
           </button>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-[300px_minmax(0,1fr)]">
-        <div className="flex min-h-[244px] flex-col items-center justify-center px-2 py-2">
+      <div className="grid gap-5 md:grid-cols-[270px_minmax(0,1fr)]">
+        <div className="flex min-h-[204px] flex-col items-center justify-center px-2 py-1">
           <div className="flex w-full max-w-[260px] flex-col items-center">
-            <svg viewBox="0 0 220 140" className="h-[156px] w-full max-w-[220px]" aria-label="Macro regime gauge" role="img">
+            <svg viewBox="0 0 220 140" className="h-[136px] w-full max-w-[220px]" aria-label="Macro regime gauge" role="img">
               <path d={arcPath(110, 110, 82, 180, 0)} stroke="rgba(255,255,255,0.12)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
               <path d={arcPath(110, 110, 76, 180, 0)} stroke="rgba(255,255,255,0.06)" strokeWidth="1" fill="none" strokeLinecap="round" />
               {REGIME_GAUGE_ZONES.map((zone) => {
@@ -309,7 +309,7 @@ export function MacroEnvironmentCard({
               <circle cx="110" cy="110" r="8" fill="#050505" stroke="rgba(255,255,255,0.14)" strokeWidth="1.5" />
               <circle cx="110" cy="110" r="2.5" fill={tone.needle} />
             </svg>
-            <div className="mt-2 h-[34px] text-center">
+            <div className="mt-1 h-[28px] text-center">
               {hoveredZone ? (
                 <>
                   <p className="text-[10px] uppercase tracking-[0.16em] text-white/68">{hoveredZone.label}</p>
@@ -325,7 +325,7 @@ export function MacroEnvironmentCard({
           </div>
         </div>
 
-        <div className="flex min-h-[244px] flex-col justify-between">
+        <div className="flex min-h-[204px] flex-col justify-between">
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               {activeRegime.gatesFired.length > 0 ? (
@@ -339,7 +339,7 @@ export function MacroEnvironmentCard({
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="mt-3 grid grid-cols-2 gap-3">
             {activeRegime.metrics.map((metric) => (
               <DashboardMetricTile key={metric.key} metric={metric} />
             ))}
@@ -355,7 +355,7 @@ export function MacroEnvironmentCard({
             className="flex-1 bg-black/50 backdrop-blur-[2px]"
             onClick={() => setDrawerOpen(false)}
           />
-          <aside onWheelCapture={handleDrawerWheel} className="eldar-scrollbar h-full w-full max-w-[540px] overflow-y-auto overscroll-contain border-l border-white/10 bg-[#0B0B0B] px-5 py-5 shadow-[0_0_60px_rgba(0,0,0,0.55)]">
+          <aside onWheelCapture={handleDrawerWheel} className="eldar-scrollbar h-full w-full max-w-[540px] overflow-y-auto overscroll-contain border-l border-white/10 bg-[var(--eldar-neu-surface)] px-5 py-5 shadow-[0_0_60px_rgba(0,0,0,0.55)]">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.16em] text-white/42">Macro Read</p>
@@ -388,7 +388,7 @@ export function MacroEnvironmentCard({
 
               <div className="grid gap-3 sm:grid-cols-2">
                 {simplifiedPillars.map((pillar) => (
-                  <div key={pillar.key} className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+                  <div key={pillar.key} className="eldar-dashboard-muted-surface p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-[10px] uppercase tracking-[0.14em] text-white/42">{pillar.label}</p>
@@ -471,16 +471,23 @@ interface SnapshotSample {
   date: string | null;
 }
 
+const SNAPSHOT_CHART_PADDING_X = 16;
+const SNAPSHOT_CHART_PADDING_TOP = 14;
+const SNAPSHOT_CHART_PADDING_BOTTOM = 14;
+const SNAPSHOT_CHART_HOVER_DISTANCE_PX = 20;
+
 function buildTrendCoordinates(points: number[], width: number, height: number): TrendCoordinate[] {
   if (points.length < 2) return [];
   const min = Math.min(...points);
   const max = Math.max(...points);
   const span = Math.max(max - min, 0.000001);
+  const innerWidth = Math.max(width - SNAPSHOT_CHART_PADDING_X * 2, 1);
+  const innerHeight = Math.max(height - SNAPSHOT_CHART_PADDING_TOP - SNAPSHOT_CHART_PADDING_BOTTOM, 1);
 
   return points
     .map((point, index) => {
-      const x = (index / (points.length - 1)) * width;
-      const y = height - ((point - min) / span) * height;
+      const x = SNAPSHOT_CHART_PADDING_X + (index / (points.length - 1)) * innerWidth;
+      const y = SNAPSHOT_CHART_PADDING_TOP + innerHeight - ((point - min) / span) * innerHeight;
       return { x, y };
     });
 }
@@ -494,7 +501,8 @@ function buildAreaPath(coords: TrendCoordinate[], height: number): string {
   if (coords.length < 2) return "";
   const first = coords[0];
   const last = coords[coords.length - 1];
-  return `M${first.x.toFixed(2)} ${height.toFixed(2)} L${buildTrendPath(coords).slice(1)} L${last.x.toFixed(2)} ${height.toFixed(2)} Z`;
+  const baselineY = height - SNAPSHOT_CHART_PADDING_BOTTOM;
+  return `M${first.x.toFixed(2)} ${baselineY.toFixed(2)} L${buildTrendPath(coords).slice(1)} L${last.x.toFixed(2)} ${baselineY.toFixed(2)} Z`;
 }
 
 function seriesStroke(label: MarketSnapshotSeries["label"]): string {
@@ -548,7 +556,7 @@ export function MarketSnapshotChart({
   series: MarketSnapshotSeries[];
   window: SnapshotWindow;
 }): JSX.Element {
-  const [activeLabel, setActiveLabel] = useState<MarketSnapshotSeries["label"]>("SPX");
+  const [hoveredLabel, setHoveredLabel] = useState<MarketSnapshotSeries["label"] | null>(null);
   const [visibleLabels, setVisibleLabels] = useState<Record<MarketSnapshotSeries["label"], boolean>>({
     SPX: true,
     NDX: true,
@@ -556,7 +564,7 @@ export function MarketSnapshotChart({
   });
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const width = 480;
-  const height = 132;
+  const height = 164;
   const rows = series.map((item) => {
     const samples = windowedSnapshotSamples(item.points, item.pointDates, window);
     const points = samples.map((sample) => sample.value);
@@ -574,7 +582,7 @@ export function MarketSnapshotChart({
   });
   const visibleRows = rows.filter((row) => visibleLabels[row.label] ?? true);
   const hasTrend = visibleRows.some((row) => row.path.length > 0);
-  const activeRow = visibleRows.find((row) => row.label === activeLabel) ?? visibleRows[0] ?? null;
+  const hoveredRow = hoveredLabel ? visibleRows.find((row) => row.label === hoveredLabel) ?? null : null;
 
   useEffect(() => {
     setVisibleLabels((previous) => {
@@ -592,87 +600,116 @@ export function MarketSnapshotChart({
   }, [rows]);
 
   useEffect(() => {
-    if (!visibleRows.some((row) => row.label === activeLabel)) {
-      setActiveLabel(visibleRows[0]?.label ?? "SPX");
+    if (hoveredLabel && !visibleRows.some((row) => row.label === hoveredLabel)) {
+      setHoveredLabel(null);
+      setHoverIndex(null);
     }
-  }, [activeLabel, visibleRows]);
+  }, [hoveredLabel, visibleRows]);
 
-  const activeIndex = activeRow
-    ? Math.max(0, Math.min(hoverIndex ?? activeRow.samples.length - 1, activeRow.samples.length - 1))
+  const activeIndex = hoveredRow && hoverIndex !== null
+    ? Math.max(0, Math.min(hoverIndex, hoveredRow.samples.length - 1))
     : null;
 
-  const markerRows = activeIndex === null || !activeRow
-    ? []
-    : rows
-        .map((row) => {
-          if (row.samples.length === 0 || row.coords.length === 0) return null;
-          const relativeIndex =
-            activeRow.samples.length <= 1
-              ? row.samples.length - 1
-              : Math.round((activeIndex / (activeRow.samples.length - 1)) * (row.samples.length - 1));
-          const safeIndex = Math.max(0, Math.min(relativeIndex, row.samples.length - 1));
-          return {
-            row,
-            sample: row.samples[safeIndex] ?? null,
-            coord: row.coords[safeIndex] ?? null
-          };
-        })
-        .filter(
-          (item): item is { row: typeof rows[number]; sample: SnapshotSample; coord: TrendCoordinate } =>
-            item !== null && item.sample !== null && item.coord !== null
-        );
-
-  const activeMarker = markerRows.find((item) => item.row.label === activeLabel) ?? markerRows[0] ?? null;
+  const activeMarker = activeIndex === null || !hoveredRow
+    ? null
+    : {
+        row: hoveredRow,
+        sample: hoveredRow.samples[activeIndex] ?? null,
+        coord: hoveredRow.coords[activeIndex] ?? null
+      };
 
   const toggleSeriesVisibility = (label: MarketSnapshotSeries["label"]): void => {
+    const nextVisible = !(visibleLabels[label] ?? true);
     setVisibleLabels((previous) => {
-      const nextVisible = !(previous[label] ?? true);
       return {
         ...previous,
         [label]: nextVisible
       };
     });
-    setActiveLabel(label);
+    if (!nextVisible && hoveredLabel === label) {
+      setHoveredLabel(null);
+      setHoverIndex(null);
+    }
   };
 
   const handlePointerMove = (event: React.PointerEvent<SVGSVGElement>): void => {
-    if (!activeRow || activeRow.samples.length === 0) return;
+    if (visibleRows.length === 0) {
+      setHoveredLabel(null);
+      setHoverIndex(null);
+      return;
+    }
     const rect = event.currentTarget.getBoundingClientRect();
     const relativeX = Math.max(0, Math.min(event.clientX - rect.left, rect.width));
-    const ratio = rect.width === 0 ? 0 : relativeX / rect.width;
-    const nextIndex = Math.round(ratio * Math.max(activeRow.samples.length - 1, 0));
-    setHoverIndex(nextIndex);
+    const relativeY = Math.max(0, Math.min(event.clientY - rect.top, rect.height));
+    const cursorX = rect.width === 0 ? SNAPSHOT_CHART_PADDING_X : (relativeX / rect.width) * width;
+    const cursorY = rect.height === 0 ? SNAPSHOT_CHART_PADDING_TOP : (relativeY / rect.height) * height;
+
+    let closestLabel: MarketSnapshotSeries["label"] | null = null;
+    let closestIndex = 0;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    for (const row of visibleRows) {
+      if (row.samples.length === 0 || row.coords.length === 0) continue;
+      for (let index = 0; index < row.coords.length; index += 1) {
+        const coord = row.coords[index];
+        if (!coord) continue;
+        const distance = Math.hypot(coord.x - cursorX, coord.y - cursorY);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestLabel = row.label;
+          closestIndex = index;
+        }
+      }
+    }
+
+    if (closestDistance > SNAPSHOT_CHART_HOVER_DISTANCE_PX) {
+      setHoveredLabel(null);
+      setHoverIndex(null);
+      return;
+    }
+
+    setHoveredLabel(closestLabel);
+    setHoverIndex(closestLabel === null ? null : closestIndex);
   };
 
   const handlePointerLeave = (): void => {
+    setHoveredLabel(null);
     setHoverIndex(null);
   };
 
   return (
-    <div className="flex min-h-[212px] flex-col">
+    <div className="flex min-h-[268px] flex-col">
       <div className="mb-4 flex min-h-[36px] flex-wrap items-center gap-3">
         {rows.map((row) => (
           <button
             key={`legend-${row.label}`}
             type="button"
             onClick={() => toggleSeriesVisibility(row.label)}
-            onMouseEnter={() => setActiveLabel(row.label)}
-            onFocus={() => setActiveLabel(row.label)}
+            onMouseEnter={() => setHoveredLabel(row.label)}
+            onMouseLeave={() => {
+              setHoveredLabel((current) => (current === row.label ? null : current));
+              setHoverIndex(null);
+            }}
+            onFocus={() => setHoveredLabel(row.label)}
+            onBlur={() => {
+              setHoveredLabel((current) => (current === row.label ? null : current));
+              setHoverIndex(null);
+            }}
             aria-pressed={visibleLabels[row.label] ?? true}
             className={clsx(
               "inline-flex items-center gap-2 rounded-full px-2.5 py-1.5 transition",
-              (visibleLabels[row.label] ?? true) && activeLabel === row.label && "shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
+              (visibleLabels[row.label] ?? true) && hoveredLabel === row.label && "shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
             )}
             style={{
               border:
                 visibleLabels[row.label] ?? true
-                  ? activeLabel === row.label
+                  ? hoveredLabel === row.label
                     ? `1px solid ${row.glow}`
                     : "1px solid rgba(255,255,255,0.12)"
                   : "1px solid rgba(255,255,255,0.08)",
               backgroundColor:
                 visibleLabels[row.label] ?? true
-                  ? activeLabel === row.label
+                  ? hoveredLabel === row.label
                     ? "rgba(255,255,255,0.07)"
                     : "rgba(255,255,255,0.04)"
                   : "rgba(255,255,255,0.015)",
@@ -694,36 +731,24 @@ export function MarketSnapshotChart({
 
       {hasTrend ? (
         <div className="relative flex-1 pt-1">
-          <div className="mb-3 flex min-h-[20px] items-center justify-between gap-3">
-            <span className="text-[10px] uppercase tracking-[0.16em] text-white/45">
-              {activeMarker ? formatSnapshotDate(activeMarker.sample.date) : "Latest"}
-            </span>
-            {activeMarker ? (
-              <div className="flex flex-wrap items-center justify-end gap-3">
-                {markerRows.map((marker) => (
-                  <div key={`marker-read-${marker.row.label}`} className="text-right">
-                    <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: marker.row.stroke }}>
-                      {marker.row.label}
-                    </p>
-                    <Num
-                      value={marker.sample.value}
-                      decimals={snapshotDecimals(marker.sample.value)}
-                      className="mt-1 text-sm font-semibold text-white"
-                    />
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
           <svg
             viewBox={`0 0 ${width} ${height}`}
-            className="h-[148px] w-full cursor-crosshair"
+            className="h-[188px] w-full cursor-crosshair"
             role="img"
             aria-label="SPX NDX RUT trend chart"
             onPointerMove={handlePointerMove}
             onPointerLeave={handlePointerLeave}
           >
             <defs>
+              <clipPath id="market-snapshot-clip">
+                <rect
+                  x={SNAPSHOT_CHART_PADDING_X}
+                  y={SNAPSHOT_CHART_PADDING_TOP}
+                  width={width - SNAPSHOT_CHART_PADDING_X * 2}
+                  height={height - SNAPSHOT_CHART_PADDING_TOP - SNAPSHOT_CHART_PADDING_BOTTOM}
+                  rx="8"
+                />
+              </clipPath>
               {rows.map((row) => (
                 <linearGradient key={`snapshot-fill-${row.label}`} id={`snapshot-fill-${row.label}`} x1="0" x2="0" y1="0" y2="1">
                   <stop offset="0%" stopColor={row.stroke} stopOpacity="0.22" />
@@ -734,65 +759,67 @@ export function MarketSnapshotChart({
             {[0.25, 0.5, 0.75].map((ratio) => (
               <line
                 key={`grid-${ratio}`}
-                x1={0}
-                y1={height * ratio}
-                x2={width}
-                y2={height * ratio}
+                x1={SNAPSHOT_CHART_PADDING_X}
+                y1={SNAPSHOT_CHART_PADDING_TOP + (height - SNAPSHOT_CHART_PADDING_TOP - SNAPSHOT_CHART_PADDING_BOTTOM) * ratio}
+                x2={width - SNAPSHOT_CHART_PADDING_X}
+                y2={SNAPSHOT_CHART_PADDING_TOP + (height - SNAPSHOT_CHART_PADDING_TOP - SNAPSHOT_CHART_PADDING_BOTTOM) * ratio}
                 stroke="rgba(255,255,255,0.08)"
                 strokeWidth={1}
                 strokeDasharray="4 6"
               />
             ))}
-            {activeRow?.areaPath ? (
-              <path d={activeRow.areaPath} fill={`url(#snapshot-fill-${activeRow.label})`} opacity={0.55} />
-            ) : null}
-            {activeMarker ? (
-              <line
-                x1={activeMarker.coord.x}
-                y1={0}
-                x2={activeMarker.coord.x}
-                y2={height}
-                stroke="rgba(255,255,255,0.16)"
-                strokeWidth={1}
-                strokeDasharray="3 5"
-              />
-            ) : null}
-            {visibleRows.map((row) =>
-              row.path ? (
-                <path
-                  key={`path-${row.label}`}
-                  d={row.path}
-                  fill="none"
-                  stroke={row.stroke}
-                  strokeWidth={activeLabel === row.label ? 2.8 : 2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  opacity={activeLabel === row.label ? 1 : 0.62}
-                  style={{ filter: `drop-shadow(0 0 9px ${row.glow})` }}
+            <g clipPath="url(#market-snapshot-clip)">
+              {hoveredRow?.areaPath ? (
+                <path d={hoveredRow.areaPath} fill={`url(#snapshot-fill-${hoveredRow.label})`} opacity={0.16} />
+              ) : null}
+              {activeMarker?.coord ? (
+                <line
+                  x1={activeMarker.coord.x}
+                  y1={SNAPSHOT_CHART_PADDING_TOP}
+                  x2={activeMarker.coord.x}
+                  y2={height - SNAPSHOT_CHART_PADDING_BOTTOM}
+                  stroke="rgba(255,255,255,0.16)"
+                  strokeWidth={1}
+                  strokeDasharray="3 5"
                 />
-              ) : null
-            )}
-            {markerRows.map((marker) => (
-              <g key={`marker-${marker.row.label}`}>
-                <circle
-                  cx={marker.coord.x}
-                  cy={marker.coord.y}
-                  r={activeLabel === marker.row.label ? 5 : 4}
-                  fill={marker.row.stroke}
-                  opacity={0.18}
-                />
-                <circle
-                  cx={marker.coord.x}
-                  cy={marker.coord.y}
-                  r={activeLabel === marker.row.label ? 2.7 : 2.2}
-                  fill={marker.row.stroke}
-                />
-              </g>
-            ))}
+              ) : null}
+              {visibleRows.map((row) =>
+                row.path ? (
+                  <path
+                    key={`path-${row.label}`}
+                    d={row.path}
+                    fill="none"
+                    stroke={row.stroke}
+                    strokeWidth={hoveredLabel === row.label ? 2.8 : 2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity={hoveredLabel ? (hoveredLabel === row.label ? 1 : 0.24) : 0.82}
+                    style={{ filter: `drop-shadow(0 0 1px ${row.glow})` }}
+                  />
+                ) : null
+              )}
+              {activeMarker?.coord && activeMarker.sample ? (
+                <g key={`marker-${activeMarker.row.label}`}>
+                  <circle
+                    cx={activeMarker.coord.x}
+                    cy={activeMarker.coord.y}
+                    r={5}
+                    fill={activeMarker.row.stroke}
+                    opacity={0.18}
+                  />
+                  <circle
+                    cx={activeMarker.coord.x}
+                    cy={activeMarker.coord.y}
+                    r={2.7}
+                    fill={activeMarker.row.stroke}
+                  />
+                </g>
+              ) : null}
+            </g>
           </svg>
         </div>
       ) : (
-        <div className="flex h-[184px] items-center justify-center rounded-2xl border border-dashed border-white/12 bg-white/[0.02] text-sm text-white/50">
+        <div className="flex h-[224px] items-center justify-center rounded-2xl border border-dashed border-white/12 bg-white/[0.02] text-sm text-white/50">
           Toggle an index to view its price line.
         </div>
       )}
@@ -882,7 +909,7 @@ export function SectorRotationBoard({ rows, currentWindow, onWindowChange }: Sec
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-black/25 px-4 pb-4 pt-5">
+          <div className="eldar-dashboard-muted-surface relative overflow-hidden px-4 pb-4 pt-5">
             <div className="pointer-events-none absolute inset-x-4 top-[18%] border-t border-dashed border-white/10" />
             <div className="pointer-events-none absolute inset-x-4 top-1/2 border-t border-white/12" />
             <div className="pointer-events-none absolute inset-x-4 bottom-[18%] border-t border-dashed border-white/10" />
@@ -1001,6 +1028,7 @@ export function MarketMoverStack({
 }
 
 export function MarketNewsPanel({ items }: { items: HomeNewsItem[] }): JSX.Element {
+  const visibleItems = items.slice(0, 3);
   return (
     <section className="eldar-panel texture-none p-6 xl:col-span-4">
       <div className="mb-5">
@@ -1008,17 +1036,17 @@ export function MarketNewsPanel({ items }: { items: HomeNewsItem[] }): JSX.Eleme
       </div>
 
       {items.length === 0 ? (
-        <div className="flex min-h-[180px] items-center justify-center rounded-[24px] border border-dashed border-white/10 text-center text-sm text-white/46">
+        <div className="flex min-h-[156px] items-center justify-center rounded-[24px] border border-dashed border-white/10 text-center text-sm text-white/46">
           No market headlines are available right now.
         </div>
       ) : (
-        <div className="grid gap-3">
-          {items.map((item, index) => {
-            const content = <p className="text-[15px] font-medium leading-7 text-white/90">{item.headline}</p>;
+        <div className="grid gap-2.5">
+          {visibleItems.map((item, index) => {
+            const content = <p className="text-[14px] font-medium leading-6 text-white/90">{item.headline}</p>;
 
             if (!item.url) {
               return (
-                <div key={`${item.headline}-${index}`} className="eldar-dashboard-surface px-4 py-4 text-left">
+                <div key={`${item.headline}-${index}`} className="eldar-dashboard-surface px-4 py-3 text-left">
                   {content}
                 </div>
               );
@@ -1030,7 +1058,7 @@ export function MarketNewsPanel({ items }: { items: HomeNewsItem[] }): JSX.Eleme
                 href={item.url}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="eldar-dashboard-surface block px-4 py-4 text-left"
+                className="eldar-dashboard-surface block px-4 py-3 text-left"
               >
                 {content}
               </a>

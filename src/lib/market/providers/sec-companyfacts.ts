@@ -12,6 +12,7 @@ interface SecFactRow {
   form?: string;
   fp?: string;
   filed?: string;
+  frame?: string;
 }
 
 interface SecCompanyFactsResponse {
@@ -103,11 +104,130 @@ function normalizeSeries(rows: SecFactRow[], kind: "quarter" | "annual"): SecFac
   return [...deduped.values()].sort((left, right) => Date.parse(left.end ?? "") - Date.parse(right.end ?? ""));
 }
 
+function latestFiledRow(rows: SecFactRow[]): SecFactRow | null {
+  if (rows.length === 0) return null;
+  return [...rows].sort((left, right) => {
+    const leftFiled = left.filed ? Date.parse(left.filed) : 0;
+    const rightFiled = right.filed ? Date.parse(right.filed) : 0;
+    return rightFiled - leftFiled;
+  })[0] ?? null;
+}
+
+function hasQuarterLikeFrame(frame: string | undefined): boolean {
+  if (typeof frame !== "string" || frame.length === 0) return false;
+  return /Q[1-4]$/i.test(frame);
+}
+
+function normalizeQuarterSeries(rows: SecFactRow[]): SecFactRow[] {
+  const forms = new Set(["10-Q", "10-Q/A", "10-K", "10-K/A"]);
+  const filtered = rows.filter((row) => {
+    if (typeof row.val !== "number" || !Number.isFinite(row.val)) return false;
+    if (row.form && !forms.has(row.form)) return false;
+    const days = durationDays(row.start, row.end);
+    return (
+      row.fp === "Q1" ||
+      row.fp === "Q2" ||
+      row.fp === "Q3" ||
+      row.fp === "FY" ||
+      (days !== null && days >= 70 && days <= 110) ||
+      (days !== null && days >= 330 && days <= 380)
+    );
+  });
+
+  const rowsByEnd = new Map<string, SecFactRow[]>();
+  for (const row of filtered) {
+    if (!row.end) continue;
+    const bucket = rowsByEnd.get(row.end) ?? [];
+    bucket.push(row);
+    rowsByEnd.set(row.end, bucket);
+  }
+
+  const selected = [...rowsByEnd.entries()]
+    .map(([, bucket]) => {
+      const discreteFrameQuarter = bucket.filter(
+        (row) => hasQuarterLikeFrame(row.frame)
+      );
+      if (discreteFrameQuarter.length > 0) {
+        return latestFiledRow(discreteFrameQuarter);
+      }
+      const preferred = bucket.filter((row) => row.fp === "Q1" || row.fp === "Q2" || row.fp === "Q3" || row.fp === "FY");
+      return latestFiledRow(preferred.length > 0 ? preferred : bucket);
+    })
+    .filter((row): row is SecFactRow => row !== null)
+    .sort((left, right) => Date.parse(left.end ?? "") - Date.parse(right.end ?? ""));
+
+  const cumulativeRows = filtered
+    .filter((row) => !row.frame && (row.fp === "Q1" || row.fp === "Q2" || row.fp === "Q3" || row.fp === "FY"))
+    .sort((left, right) => Date.parse(left.end ?? "") - Date.parse(right.end ?? ""));
+
+  const findPriorCumulative = (row: SecFactRow): SecFactRow | null => {
+    if (!row.start || !row.end) return null;
+    const candidates = cumulativeRows.filter(
+      (candidate) =>
+        candidate !== row &&
+        candidate.start === row.start &&
+        typeof candidate.end === "string" &&
+        Date.parse(candidate.end ?? "") < Date.parse(row.end ?? "")
+    );
+    return latestFiledRow(
+      candidates.sort((left, right) => Date.parse(right.end ?? "") - Date.parse(left.end ?? ""))
+    );
+  };
+
+  const discreteRows: SecFactRow[] = [];
+  for (const row of selected) {
+    if (typeof row.val !== "number" || !Number.isFinite(row.val) || !row.end) continue;
+
+    if (hasQuarterLikeFrame(row.frame)) {
+      discreteRows.push(row);
+      continue;
+    }
+
+    if (row.fp === "Q1") {
+      discreteRows.push(row);
+      continue;
+    }
+
+    if (row.fp === "Q2" || row.fp === "Q3" || row.fp === "FY") {
+      const prior = findPriorCumulative(row);
+      if (prior && typeof prior.val === "number" && Number.isFinite(prior.val)) {
+        discreteRows.push({
+          ...row,
+          start: prior.end ?? row.start,
+          val: row.val - prior.val
+        });
+      }
+    }
+  }
+
+  const deduped = new Map<string, SecFactRow>();
+  for (const row of discreteRows) {
+    if (!row.end) continue;
+    const existing = deduped.get(row.end);
+    if (!existing) {
+      deduped.set(row.end, row);
+      continue;
+    }
+    const preferred = latestFiledRow([existing, row]);
+    if (preferred) {
+      deduped.set(row.end, preferred);
+    }
+  }
+
+  return [...deduped.values()].sort((left, right) => Date.parse(left.end ?? "") - Date.parse(right.end ?? ""));
+}
+
 function latestYoYGrowth(quarterly: SecFactRow[], annual: SecFactRow[]): number | null {
   if (quarterly.length >= 5) {
     const latest = quarterly.at(-1);
     const priorYear = quarterly.at(-5);
-    if (latest?.val && priorYear?.val && Math.abs(priorYear.val) > 0.000001) {
+    if (
+      typeof latest?.val === "number"
+      && typeof priorYear?.val === "number"
+      && latest.val > 0
+      && priorYear.val > 0
+      && Math.abs(priorYear.val) > 0.000001
+    ) {
       return latest.val / priorYear.val - 1;
     }
   }
@@ -115,7 +235,13 @@ function latestYoYGrowth(quarterly: SecFactRow[], annual: SecFactRow[]): number 
   if (annual.length >= 2) {
     const latest = annual.at(-1);
     const prior = annual.at(-2);
-    if (latest?.val && prior?.val && Math.abs(prior.val) > 0.000001) {
+    if (
+      typeof latest?.val === "number"
+      && typeof prior?.val === "number"
+      && latest.val > 0
+      && prior.val > 0
+      && Math.abs(prior.val) > 0.000001
+    ) {
       return latest.val / prior.val - 1;
     }
   }
@@ -209,13 +335,12 @@ function buildFallbackFromFacts(payload: SecCompanyFactsResponse | null): SecFun
     .filter((row) => typeof row.val === "number" && Number.isFinite(row.val) && row.val > 0)
     .sort((left, right) => Date.parse(left.end ?? "") - Date.parse(right.end ?? ""));
 
-  const revenueQuarterly = normalizeSeries(
+  const revenueQuarterly = normalizeQuarterSeries(
     pickUnitRows(
       facts,
       ["RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "SalesRevenueNet"],
       ["USD"]
     ),
-    "quarter"
   );
   const revenueAnnual = normalizeSeries(
     pickUnitRows(
@@ -226,13 +351,12 @@ function buildFallbackFromFacts(payload: SecCompanyFactsResponse | null): SecFun
     "annual"
   );
 
-  const epsQuarterly = normalizeSeries(
+  const epsQuarterly = normalizeQuarterSeries(
     pickUnitRows(
       facts,
       ["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted", "EarningsPerShareBasic"],
       ["USD/shares"]
     ),
-    "quarter"
   );
   const epsAnnual = normalizeSeries(
     pickUnitRows(
@@ -243,13 +367,12 @@ function buildFallbackFromFacts(payload: SecCompanyFactsResponse | null): SecFun
     "annual"
   );
 
-  const cfoQuarterly = normalizeSeries(
+  const cfoQuarterly = normalizeQuarterSeries(
     pickUnitRows(
       facts,
       ["NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"],
       ["USD"]
     ),
-    "quarter"
   );
   const cfoAnnual = normalizeSeries(
     pickUnitRows(
@@ -260,13 +383,12 @@ function buildFallbackFromFacts(payload: SecCompanyFactsResponse | null): SecFun
     "annual"
   );
 
-  const capexQuarterly = normalizeSeries(
+  const capexQuarterly = normalizeQuarterSeries(
     pickUnitRows(
       facts,
       ["PaymentsToAcquirePropertyPlantAndEquipment", "PropertyPlantAndEquipmentAdditions", "CapitalExpendituresIncurredButNotYetPaid"],
       ["USD"]
     ),
-    "quarter"
   );
   const capexAnnual = normalizeSeries(
     pickUnitRows(
@@ -296,6 +418,11 @@ function buildFallbackFromFacts(payload: SecCompanyFactsResponse | null): SecFun
     sharesOutstanding
   };
 }
+
+export const __test__ = {
+  buildFallbackFromFacts,
+  normalizeQuarterSeries
+};
 
 export async function fetchSecFundamentalsFallback(symbol: string): Promise<SecFundamentalsFallback> {
   const normalized = normalizeSymbol(symbol);

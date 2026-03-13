@@ -1,5 +1,6 @@
+import { buildAggregateSnapshotByKey } from "@/lib/snapshots/aggregate";
 import { getAggregateSnapshotForRead } from "@/lib/snapshots/service";
-import { getAggregateSnapshot } from "@/lib/snapshots/store";
+import { getAggregateSnapshot, upsertAggregateSnapshot } from "@/lib/snapshots/store";
 
 import { priceHistoryAggregateKey } from "@/lib/features/price/history-service";
 import type { PriceHistoryPayload, PriceRange } from "@/lib/features/price/types";
@@ -13,6 +14,21 @@ export interface PriceHistoryReadResult {
 
 function isUsablePriceHistoryPayload(payload: PriceHistoryPayload | null | undefined): payload is PriceHistoryPayload {
   return Boolean(payload && Array.isArray(payload.points) && payload.points.length > 1);
+}
+
+async function buildColdPriceHistoryPayload(key: string): Promise<PriceHistoryPayload | null> {
+  try {
+    const snapshot = await buildAggregateSnapshotByKey(key, {
+      workerId: "api-price-history-cold",
+      jobId: null
+    });
+    await upsertAggregateSnapshot(snapshot);
+    return isUsablePriceHistoryPayload(snapshot.payload as PriceHistoryPayload | null | undefined)
+      ? (snapshot.payload as PriceHistoryPayload)
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -58,6 +74,16 @@ export async function resolvePriceHistoryPayload(symbol: string, range: PriceRan
         enqueued: true
       };
     }
+  }
+
+  const coldPayload = await buildColdPriceHistoryPayload(key);
+  if (coldPayload) {
+    return {
+      payload: coldPayload,
+      snapshotState: "fresh",
+      cacheLayer: "cold-build",
+      enqueued: snapshotRead.enqueued
+    };
   }
 
   return {

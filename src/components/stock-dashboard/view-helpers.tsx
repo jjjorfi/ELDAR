@@ -246,25 +246,85 @@ export function sortMag7Cards(cards: Mag7ScoreCard[]): Mag7ScoreCard[] {
   );
 }
 
-export function buildSparklinePath(points: number[], width: number, height: number): string {
+export const PRICE_CHART_FRAME = {
+  width: 720,
+  height: 220,
+  paddingX: 14,
+  paddingY: 12
+} as const;
+
+export const SCORE_CHART_FRAME = {
+  width: 320,
+  height: 60,
+  paddingX: 8,
+  paddingY: 6
+} as const;
+
+function sparklineBounds(width: number, height: number, paddingX: number, paddingY: number): {
+  innerWidth: number;
+  innerHeight: number;
+} {
+  return {
+    innerWidth: Math.max(width - paddingX * 2, 1),
+    innerHeight: Math.max(height - paddingY * 2, 1)
+  };
+}
+
+export function buildSparklinePath(
+  points: number[],
+  width: number,
+  height: number,
+  paddingX = 0,
+  paddingY = 0
+): string {
   if (points.length === 0) {
     return "";
   }
   if (points.length === 1) {
-    return `M0 ${height / 2} L${width} ${height / 2}`;
+    const centerY = height / 2;
+    return `M${paddingX.toFixed(2)} ${centerY.toFixed(2)} L${(width - paddingX).toFixed(2)} ${centerY.toFixed(2)}`;
   }
 
   const min = Math.min(...points);
   const max = Math.max(...points);
   const span = Math.max(max - min, 0.000001);
+  const { innerWidth, innerHeight } = sparklineBounds(width, height, paddingX, paddingY);
 
   return points
     .map((value, index) => {
-      const x = (index / (points.length - 1)) * width;
-      const y = height - ((value - min) / span) * height;
+      const x = paddingX + (index / (points.length - 1)) * innerWidth;
+      const y = paddingY + innerHeight - ((value - min) / span) * innerHeight;
       return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
     })
     .join(" ");
+}
+
+export function getSparklineCoordinate(
+  points: number[],
+  index: number,
+  width: number,
+  height: number,
+  paddingX = 0,
+  paddingY = 0
+): { x: number; y: number; min: number; max: number } | null {
+  if (points.length === 0) {
+    return null;
+  }
+
+  const clampedIndex = Math.max(0, Math.min(index, points.length - 1));
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const span = Math.max(max - min, 0.000001);
+  const { innerWidth, innerHeight } = sparklineBounds(width, height, paddingX, paddingY);
+  const value = points[clampedIndex] ?? points[points.length - 1] ?? 0;
+  const ratio = points.length === 1 ? 0.5 : clampedIndex / (points.length - 1);
+
+  return {
+    x: paddingX + ratio * innerWidth,
+    y: paddingY + innerHeight - ((value - min) / span) * innerHeight,
+    min,
+    max
+  };
 }
 
 function polarToCartesian(cx: number, cy: number, radius: number, angleDeg: number): { x: number; y: number } {

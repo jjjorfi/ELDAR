@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 import { loadEnvConfig } from "@next/env";
@@ -11,6 +12,8 @@ import {
 import { fetchSP500Symbols } from "../src/lib/market/universe/sp500";
 
 type Confidence = "high" | "medium" | "low";
+const REPO_ROOT = process.cwd();
+const DEFAULT_AUDIT_OUTPUT_DIR = path.join(os.homedir(), ".eldar", "audits");
 
 interface TickerCheck {
   ticker: string;
@@ -56,6 +59,20 @@ function round(value: number, digits = 2): number {
 
 function nowStamp(): string {
   return new Date().toISOString().replace(/[:.]/g, "-");
+}
+
+function resolveAuditOutputDir(): string {
+  const configured = process.env.ELDAR_AUDIT_DIR?.trim();
+  const candidate = path.resolve(configured && configured.length > 0 ? configured : DEFAULT_AUDIT_OUTPUT_DIR);
+  const relativeToRepo = path.relative(REPO_ROOT, candidate);
+  const pointsInsideRepo =
+    relativeToRepo === "" || (!relativeToRepo.startsWith("..") && !path.isAbsolute(relativeToRepo));
+
+  if (pointsInsideRepo && process.env.ELDAR_ALLOW_REPO_AUDIT_OUTPUT !== "1") {
+    return DEFAULT_AUDIT_OUTPUT_DIR;
+  }
+
+  return candidate;
 }
 
 function toErrorMessage(error: unknown): string {
@@ -268,7 +285,7 @@ async function run(): Promise<void> {
   };
 
   const stamp = nowStamp();
-  const outDir = path.join(process.cwd(), "audit");
+  const outDir = resolveAuditOutputDir();
   await fs.mkdir(outDir, { recursive: true });
   const jsonPath = path.join(outDir, `sec-financials-audit-${stamp}.json`);
   const mdPath = path.join(outDir, `sec-financials-audit-${stamp}.md`);

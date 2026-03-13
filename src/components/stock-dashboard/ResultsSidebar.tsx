@@ -119,7 +119,7 @@ export function ResultsSidebar({
           <LinesSkeleton rows={4} />
         ) : (
           <div className="space-y-3">
-            <div className="space-y-2 rounded-2xl border border-white/15 bg-zinc-950/45 px-3 py-2.5">
+            <div className="eldar-dashboard-muted-surface space-y-2 px-3 py-2.5">
               <p className="text-xs uppercase tracking-[0.14em] text-white/55">{stockContext?.sector ?? currentRating.sector}</p>
               <div className="flex items-center justify-between gap-2 text-sm text-white/80">
                 <span className="text-white/65">Sector avg</span>
@@ -168,7 +168,7 @@ export function ResultsSidebar({
                 href={item.url ?? `https://finance.yahoo.com/quote/${encodeURIComponent(currentRating.symbol)}/news`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex min-h-[42px] items-center rounded-xl border border-white/15 bg-zinc-950/45 px-3 py-2 text-xs text-white/80 transition hover:border-white/30 hover:bg-zinc-900/60 hover:text-white"
+                className="eldar-dashboard-muted-surface flex min-h-[42px] items-center px-3 py-2 text-xs text-white/80 transition hover:border-white/30 hover:text-white"
               >
                 <span className="block w-full truncate text-white/95">{item.headline}</span>
               </a>
@@ -178,7 +178,7 @@ export function ResultsSidebar({
             href={`https://finance.yahoo.com/quote/${encodeURIComponent(currentRating.symbol)}/news`}
             target="_blank"
             rel="noreferrer"
-            className="block w-full rounded-xl border border-white/20 bg-white/[0.04] px-3 py-2 text-left text-xs text-white/80 transition hover:border-white/35 hover:bg-white/[0.08]"
+            className="eldar-dashboard-muted-surface block w-full px-3 py-2 text-left text-xs text-white/80 transition hover:border-white/35 hover:text-white"
           >
             View all →
           </a>
@@ -210,7 +210,7 @@ export function ResultsSidebar({
                 key={`journal-${entry.id}`}
                 type="button"
                 onClick={() => onOpenJournalEntry(entry.id)}
-                className="w-full rounded-xl border border-white/15 bg-zinc-950/45 px-3 py-2 text-left transition hover:border-white/30"
+                className="eldar-dashboard-muted-surface w-full px-3 py-2 text-left transition hover:border-white/30"
               >
                 <p className="truncate text-xs font-semibold text-white">{entry.ticker}</p>
                 <p className="mt-1 text-[10px] text-white/60">
@@ -251,7 +251,7 @@ export function ResultsSidebar({
             visibleSimilarStocks.slice(0, 3).map((item) => (
               <div
                 key={item.symbol}
-                className="flex min-h-[42px] min-w-[220px] items-center gap-2 rounded-2xl border border-white/20 bg-zinc-950/50 px-3 py-2 md:min-w-0"
+                className="eldar-dashboard-muted-surface flex min-h-[42px] min-w-[220px] items-center gap-2 px-3 py-2 md:min-w-0"
               >
                 <button
                   onClick={() => onAnalyzeSymbol(item.symbol)}
@@ -272,7 +272,7 @@ export function ResultsSidebar({
           )}
         </div>
         {comparisonOpen ? (
-          <div className="mt-4 rounded-2xl border border-white/15 bg-zinc-950/45 p-4">
+          <div className="eldar-dashboard-muted-surface mt-4 p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <div>
                 <p className="text-xs uppercase tracking-[0.14em] text-white/60">Compare Stocks</p>
@@ -297,7 +297,7 @@ export function ResultsSidebar({
                     const winnerScore = Math.max(...comparisonEntries.map((item) => item.score));
                     const isWinner = entry.score >= winnerScore;
                     return (
-                      <div key={`cmp-rating-${entry.symbol}`} className="rounded-xl border border-white/10 bg-black/10 px-3 py-2">
+                      <div key={`cmp-rating-${entry.symbol}`} className="eldar-dashboard-muted-surface px-3 py-2">
                         <div className="mb-1 flex items-center justify-between text-xs text-white/80">
                           <span className={clsx("font-mono", isWinner && "text-zinc-100")}>{entry.symbol}</span>
                           <span>{entry.loading ? "Loading..." : entry.score.toFixed(1)}</span>

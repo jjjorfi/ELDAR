@@ -33,6 +33,8 @@ import {
 } from "@/components/ui/FintechPrimitives";
 import { Money, Num, Pct } from "@/components/ui/Numeric";
 import { SignalHero } from "@/components/ui/AnalysisPrimitives";
+import { AppTickerBar } from "@/components/ui/TickerBar";
+import { TradingViewHeatmap } from "@/components/ui/TradingViewHeatmap";
 import { ScoreExplanationWidget } from "@/components/eldar/widgets";
 import {
   MacroEnvironmentCard,
@@ -45,6 +47,7 @@ import {
   type SnapshotWindow,
   SectorRotationBoard
 } from "@/components/dashboard/HomeDashboardModules";
+import { EnterAppLoader } from "@/components/landing/EnterAppLoader";
 import { HeroLanding } from "@/components/landing/HeroLanding";
 import { NavigationSidebar } from "@/components/stock-dashboard/NavigationSidebar";
 import {
@@ -76,10 +79,13 @@ import {
   formatChartDate,
   formatEarningsDate,
   formatOptionalDecimal,
+  getSparklineCoordinate,
   percentWithSign,
+  PRICE_CHART_FRAME,
   ratingLabelFromKey,
   ratingLabelToneClass,
   ratingToneByLabel,
+  SCORE_CHART_FRAME,
   scoreBandColor,
   scoreLabel,
   sectorHeatFromScore,
@@ -129,6 +135,7 @@ import { isPaletteOpenShortcut } from "@/lib/ui/command-palette";
 import { pushRecentTicker } from "@/lib/ui/recent-tickers";
 import type { PriceRange } from "@/lib/features/price/types";
 import { usePopupWheelScroll } from "@/hooks/usePopupWheelScroll";
+import { useScoreExplanation } from "@/hooks/useScoreExplanation";
 import { useSocket } from "@/hooks/useSocket";
 
 const POPULAR_STOCKS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"];
@@ -155,6 +162,8 @@ const QUOTE_HTTP_POLL_INTERVAL_MS = 2_000;
 const QUOTE_HTTP_POLL_TICK_MS = 1_000;
 const QUOTE_HTTP_POLL_TIMEOUT_MS = 1_500;
 const QUOTE_HTTP_POLL_SYMBOL_LIMIT = 24;
+const PRICE_HISTORY_WARM_RETRY_LIMIT = 12;
+const PRICE_HISTORY_WARM_RETRY_MS = 1_500;
 
 export function StockDashboard({
   initialHistory,
@@ -164,11 +173,13 @@ export function StockDashboard({
 }: StockDashboardProps): JSX.Element {
   const router = useRouter();
   const [isAppOpen, setIsAppOpen] = useState(false);
+  const [isEnteringApp, setIsEnteringApp] = useState(false);
   const [view, setView] = useState<ViewMode>("home");
   const [ticker, setTicker] = useState(initialSymbol ? initialSymbol.toUpperCase() : "");
   const [loading, setLoading] = useState(false);
   const [analysisPhase, setAnalysisPhase] = useState<AnalysisPhase>("idle");
   const [currentRating, setCurrentRating] = useState<PersistedAnalysis | null>(initialHistory[0] ?? null);
+  const scoreExplanation = useScoreExplanation(currentRating);
   const [history, setHistory] = useState<PersistedAnalysis[]>(initialHistory);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>(initialWatchlist);
   const [watchlistAddedSymbol, setWatchlistAddedSymbol] = useState<string | null>(null);
@@ -254,6 +265,7 @@ export function StockDashboard({
   const quoteFallbackActiveRef = useRef(false);
   const mouseRafRef = useRef<number | null>(null);
   const mousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const openAppTimerRef = useRef<number | null>(null);
   const mouseLastPaintRef = useRef(0);
   const analyzeSymbolRef = useRef<(symbol?: string) => Promise<void>>(async () => {});
   const deferredPaletteQuery = useDeferredValue(paletteQuery);
@@ -374,9 +386,18 @@ export function StockDashboard({
   }, [ticker]);
 
   const openApp = useCallback((): void => {
-    setIsAppOpen(true);
+    if (isEnteringApp) return;
+    setIsEnteringApp(true);
     setView("home");
-  }, []);
+    if (openAppTimerRef.current !== null) {
+      window.clearTimeout(openAppTimerRef.current);
+    }
+    openAppTimerRef.current = window.setTimeout(() => {
+      setIsAppOpen(true);
+      setIsEnteringApp(false);
+      openAppTimerRef.current = null;
+    }, 1_050);
+  }, [isEnteringApp]);
 
   function toggleThemeMode(): void {
     setThemeMode((prev) => (prev === "dark" ? "light" : "dark"));
@@ -1693,6 +1714,7 @@ export function StockDashboard({
     let attempts = 0;
 
     const load = async (): Promise<void> => {
+      let keepLoading = false;
       setPriceHistoryLoading(true);
       setPriceHistoryError("");
 
@@ -1712,12 +1734,14 @@ export function StockDashboard({
         if (response.status === 202) {
           if (cancelled) return;
           attempts += 1;
-          if (attempts <= 5) {
+          keepLoading = true;
+          if (attempts <= PRICE_HISTORY_WARM_RETRY_LIMIT) {
             retryTimer = window.setTimeout(() => {
               void load();
-            }, 1_500);
+            }, PRICE_HISTORY_WARM_RETRY_MS);
           } else {
             setPriceHistoryError("Price history is warming.");
+            keepLoading = false;
           }
           return;
         }
@@ -1742,7 +1766,7 @@ export function StockDashboard({
         setPriceHistoryChangePercent(null);
         setPriceHistoryError(message);
       } finally {
-        if (!cancelled) {
+        if (!cancelled && !keepLoading) {
           setPriceHistoryLoading(false);
         }
       }
@@ -2442,15 +2466,9 @@ export function StockDashboard({
     }
 
     const fundamentals = currentRating.fundamentals;
-    const hasForwardPE = typeof fundamentals?.forwardPE === "number" && Number.isFinite(fundamentals.forwardPE);
     const hasTrailingPE = typeof fundamentals?.trailingPE === "number" && Number.isFinite(fundamentals.trailingPE);
-    const inferredPeLabel = hasForwardPE ? "P/E (NTM)" : hasTrailingPE ? "P/E (TTM)" : "P/E";
-    const peLabelByBasis =
-      fundamentals?.peBasis === "NTM"
-        ? "P/E (NTM)"
-        : fundamentals?.peBasis === "TTM"
-          ? "P/E (TTM)"
-          : inferredPeLabel;
+    const hasForwardPE = typeof fundamentals?.forwardPE === "number" && Number.isFinite(fundamentals.forwardPE);
+    const peLabelByBasis = hasTrailingPE ? "P/E (TTM)" : hasForwardPE ? "P/E (NTM)" : "P/E";
     const epsGrowthLabelByBasis =
       fundamentals?.epsGrowthBasis === "YOY"
         ? "EPS Growth (YoY)"
@@ -2463,19 +2481,11 @@ export function StockDashboard({
       currentRating.sector === "Real Estate" &&
       ((typeof fundamentals?.ffoYield === "number" && Number.isFinite(fundamentals.ffoYield)) ||
         findFactorMetric(currentRating.factors, "FFO Yield (REIT)") !== null);
-    const directPeValueFromBasis =
-      fundamentals?.peBasis === "NTM"
-        ? fundamentals?.forwardPE ?? null
-        : fundamentals?.peBasis === "TTM"
-          ? fundamentals?.trailingPE ?? null
-          : null;
-    const directPeValue =
-      directPeValueFromBasis ??
-      (hasForwardPE ? fundamentals?.forwardPE ?? null : null) ??
-      (hasTrailingPE ? fundamentals?.trailingPE ?? null : null);
+    const directPeValue = hasTrailingPE ? fundamentals?.trailingPE ?? null : null;
+    const secondaryPeValue = hasForwardPE ? fundamentals?.forwardPE ?? null : null;
     const fallbackPeValue = findFactorMetric(currentRating.factors, "P/E vs Sector");
-    const primaryPeValue = directPeValue ?? fallbackPeValue;
-    const primaryPeIsFallback = directPeValue === null && fallbackPeValue !== null;
+    const primaryPeValue = directPeValue ?? secondaryPeValue ?? fallbackPeValue;
+    const primaryPeIsFallback = directPeValue === null && (secondaryPeValue !== null || fallbackPeValue !== null);
 
     const directFfoYield = ratioToPercentPoints(fundamentals?.ffoYield ?? null);
     const fallbackFfoYield = findFactorMetric(currentRating.factors, "FFO Yield (REIT)");
@@ -2500,9 +2510,7 @@ export function StockDashboard({
     return {
       primaryValuation: {
         label: isReitValuation ? "FFO Yield" : peLabelByBasis,
-        value: isReitValuation
-          ? resolvedFfoYield
-          : primaryPeValue,
+        value: isReitValuation ? resolvedFfoYield : primaryPeValue,
         signal: isReitValuation
           ? findFactorSignal(currentRating.factors, "FFO Yield (REIT)")
           : findFactorSignal(currentRating.factors, "P/E vs Sector"),
@@ -2559,22 +2567,26 @@ export function StockDashboard({
     if (priceHistory.length < 2 || !currentRating) return null;
 
     const values = priceHistory.map((row) => row.price);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const span = Math.max(max - min, 0.000001);
     const activeIndex = Math.max(0, Math.min(priceHistory.length - 1, priceChartHoverIndex ?? priceHistory.length - 1));
     const active = priceHistory[activeIndex];
-    const x = (activeIndex / (priceHistory.length - 1)) * 720;
-    const y = 220 - ((active.price - min) / span) * 220;
+    const coordinate = getSparklineCoordinate(
+      values,
+      activeIndex,
+      PRICE_CHART_FRAME.width,
+      PRICE_CHART_FRAME.height,
+      PRICE_CHART_FRAME.paddingX,
+      PRICE_CHART_FRAME.paddingY
+    );
+    if (!coordinate) return null;
 
     return {
       index: activeIndex,
-      x,
-      y,
+      x: coordinate.x,
+      y: coordinate.y,
       xLabel: formatChartDate(active.time),
       yLabel: formatPrice(active.price, currentRating.currency),
-      min,
-      max
+      min: coordinate.min,
+      max: coordinate.max
     };
   }, [currentRating, priceChartHoverIndex, priceHistory]);
 
@@ -2582,18 +2594,22 @@ export function StockDashboard({
     if (scoreHistorySeries.length < 2) return null;
 
     const values = scoreHistorySeries.map((row) => row.score);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const span = Math.max(max - min, 0.000001);
     const activeIndex = Math.max(0, Math.min(scoreHistorySeries.length - 1, scoreChartHoverIndex ?? scoreHistorySeries.length - 1));
     const active = scoreHistorySeries[activeIndex];
-    const x = (activeIndex / (scoreHistorySeries.length - 1)) * 320;
-    const y = 60 - ((active.score - min) / span) * 60;
+    const coordinate = getSparklineCoordinate(
+      values,
+      activeIndex,
+      SCORE_CHART_FRAME.width,
+      SCORE_CHART_FRAME.height,
+      SCORE_CHART_FRAME.paddingX,
+      SCORE_CHART_FRAME.paddingY
+    );
+    if (!coordinate) return null;
 
     return {
       index: activeIndex,
-      x,
-      y,
+      x: coordinate.x,
+      y: coordinate.y,
       xLabel: formatChartDate(active.createdAt),
       yLabel: active.score.toFixed(2)
     };
@@ -2623,6 +2639,14 @@ export function StockDashboard({
       actions: weakestFactors
     };
   }, [currentRating]);
+
+  useEffect(() => {
+    return () => {
+      if (openAppTimerRef.current !== null) {
+        window.clearTimeout(openAppTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!currentRating?.symbol) return;
@@ -2664,7 +2688,6 @@ export function StockDashboard({
     () => `${currentRating?.symbol ?? "none"}:${currentRating?.createdAt ?? "na"}:${currentRating?.score ?? "na"}`,
     [currentRating]
   );
-
   const portfolioAllocation = useMemo(() => {
     const completed = portfolioHoldings
       .filter((holding) => holding.analysis !== null)
@@ -3591,7 +3614,12 @@ export function StockDashboard({
   ) : null;
 
   if (!isAppOpen) {
-    return <HeroLanding logoSrc={ELDAR_BRAND_LOGO} onOpenApp={openApp} />;
+    return (
+      <>
+        <HeroLanding logoSrc={ELDAR_BRAND_LOGO} onOpenApp={openApp} />
+        {isEnteringApp ? <EnterAppLoader /> : null}
+      </>
+    );
   }
 
   if (view === "home") {
@@ -3644,6 +3672,7 @@ export function StockDashboard({
           onQuickSearch={(value) => openCommandPalette(value)}
         />
         {topRightAccountDock}
+        <AppTickerBar />
         <div className="eldar-main-layout pb-20">
             <div ref={heroSectionRef} className="eldar-page-width-xl">
               <div className="reveal-block mb-6 flex flex-col items-start gap-3">
@@ -3719,6 +3748,15 @@ export function StockDashboard({
                 ) : (
                   <MarketSnapshotChart series={snapshotChartSeries} window={snapshotWindow} />
                 )}
+              </section>
+
+              <section className="eldar-panel texture-none xl:col-span-5 p-5">
+                <div className="mb-5 flex items-center justify-between gap-3">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">US Heatmap</p>
+                </div>
+                <div className="h-[320px] overflow-hidden">
+                  <TradingViewHeatmap />
+                </div>
               </section>
 
               {homeDashboardLoading && !homeDashboard ? (
@@ -3838,10 +3876,6 @@ export function StockDashboard({
     const isBullish = currentRating.rating === "BUY";
     const isBearishOrLower = currentRating.rating === "SELL" || currentRating.rating === "STRONG_SELL";
     const isInWatchlist = watchlist.some((item) => item.symbol === currentRating.symbol);
-    const driverBullets = ratingContextSummary.topDrivers.slice(0, 10);
-    const riskBullets = ratingContextSummary.keySignals
-      .filter((signal) => signal.tone === "risk")
-      .map((signal) => signal.text);
     const visibleJournalEntries = showAllJournalLinks
       ? journalRelatedEntries
       : journalRelatedEntries.slice(0, JOURNAL_VISIBLE_COUNT);
@@ -3890,6 +3924,7 @@ export function StockDashboard({
           onQuickSearch={(value) => openCommandPalette(value)}
         />
         {topRightAccountDock}
+        <AppTickerBar />
         <div className="eldar-main-layout">
           <div className="eldar-page-width-lg">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -3983,6 +4018,7 @@ export function StockDashboard({
                 />
 
                 <ResultsChartsPanel
+                  symbol={currentRating.symbol}
                   priceRange={priceRange}
                   priceRangeOptions={PRICE_RANGE_OPTIONS}
                   onPriceRangeChange={setPriceRange}
@@ -3990,7 +4026,13 @@ export function StockDashboard({
                   priceHistoryLoading={priceHistoryLoading}
                   priceHistory={priceHistory}
                   priceHistoryError={priceHistoryError}
-                  priceSparklinePath={buildSparklinePath(priceHistory.map((row) => row.price), 720, 220)}
+                  priceSparklinePath={buildSparklinePath(
+                    priceHistory.map((row) => row.price),
+                    PRICE_CHART_FRAME.width,
+                    PRICE_CHART_FRAME.height,
+                    PRICE_CHART_FRAME.paddingX,
+                    PRICE_CHART_FRAME.paddingY
+                  )}
                   priceChartOverlay={priceChartOverlay}
                   onPriceChartHoverIndex={setPriceChartHoverIndex}
                   fundamentalsSnapshot={fundamentalsSnapshot}
@@ -3999,16 +4041,24 @@ export function StockDashboard({
                   factorSignalToneClass={factorSignalToneClass}
                   scoreHistorySeries={scoreHistorySeries}
                   scoreHistoryPoints={scoreHistoryPoints}
-                  scoreSparklinePath={buildSparklinePath(scoreHistoryPoints, 320, 60)}
+                  scoreSparklinePath={buildSparklinePath(
+                    scoreHistoryPoints,
+                    SCORE_CHART_FRAME.width,
+                    SCORE_CHART_FRAME.height,
+                    SCORE_CHART_FRAME.paddingX,
+                    SCORE_CHART_FRAME.paddingY
+                  )}
                   scoreChartOverlay={scoreChartOverlay}
                   onScoreChartHoverIndex={setScoreChartHoverIndex}
                 />
 
-                <ScoreExplanationWidget
-                  ratingNote={currentRating.ratingNote}
-                  drivers={driverBullets}
-                  risks={riskBullets}
-                />
+                {scoreExplanation.sections ? (
+                  <ScoreExplanationWidget
+                    sections={scoreExplanation.sections}
+                    status={scoreExplanation.status}
+                    source={scoreExplanation.source}
+                  />
+                ) : null}
               </div>
 
               <ResultsSidebar
@@ -4078,6 +4128,7 @@ export function StockDashboard({
           onQuickSearch={(value) => openCommandPalette(value, "portfolio-add")}
         />
         {topRightAccountDock}
+        <AppTickerBar />
         <div className="eldar-main-layout">
           <PortfolioMainPanel
             activePortfolioRating={activePortfolioRating}
@@ -4140,6 +4191,7 @@ export function StockDashboard({
         onQuickSearch={(value) => openCommandPalette(value)}
       />
       {topRightAccountDock}
+      <AppTickerBar />
       <div className="eldar-main-layout">
         <div className="eldar-page-width-md">
           <h1 className="mb-8 text-4xl font-black tracking-tight">Watchlist</h1>

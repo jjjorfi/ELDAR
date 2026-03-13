@@ -17,6 +17,7 @@
     "phase1:migrate-shims": "node scripts/phase1/migrate-shim-imports.mjs",
     "guard:retired-shims": "node scripts/phase1/check-retired-shims.mjs",
     "check:import-cycles": "node scripts/phase1/check-import-cycles.mjs",
+    "guard:critical-systems": "node scripts/phase5/check-critical-systems.mjs",
     "guard:route-boundaries": "node scripts/phase5/check-route-boundaries.mjs",
     "guard:widget-boundaries": "node scripts/phase5/check-widget-boundaries.mjs",
     "perf:smoke": "tsx scripts/perf-smoke.ts",
@@ -35,6 +36,7 @@
     "express": "^4.21.2",
     "html-to-image": "^1.11.13",
     "jsonwebtoken": "^9.0.2",
+    "lightweight-charts": "^5.1.0",
     "lucide-react": "^0.462.0",
     "next": "^15.5.10",
     "react": "18.3.1",
@@ -60,7 +62,8 @@
     "postcss": "^8.4.39",
     "tailwindcss": "^3.4.6",
     "tsx": "^4.21.0",
-    "typescript": "^5.5.3"
+    "typescript": "^5.5.3",
+    "vitest": "^4.1.0"
   },
   "engines": {
     "node": ">=18.18.0"

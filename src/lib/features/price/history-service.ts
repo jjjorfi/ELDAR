@@ -23,6 +23,7 @@ const FETCH_TIMEOUT_MS = 3_500;
 const LOG_TTL_MS = 60_000;
 const recentWarnings = new Map<string, number>();
 const PRICE_HISTORY_AGGREGATE_PREFIX = "price-history:v1";
+const VALID_HISTORY_SYMBOL_PATTERN = /^[A-Z][A-Z0-9.\-]{0,14}$/;
 
 function toYahooSymbol(symbol: string): string {
   return symbol.replace(/\./g, "-");
@@ -86,7 +87,9 @@ export async function resolveSupportedPriceHistorySymbol(rawSymbol: string): Pro
   const normalized = sanitizeSymbol(rawSymbol ?? "");
   if (!normalized) return null;
   const sp500Directory = await fetchSP500Directory();
-  return resolveSp500DirectorySymbol(normalized, sp500Directory);
+  const resolved = resolveSp500DirectorySymbol(normalized, sp500Directory);
+  if (resolved) return resolved;
+  return VALID_HISTORY_SYMBOL_PATTERN.test(normalized) ? normalized : null;
 }
 
 function minimumPointsForRange(range: PriceRange): number {

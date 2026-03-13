@@ -1,4 +1,3 @@
-// AI CONTEXT TRACE:
 // File Purpose:
 // - Single source of truth for realtime-server configuration loading + validation.
 // - Loads env from Next.js project root (.env.local/.env) so no separate socket env file is needed.

@@ -240,8 +240,8 @@ export function PortfolioHoldingDrawer({
   return (
     <div className="fixed inset-0 z-[95]">
       <button type="button" aria-label="Close drawer" className="absolute inset-0 bg-black/45" onClick={onClose} />
-      <aside className="card-grain rough-border absolute right-0 top-0 h-full w-full max-w-[480px] border-l border-white/15 bg-[#0a0a0a] p-5 shadow-2xl shadow-black/70">
-        <div className="sticky top-0 z-10 mb-4 flex items-center justify-between border-b border-white/10 bg-[#0a0a0a] pb-3">
+      <aside className="card-grain rough-border absolute right-0 top-0 h-full w-full max-w-[480px] border-l border-white/15 bg-[var(--eldar-neu-surface)] p-5 shadow-2xl shadow-black/70">
+        <div className="sticky top-0 z-10 mb-4 flex items-center justify-between border-b border-white/10 bg-[var(--eldar-neu-surface)] pb-3">
           <div>
             <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Holding Details</p>
             <p className="mt-1 font-mono text-xl font-bold text-white">{drawerRow.symbol}</p>
@@ -255,7 +255,7 @@ export function PortfolioHoldingDrawer({
           </button>
         </div>
         <div onWheelCapture={onWheelCapture} className="eldar-scrollbar space-y-3 overflow-y-auto pb-24">
-          <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+          <div className="eldar-dashboard-muted-surface p-3">
             <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Allocation</p>
             {drawerRow.allocationPct !== null ? (
               <Pct value={drawerRow.allocationPct} decimals={1} signed={false} color={false} className="mt-1 text-2xl font-bold text-white" />
@@ -264,7 +264,7 @@ export function PortfolioHoldingDrawer({
             )}
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+            <div className="eldar-dashboard-muted-surface p-3">
               <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Shares</p>
               <Num
                 value={drawerRow.shares}
@@ -272,7 +272,7 @@ export function PortfolioHoldingDrawer({
                 className="mt-1 text-lg font-semibold text-white"
               />
             </div>
-            <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+            <div className="eldar-dashboard-muted-surface p-3">
               <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Position Value</p>
               {drawerRow.positionValue !== null ? (
                 <Money
@@ -285,7 +285,7 @@ export function PortfolioHoldingDrawer({
               )}
             </div>
           </div>
-          <div className="rounded-xl border border-white/12 bg-black/25 p-3">
+          <div className="eldar-dashboard-muted-surface p-3">
             <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">ELDAR Band</p>
             <p className="mt-1 text-sm font-semibold" style={{ color: scoreBandColor(drawerRow.score) }}>
               {drawerRow.ratingLabel ?? "Pending"}

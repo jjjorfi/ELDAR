@@ -4,6 +4,7 @@ import { getCompanyFinancials } from "@/lib/financials/eldar-financials-pipeline
 import { log } from "@/lib/logger";
 import { fetchSecFundamentalsFallback } from "@/lib/market/providers/sec-companyfacts";
 import { isNySessionOpen } from "@/lib/market/ny-session";
+import { getTVFundamentals } from "@/lib/providers/tradingview-fundamentals";
 import { scoreSnapshot } from "@/lib/scoring/engine";
 import type { AnalysisResult } from "@/lib/types";
 
@@ -92,8 +93,47 @@ export async function analyzeStock(symbol: string): Promise<AnalysisResult> {
         })
     ]);
 
+    const needsTvFallback =
+      canonicalFundamentals === null ||
+      [
+        canonicalFundamentals?.forwardPE,
+        canonicalFundamentals?.revenueGrowth,
+        canonicalFundamentals?.earningsQuarterlyGrowth,
+        canonicalFundamentals?.fcfYield,
+        canonicalFundamentals?.debtToEquity,
+        canonicalFundamentals?.evEbitda,
+        canonicalFundamentals?.trailingEps,
+        canonicalFundamentals?.technical.sma200,
+        canonicalFundamentals?.technical.rsi14
+      ].some((value) => value === null);
+
+    const tvFundamentals = needsTvFallback
+      ? await getTVFundamentals(normalizedSymbol).catch((error) => {
+          log({
+            level: "warn",
+            service: "analyze",
+            message: "TradingView fundamentals fallback unavailable",
+            symbol: normalizedSymbol,
+            error: error instanceof Error ? error.message : String(error)
+          });
+          return null;
+        })
+      : null;
+
+    const needsSecFallback =
+      canonicalFundamentals === null &&
+      (
+        tvFundamentals === null ||
+        [
+          tvFundamentals.revenueGrowthYoYPct,
+          tvFundamentals.epsGrowthYoYPct,
+          tvFundamentals.freeCashFlowTTM,
+          tvFundamentals.epsDilutedTTM
+        ].some((value) => value === null)
+      );
+
     const secFallback =
-      canonicalFundamentals === null
+      needsSecFallback
         ? await fetchSecFundamentalsFallback(normalizedSymbol).catch((error) => {
             log({
               level: "warn",
@@ -117,9 +157,19 @@ export async function analyzeStock(symbol: string): Promise<AnalysisResult> {
 
     const fallbackMarketCap =
       canonicalFundamentals?.marketCap ??
+      tvFundamentals?.marketCapUSD ??
       fallbackMarketCapFromShares;
-    const effectiveMarketCap = canonicalFundamentals?.marketCap ?? snapshot.marketCap ?? fallbackMarketCap ?? null;
-    const effectiveForwardPE = coalesceNumber(canonicalFundamentals?.forwardPE, snapshot.forwardPE);
+    const effectiveMarketCap =
+      canonicalFundamentals?.marketCap ??
+      snapshot.marketCap ??
+      tvFundamentals?.marketCapUSD ??
+      fallbackMarketCap ??
+      null;
+    const effectiveForwardPE = coalesceNumber(
+      canonicalFundamentals?.forwardPE,
+      snapshot.forwardPE,
+      tvFundamentals?.forwardPE
+    );
     const effectiveForwardPEBasis: typeof snapshot.forwardPEBasis =
       effectiveForwardPE === null
         ? null
@@ -127,19 +177,32 @@ export async function analyzeStock(symbol: string): Promise<AnalysisResult> {
             ? (canonicalFundamentals?.forwardPEBasis ?? "UNKNOWN")
             : snapshot.forwardPE !== null
               ? (snapshot.forwardPEBasis ?? "UNKNOWN")
+              : tvFundamentals?.forwardPE !== null
+                ? "NTM"
               : "UNKNOWN";
     const effectiveTrailingEps = coalesceNumber(
       canonicalFundamentals?.trailingEps,
       snapshot.trailingEps,
+      tvFundamentals?.epsDilutedTTM,
       secFallback?.trailingEpsTtm
     );
     const effectiveRevenueGrowth = coalesceNumber(
       canonicalFundamentals?.revenueGrowth,
       snapshot.revenueGrowth,
+      tvFundamentals?.revenueGrowthYoYPct,
       secFallback?.revenueGrowth
     );
     const effectiveFcfYield =
-      coalesceNumber(canonicalFundamentals?.fcfYield, snapshot.fcfYield) ??
+      coalesceNumber(
+        canonicalFundamentals?.fcfYield,
+        snapshot.fcfYield,
+        tvFundamentals !== null &&
+          tvFundamentals.freeCashFlowTTM !== null &&
+          tvFundamentals.marketCapUSD !== null &&
+          tvFundamentals.marketCapUSD > 0
+          ? tvFundamentals.freeCashFlowTTM / tvFundamentals.marketCapUSD
+          : null
+      ) ??
       (secFallback &&
       typeof secFallback.ttmFreeCashflow === "number" &&
       Number.isFinite(secFallback.ttmFreeCashflow) &&
@@ -147,13 +210,26 @@ export async function analyzeStock(symbol: string): Promise<AnalysisResult> {
       effectiveMarketCap > 0
         ? secFallback.ttmFreeCashflow / effectiveMarketCap
         : null);
-    const effectiveDebtToEquity = coalesceNumber(canonicalFundamentals?.debtToEquity, snapshot.debtToEquity);
-    const effectiveEvEbitda = coalesceNumber(canonicalFundamentals?.evEbitda, snapshot.evEbitda);
-    const effectiveRoic = coalesceNumber(canonicalFundamentals?.roic, snapshot.roic);
+    const effectiveDebtToEquity = coalesceNumber(
+      canonicalFundamentals?.debtToEquity,
+      snapshot.debtToEquity,
+      tvFundamentals?.debtToEquity
+    );
+    const effectiveEvEbitda = coalesceNumber(
+      canonicalFundamentals?.evEbitda,
+      snapshot.evEbitda,
+      tvFundamentals?.evEbitda
+    );
+    const effectiveRoic = coalesceNumber(
+      canonicalFundamentals?.roic,
+      snapshot.roic,
+      tvFundamentals?.roicPct
+    );
     const effectiveRoicTrend = coalesceNumber(canonicalFundamentals?.roicTrend, snapshot.roicTrend);
     const effectiveEarningsQuarterlyGrowth = coalesceNumber(
       canonicalFundamentals?.earningsQuarterlyGrowth,
       snapshot.earningsQuarterlyGrowth,
+      tvFundamentals?.epsGrowthYoYPct,
       secFallback?.earningsQuarterlyGrowth
     );
     const effectiveEarningsGrowthBasis: typeof snapshot.earningsGrowthBasis =
@@ -163,12 +239,15 @@ export async function analyzeStock(symbol: string): Promise<AnalysisResult> {
           ? (canonicalFundamentals?.earningsGrowthBasis ?? "UNKNOWN")
           : snapshot.earningsQuarterlyGrowth !== null
             ? (snapshot.earningsGrowthBasis ?? "UNKNOWN")
+            : tvFundamentals?.epsGrowthYoYPct !== null
+              ? "YOY"
             : secFallback?.earningsQuarterlyGrowth !== null
               ? "YOY"
               : "UNKNOWN";
 
     const snapshotWithFallback = {
       ...snapshot,
+      currentPrice: coalesceNumber(snapshot.currentPrice, tvFundamentals?.priceClose) ?? snapshot.currentPrice,
       sector: canonicalFundamentals?.sector ?? snapshot.sector ?? null,
       marketCap: effectiveMarketCap,
       forwardPE: effectiveForwardPE,
@@ -181,7 +260,12 @@ export async function analyzeStock(symbol: string): Promise<AnalysisResult> {
       evEbitda: effectiveEvEbitda,
       roic: effectiveRoic,
       roicTrend: effectiveRoicTrend,
-      fcfYield: effectiveFcfYield
+      fcfYield: effectiveFcfYield,
+      technical: {
+        ...snapshot.technical,
+        sma200: coalesceNumber(snapshot.technical.sma200, tvFundamentals?.sma200),
+        rsi14: coalesceNumber(snapshot.technical.rsi14, tvFundamentals?.rsi14)
+      }
     };
 
     const result: AnalysisResult = scoreSnapshot(snapshotWithFallback);

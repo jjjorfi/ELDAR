@@ -163,6 +163,9 @@ done < <(
 info "running guard regression unit tests"
 npm run --silent test:security >/dev/null
 
+info "checking critical engine files are not deleted or renamed without explicit acknowledgment"
+npm run --silent guard:critical-systems >/dev/null
+
 info "running dependency vulnerability check (full dependency graph)"
 AUDIT_JSON="$(mktemp)"
 npm audit --json >"$AUDIT_JSON" || true

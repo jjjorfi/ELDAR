@@ -37,7 +37,7 @@ import { getFetchSignal, parseOptionalNumber, readEnvToken } from "@/lib/market/
 import { fetchTemporaryHistoryFallback, fetchTemporaryQuoteFallback } from "@/lib/market/orchestration/temporary-fallbacks";
 import { sanitizeSymbol } from "@/lib/utils";
 
-export const PIPELINE_VERSION = "eldar-financials-v1.1";
+export const PIPELINE_VERSION = "eldar-financials-v1.2";
 export { sicToGics, XBRL_TAGS } from "@/lib/financials/eldar-financials-taxonomy";
 export type {
   CompanyFinancials,
@@ -991,6 +991,21 @@ function normalizeFiscalYearEnd(value: unknown): string {
   return `${numeric.slice(0, 2)}-${numeric.slice(2, 4)}`;
 }
 
+function deriveEffectiveFiscalEndMonth(fiscalYearEnd: string): number {
+  const fiscalEndMonth = Number.parseInt(fiscalYearEnd.slice(0, 2), 10);
+  const fiscalEndDay = Number.parseInt(fiscalYearEnd.slice(3, 5), 10);
+  if (!Number.isFinite(fiscalEndMonth)) return 12;
+
+  // SEC submissions often store 52/53-week year-ends as the first few days of
+  // the following month. Quarter classification needs the functional quarter-end
+  // month, not the literal filing metadata month.
+  if (Number.isFinite(fiscalEndDay) && fiscalEndDay > 0 && fiscalEndDay <= 7) {
+    return fiscalEndMonth === 1 ? 12 : fiscalEndMonth - 1;
+  }
+
+  return fiscalEndMonth;
+}
+
 function safeDivide(numerator: number | null, denominator: number | null): number | null {
   if (numerator === null || denominator === null || denominator === 0) return null;
   const value = numerator / denominator;
@@ -1103,7 +1118,7 @@ function computeEffectiveTaxRate(
 
 function deriveFiscalQuarter(periodEnd: string, fiscalYearEnd: string): 1 | 2 | 3 | 4 {
   const periodMonth = Number.parseInt(periodEnd.slice(5, 7), 10);
-  const fyEndMonth = Number.parseInt(fiscalYearEnd.slice(0, 2), 10);
+  const fyEndMonth = deriveEffectiveFiscalEndMonth(fiscalYearEnd);
   const monthsBack = (fyEndMonth - periodMonth + 12) % 12;
   if (monthsBack === 0) return 4;
   if (monthsBack <= 3) return 3;
@@ -1114,12 +1129,37 @@ function deriveFiscalQuarter(periodEnd: string, fiscalYearEnd: string): 1 | 2 | 
 function deriveFiscalYear(periodEnd: string, fiscalYearEnd: string): number {
   const periodYear = Number.parseInt(periodEnd.slice(0, 4), 10);
   const periodMonth = Number.parseInt(periodEnd.slice(5, 7), 10);
-  const fyEndMonth = Number.parseInt(fiscalYearEnd.slice(0, 2), 10);
+  const fyEndMonth = deriveEffectiveFiscalEndMonth(fiscalYearEnd);
   if (!Number.isFinite(periodYear) || !Number.isFinite(periodMonth) || !Number.isFinite(fyEndMonth)) {
     return periodYear;
   }
   if (periodMonth > fyEndMonth) return periodYear + 1;
   return periodYear;
+}
+
+function isNextFiscalQuarter(
+  previous: Pick<QuarterlyIncome, "fiscalYear" | "fiscalQuarter">,
+  current: Pick<QuarterlyIncome, "fiscalYear" | "fiscalQuarter">
+): boolean {
+  if (previous.fiscalQuarter === 4) {
+    return current.fiscalYear === previous.fiscalYear + 1 && current.fiscalQuarter === 1;
+  }
+  return current.fiscalYear === previous.fiscalYear && current.fiscalQuarter === previous.fiscalQuarter + 1;
+}
+
+function hasContinuousQuarterWindow(
+  rows: Array<Pick<QuarterlyIncome, "fiscalYear" | "fiscalQuarter">>,
+  endIndex: number,
+  length: number
+): boolean {
+  const startIndex = endIndex - length + 1;
+  if (startIndex < 0) return false;
+  for (let index = startIndex + 1; index <= endIndex; index += 1) {
+    if (!isNextFiscalQuarter(rows[index - 1]!, rows[index]!)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function intersectPeriods(...lists: string[][]): Set<string> {
@@ -1243,6 +1283,7 @@ function computeQuarterlyRatios(
 
     const periodEnd = inc.periodEnd;
     const priceAtPeriodEnd = findPeriodEndAdjClose(prices, periodEnd);
+    const hasContinuousTtmWindow = hasContinuousQuarterWindow(income, i, 4);
     const shares = resolveShares(i);
     if (shares === null && priceAtPeriodEnd !== null && !warnedMissingShares.has(periodEnd)) {
       warnings.push(`Shares outstanding unavailable at ${periodEnd}; market-cap-based ratios are partial.`);
@@ -1251,16 +1292,16 @@ function computeQuarterlyRatios(
     const marketCapAtPeriodEnd = priceAtPeriodEnd !== null && shares !== null ? priceAtPeriodEnd * shares : null;
 
     const ev = marketCapAtPeriodEnd !== null && bs.totalDebt !== null ? marketCapAtPeriodEnd + bs.totalDebt - bs.cash : null;
-    const ttmRevenue = rolling4(revenueSeries, i);
-    const ttmEbit = rolling4(ebitSeries, i);
-    const ttmEbitda = rolling4(ebitdaSeries, i);
-    const ttmNetIncome = rolling4(netIncomeSeries, i);
-    const ttmFcf = rolling4(fcfSeries, i);
-    const ttmOcF = rolling4(ocfSeries, i);
-    const ttmInterestExpense = rolling4(interestExpenseSeries, i);
-    const ttmCostOfRevenue = rolling4(costOfRevenueSeries, i);
+    const ttmRevenue = hasContinuousTtmWindow ? rolling4(revenueSeries, i) : null;
+    const ttmEbit = hasContinuousTtmWindow ? rolling4(ebitSeries, i) : null;
+    const ttmEbitda = hasContinuousTtmWindow ? rolling4(ebitdaSeries, i) : null;
+    const ttmNetIncome = hasContinuousTtmWindow ? rolling4(netIncomeSeries, i) : null;
+    const ttmFcf = hasContinuousTtmWindow ? rolling4(fcfSeries, i) : null;
+    const ttmOcF = hasContinuousTtmWindow ? rolling4(ocfSeries, i) : null;
+    const ttmInterestExpense = hasContinuousTtmWindow ? rolling4(interestExpenseSeries, i) : null;
+    const ttmCostOfRevenue = hasContinuousTtmWindow ? rolling4(costOfRevenueSeries, i) : null;
 
-    const ttmEps = rolling4(epsSeries, i);
+    const ttmEps = hasContinuousTtmWindow ? rolling4(epsSeries, i) : null;
     const peRatio = priceAtPeriodEnd !== null && ttmEps !== null
       ? safeDivide(priceAtPeriodEnd, ttmEps)
       : null;
@@ -1330,7 +1371,7 @@ function computeQuarterlyRatios(
 
     const accrualsRatio = ttmNetIncome !== null && ttmOcF !== null && avgAssets !== 0 ? (ttmNetIncome - ttmOcF) / avgAssets : null;
     const fcfConversion = ttmFcf !== null && ttmNetIncome !== null && ttmNetIncome !== 0 ? ttmFcf / ttmNetIncome : null;
-    const sbcTtm = rolling4(sbcSeries, i);
+    const sbcTtm = hasContinuousTtmWindow ? rolling4(sbcSeries, i) : null;
     const sbcToRevenue = sbcTtm !== null && ttmRevenue !== null && ttmRevenue > 0 ? sbcTtm / ttmRevenue : null;
 
     rows.push({
@@ -1385,7 +1426,10 @@ function computeTTM(income: QuarterlyIncome[], cashflow: QuarterlyCashFlow[], ba
   const n = income.length - 1;
   const sumRecent = (series: Array<number | null>): number | null => {
     if (n < 0) return null;
-    if (n >= 3) return rolling4(series, n);
+    if (n >= 3) {
+      if (!hasContinuousQuarterWindow(income, n, 4)) return null;
+      return rolling4(series, n);
+    }
     const slice = series.slice(0, n + 1);
     if (slice.length === 0 || slice.some((value) => value === null)) return null;
     return slice.reduce<number>((sum, value) => sum + (value ?? 0), 0);
@@ -1430,9 +1474,9 @@ function computeTTM(income: QuarterlyIncome[], cashflow: QuarterlyCashFlow[], ba
 
 function computeGrowth(income: QuarterlyIncome[], cashflow: QuarterlyCashFlow[]): GrowthMetrics {
   const n = income.length - 1;
-  const priorQuarter = n > 0 ? income[n - 1] : null;
-  const priorYear = n >= 4 ? income[n - 4] : null;
-  const priorYearCf = n >= 4 ? cashflow[n - 4] : null;
+  const priorQuarter = n > 0 && hasContinuousQuarterWindow(income, n, 2) ? income[n - 1] : null;
+  const priorYear = n >= 4 && hasContinuousQuarterWindow(income, n, 5) ? income[n - 4] : null;
+  const priorYearCf = n >= 4 && hasContinuousQuarterWindow(income, n, 5) ? cashflow[n - 4] : null;
 
   const revenueGrowthYoY = priorYear ? safeGrowth(income[n].revenue, priorYear.revenue) : null;
   const revenueGrowthQoQ = priorQuarter ? safeGrowth(income[n].revenue, priorQuarter.revenue) : null;
@@ -1444,9 +1488,15 @@ function computeGrowth(income: QuarterlyIncome[], cashflow: QuarterlyCashFlow[])
   const fcfGrowthYoY = priorYearCf ? safeGrowth(cashflow[n].freeCashFlow, priorYearCf.freeCashFlow) : null;
 
   const qoqRevCurrent = priorQuarter ? safeGrowth(income[n].revenue, priorQuarter.revenue) : null;
-  const qoqRevPrior = n >= 2 ? safeGrowth(income[n - 1].revenue, income[n - 2].revenue) : null;
-  const qoqEpsCurrent = n >= 1 ? safeGrowth(income[n].epsDiluted, income[n - 1].epsDiluted) : null;
-  const qoqEpsPrior = n >= 2 ? safeGrowth(income[n - 1].epsDiluted, income[n - 2].epsDiluted) : null;
+  const qoqRevPrior = n >= 2 && hasContinuousQuarterWindow(income, n - 1, 2)
+    ? safeGrowth(income[n - 1].revenue, income[n - 2].revenue)
+    : null;
+  const qoqEpsCurrent = n >= 1 && hasContinuousQuarterWindow(income, n, 2)
+    ? safeGrowth(income[n].epsDiluted, income[n - 1].epsDiluted)
+    : null;
+  const qoqEpsPrior = n >= 2 && hasContinuousQuarterWindow(income, n - 1, 2)
+    ? safeGrowth(income[n - 1].epsDiluted, income[n - 2].epsDiluted)
+    : null;
 
   return {
     revenueGrowthYoY,
@@ -1478,8 +1528,9 @@ function computeGrowth(income: QuarterlyIncome[], cashflow: QuarterlyCashFlow[])
 }
 
 function safeGrowth(current: number | null, previous: number | null): number | null {
-  if (current === null || previous === null || previous === 0) return null;
-  return (current - previous) / Math.abs(previous);
+  if (current === null || previous === null) return null;
+  if (previous <= 0 || current <= 0) return null;
+  return (current - previous) / previous;
 }
 
 function computePriceHistory(prices: PricePoint[], spyPrices: PricePoint[]): PriceHistory {
@@ -2495,6 +2546,11 @@ function normalizeAnnualQ4Flows(
     if (parts.some((value) => value === null)) return null;
     return annual - (parts[0] ?? 0) - (parts[1] ?? 0) - (parts[2] ?? 0);
   };
+  const recomputeCashflowDerivedFields = (cashRow: QuarterlyCashFlow, incomeRow: QuarterlyIncome): void => {
+    cashRow.freeCashFlow = cashRow.capex !== null ? cashRow.operatingCashFlow - Math.abs(cashRow.capex) : null;
+    cashRow.fcfMargin = safeDivide(cashRow.freeCashFlow, incomeRow.revenue);
+    cashRow.fcfConversion = safeDivide(cashRow.freeCashFlow, incomeRow.netIncome);
+  };
 
   for (const [fiscalYear, bucket] of byFiscalYear.entries()) {
     if (!bucket.q4) continue;
@@ -2521,6 +2577,46 @@ function normalizeAnnualQ4Flows(
       warnings.push(`Q4 normalization skipped for FY${fiscalYear} at ${q4Income.periodEnd}: missing cashflow alignment.`);
       continue;
     }
+
+    q2Cash.operatingCashFlow = subtractFlow(q2Cash.operatingCashFlow, [q1Cash.operatingCashFlow]);
+    q2Cash.capex = q2Cash.capex !== null && q1Cash.capex !== null ? q2Cash.capex - q1Cash.capex : q2Cash.capex;
+    q2Cash.acquisitions = q2Cash.acquisitions !== null && q1Cash.acquisitions !== null ? q2Cash.acquisitions - q1Cash.acquisitions : q2Cash.acquisitions;
+    q2Cash.purchasesOfInvestments =
+      q2Cash.purchasesOfInvestments !== null && q1Cash.purchasesOfInvestments !== null
+        ? q2Cash.purchasesOfInvestments - q1Cash.purchasesOfInvestments
+        : q2Cash.purchasesOfInvestments;
+    q2Cash.salesOfInvestments =
+      q2Cash.salesOfInvestments !== null && q1Cash.salesOfInvestments !== null
+        ? q2Cash.salesOfInvestments - q1Cash.salesOfInvestments
+        : q2Cash.salesOfInvestments;
+    q2Cash.investingCashFlow =
+      q2Cash.investingCashFlow !== null && q1Cash.investingCashFlow !== null
+        ? q2Cash.investingCashFlow - q1Cash.investingCashFlow
+        : q2Cash.investingCashFlow;
+    q2Cash.debtIssuance = q2Cash.debtIssuance !== null && q1Cash.debtIssuance !== null ? q2Cash.debtIssuance - q1Cash.debtIssuance : q2Cash.debtIssuance;
+    q2Cash.debtRepayment = q2Cash.debtRepayment !== null && q1Cash.debtRepayment !== null ? q2Cash.debtRepayment - q1Cash.debtRepayment : q2Cash.debtRepayment;
+    q2Cash.shareIssuance = q2Cash.shareIssuance !== null && q1Cash.shareIssuance !== null ? q2Cash.shareIssuance - q1Cash.shareIssuance : q2Cash.shareIssuance;
+    q2Cash.shareBuybacks = q2Cash.shareBuybacks !== null && q1Cash.shareBuybacks !== null ? q2Cash.shareBuybacks - q1Cash.shareBuybacks : q2Cash.shareBuybacks;
+    q2Cash.dividendsPaid = q2Cash.dividendsPaid !== null && q1Cash.dividendsPaid !== null ? q2Cash.dividendsPaid - q1Cash.dividendsPaid : q2Cash.dividendsPaid;
+    q2Cash.financingCashFlow =
+      q2Cash.financingCashFlow !== null && q1Cash.financingCashFlow !== null
+        ? q2Cash.financingCashFlow - q1Cash.financingCashFlow
+        : q2Cash.financingCashFlow;
+    recomputeCashflowDerivedFields(q2Cash, q2Income);
+
+    q3Cash.operatingCashFlow = subtractFlow(q3Cash.operatingCashFlow, [q1Cash.operatingCashFlow, q2Cash.operatingCashFlow]);
+    q3Cash.capex = subtractNullableFlow(q3Cash.capex, [q1Cash.capex, q2Cash.capex, 0]);
+    q3Cash.acquisitions = subtractNullableFlow(q3Cash.acquisitions, [q1Cash.acquisitions, q2Cash.acquisitions, 0]);
+    q3Cash.purchasesOfInvestments = subtractNullableFlow(q3Cash.purchasesOfInvestments, [q1Cash.purchasesOfInvestments, q2Cash.purchasesOfInvestments, 0]);
+    q3Cash.salesOfInvestments = subtractNullableFlow(q3Cash.salesOfInvestments, [q1Cash.salesOfInvestments, q2Cash.salesOfInvestments, 0]);
+    q3Cash.investingCashFlow = subtractNullableFlow(q3Cash.investingCashFlow, [q1Cash.investingCashFlow, q2Cash.investingCashFlow, 0]);
+    q3Cash.debtIssuance = subtractNullableFlow(q3Cash.debtIssuance, [q1Cash.debtIssuance, q2Cash.debtIssuance, 0]);
+    q3Cash.debtRepayment = subtractNullableFlow(q3Cash.debtRepayment, [q1Cash.debtRepayment, q2Cash.debtRepayment, 0]);
+    q3Cash.shareIssuance = subtractNullableFlow(q3Cash.shareIssuance, [q1Cash.shareIssuance, q2Cash.shareIssuance, 0]);
+    q3Cash.shareBuybacks = subtractNullableFlow(q3Cash.shareBuybacks, [q1Cash.shareBuybacks, q2Cash.shareBuybacks, 0]);
+    q3Cash.dividendsPaid = subtractNullableFlow(q3Cash.dividendsPaid, [q1Cash.dividendsPaid, q2Cash.dividendsPaid, 0]);
+    q3Cash.financingCashFlow = subtractNullableFlow(q3Cash.financingCashFlow, [q1Cash.financingCashFlow, q2Cash.financingCashFlow, 0]);
+    recomputeCashflowDerivedFields(q3Cash, q3Income);
 
     const revenue = subtractFlow(q4Income.revenue, [q1Income.revenue, q2Income.revenue, q3Income.revenue]);
     if (!Number.isFinite(revenue) || revenue <= 0) {
@@ -2549,6 +2645,8 @@ function normalizeAnnualQ4Flows(
     q4Income.incomeBeforeTax = subtractNullableFlow(q4Income.incomeBeforeTax, [q1Income.incomeBeforeTax, q2Income.incomeBeforeTax, q3Income.incomeBeforeTax]);
     q4Income.incomeTaxExpense = subtractNullableFlow(q4Income.incomeTaxExpense, [q1Income.incomeTaxExpense, q2Income.incomeTaxExpense, q3Income.incomeTaxExpense]);
     q4Income.netIncome = subtractFlow(q4Income.netIncome, [q1Income.netIncome, q2Income.netIncome, q3Income.netIncome]);
+    q4Income.epsDiluted = subtractNullableFlow(q4Income.epsDiluted, [q1Income.epsDiluted, q2Income.epsDiluted, q3Income.epsDiluted]);
+    q4Income.epsBasic = subtractNullableFlow(q4Income.epsBasic, [q1Income.epsBasic, q2Income.epsBasic, q3Income.epsBasic]);
     q4Income.grossMargin = safeDivide(q4Income.grossProfit, q4Income.revenue);
     q4Income.ebitda = q4Income.depreciationAmortization !== null ? q4Income.ebit + q4Income.depreciationAmortization : null;
     q4Income.ebitMargin = safeDivide(q4Income.ebit, q4Income.revenue);
@@ -2577,15 +2675,20 @@ function normalizeAnnualQ4Flows(
     q4Cash.shareBuybacks = subtractNullableFlow(q4Cash.shareBuybacks, [q1Cash.shareBuybacks, q2Cash.shareBuybacks, q3Cash.shareBuybacks]);
     q4Cash.dividendsPaid = subtractNullableFlow(q4Cash.dividendsPaid, [q1Cash.dividendsPaid, q2Cash.dividendsPaid, q3Cash.dividendsPaid]);
     q4Cash.financingCashFlow = subtractNullableFlow(q4Cash.financingCashFlow, [q1Cash.financingCashFlow, q2Cash.financingCashFlow, q3Cash.financingCashFlow]);
-    q4Cash.freeCashFlow = q4Cash.capex !== null ? q4Cash.operatingCashFlow - Math.abs(q4Cash.capex) : null;
-    q4Cash.fcfMargin = safeDivide(q4Cash.freeCashFlow, q4Income.revenue);
-    q4Cash.fcfConversion = safeDivide(q4Cash.freeCashFlow, q4Income.netIncome);
+    recomputeCashflowDerivedFields(q4Cash, q4Income);
 
     warnings.push(`Q4 normalized from annual 10-K totals for FY${fiscalYear} at ${q4Income.periodEnd}.`);
   }
 
   return { income, cashflow };
 }
+
+export const __test__ = {
+  deriveFiscalQuarter,
+  deriveFiscalYear,
+  normalizeAnnualQ4Flows,
+  safeGrowth
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CACHE + PERSISTENCE (Neon Postgres)

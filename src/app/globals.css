@@ -499,6 +499,13 @@ body *,
   padding: 0 !important;
 }
 
+.eldar-logo-mark {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
 .eldar-logo-button:hover {
   border: 0 !important;
   background: transparent !important;
