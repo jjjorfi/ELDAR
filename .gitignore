@@ -55,3 +55,8 @@ __pycache__/
 # Local backup archives (keep local only)
 ELDAR BACKUP/
 ELDAR VISUALS/
+
+# Git hygiene guardrails
+.npm-cache/
+**/__pycache__/
+tsconfig.tsbuildinfo
