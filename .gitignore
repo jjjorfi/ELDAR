@@ -1,62 +1,70 @@
 # Dependencies
 node_modules/
+.npm-cache/
+.npm/
+.yarn/
 .pnp
 .pnp.js
 
-# Next.js build output
+# Next.js build
 .next/
 out/
 build/
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-*.log
-
-# Local env files (never commit secrets)
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.*
-!.env.example
-!.env.local.template
-
-# OS / Editor
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-# TypeScript
-*.tsbuildinfo
-next-env.d.ts
-
-# Coverage / test artifacts
-coverage/
-.nyc_output/
-
-# Caches / temp
-.cache/
-.npm-cache/
-*.tmp
-tmp/
-
-# Python artifacts (if present in repo)
-__pycache__/
-*.pyc
+dist/
 
 # Vercel
 .vercel/
 
-# Local backup archives (keep local only)
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Environment variables - NEVER COMMIT
+.env
+.env.*
+!.env.example
+
+# Python (should not exist in this repo)
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+venv/
+.venv/
+*.egg-info/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+
+# Editor
+.idea/
+*.swp
+*.swo
+.vscode/settings.json
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log
+.pnpm-debug.log*
+
+# Test output
+coverage/
+.nyc_output/
+
+# Misc
+*.pid
+*.seed
+*.pid.lock
+.cache/
+
+# Local backup archives
 ELDAR BACKUP/
 ELDAR VISUALS/
-
-# Git hygiene guardrails
-.npm-cache/
-**/__pycache__/
-tsconfig.tsbuildinfo
