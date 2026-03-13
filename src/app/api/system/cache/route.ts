@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
 
+import { errorResponse, okResponse } from "@/lib/api";
 import { runRouteGuards } from "@/lib/api/route-security";
 import { redisCacheMode } from "@/lib/cache/redis";
+import { AuthError } from "@/lib/errors";
+import { env } from "@/lib/env";
+import { log } from "@/lib/logger";
+import { verifyCronSecret } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
 function hasRedisUrl(): boolean {
-  const value = String(process.env.REDIS_URL ?? "").trim();
-  return value.length > 0;
+  return env.REDIS_URL.length > 0;
 }
 
 function redisEnabledFlag(): boolean {
-  return String(process.env.USE_REDIS ?? "").trim().toLowerCase() === "true";
+  return env.USE_REDIS;
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -22,24 +26,41 @@ export async function GET(request: Request): Promise<NextResponse> {
   });
   if (blocked) return blocked;
 
-  const mode = redisCacheMode();
-  const useRedis = redisEnabledFlag();
-  const urlConfigured = hasRedisUrl();
+  try {
+    verifyCronSecret(request);
 
-  return NextResponse.json(
-    {
-      redis: {
-        enabled: mode === "enabled",
-        mode,
-        useRedisFlag: useRedis,
-        urlConfigured
+    const mode = redisCacheMode();
+    const useRedis = redisEnabledFlag();
+    const urlConfigured = hasRedisUrl();
+
+    log({
+      level: "info",
+      service: "api-system-cache",
+      message: "Cache config inspected",
+      redisMode: mode
+    });
+
+    return okResponse(
+      {
+        redis: {
+          enabled: mode === "enabled",
+          mode,
+          useRedisFlag: useRedis,
+          urlConfigured
+        },
+        generatedAt: new Date().toISOString()
       },
-      generatedAt: new Date().toISOString()
-    },
-    {
-      headers: {
-        "Cache-Control": "no-store"
+      {
+        headers: {
+          "Cache-Control": "no-store"
+        }
       }
+    );
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return errorResponse(error, { route: "api-system-cache" });
     }
-  );
+
+    return errorResponse(error, { route: "api-system-cache" });
+  }
 }

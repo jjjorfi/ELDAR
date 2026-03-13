@@ -1,37 +1,7 @@
-import crypto from "node:crypto";
-
 import { NextResponse } from "next/server";
 
-/**
- * Compares two secrets in constant time.
- *
- * @param a First value.
- * @param b Second value.
- * @returns True when values match.
- */
-function constantTimeEqual(a: string, b: string): boolean {
-  const aBuffer = Buffer.from(a);
-  const bBuffer = Buffer.from(b);
-  if (aBuffer.length !== bBuffer.length) {
-    return false;
-  }
-  return crypto.timingSafeEqual(aBuffer, bBuffer);
-}
-
-/**
- * Extracts a bearer token from Authorization header.
- *
- * @param request Incoming request.
- * @returns Token or null.
- */
-function bearerToken(request: Request): string | null {
-  const auth = request.headers.get("authorization");
-  if (!auth) return null;
-  const [scheme, token] = auth.split(" ", 2);
-  if (scheme?.toLowerCase() !== "bearer") return null;
-  const normalized = (token ?? "").trim();
-  return normalized.length > 0 ? normalized : null;
-}
+import { constantTimeEqual, getBearerToken } from "@/lib/auth";
+import { env } from "@/lib/env";
 
 /**
  * Checks whether request is authorized for privileged diagnostics.
@@ -42,13 +12,13 @@ function bearerToken(request: Request): string | null {
  * @returns True when request is authorized.
  */
 export function isAuthorizedAdminRequest(request: Request): boolean {
-  const secret = (process.env.CRON_SECRET ?? "").trim();
+  const secret = env.CRON_SECRET;
   if (!secret) {
-    return process.env.NODE_ENV !== "production";
+    return env.NODE_ENV !== "production";
   }
 
   const candidate =
-    bearerToken(request) ??
+    getBearerToken(request) ??
     request.headers.get("x-admin-secret")?.trim() ??
     request.headers.get("x-cron-secret")?.trim() ??
     "";
@@ -58,13 +28,27 @@ export function isAuthorizedAdminRequest(request: Request): boolean {
 }
 
 /**
+ * Checks whether request is authorized for cron-triggered operational work.
+ *
+ * Deliberately does not trust provider-specific marker headers on their own.
+ * A valid shared secret is required so external callers cannot spoof cron
+ * execution by replaying header names such as `x-vercel-cron`.
+ *
+ * @param request Incoming request.
+ * @returns True when cron/admin secret is valid.
+ */
+export function isAuthorizedCronRequest(request: Request): boolean {
+  return isAuthorizedAdminRequest(request);
+}
+
+/**
  * Enforces privileged access for sensitive endpoints in production.
  *
  * @param request Incoming request.
  * @returns NextResponse when blocked, otherwise null.
  */
 export function requireAdminAccess(request: Request): NextResponse | null {
-  if (process.env.NODE_ENV !== "production") {
+  if (env.NODE_ENV !== "production") {
     return null;
   }
 

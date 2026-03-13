@@ -1,27 +1,11 @@
-import {
-  fetchAlphaVantageDailyHistory,
-  fetchAlphaVantageFallbackData,
-  fetchAlphaVantageQuoteSnapshot
-} from "@/lib/market/providers/alpha-vantage";
+import { fetchAlphaVantageDailyHistory } from "@/lib/market/providers/alpha-vantage";
 import { getFetchSignal } from "@/lib/market/adapter-utils";
-import { fetchEodhdFallbackData, fetchEodhdQuoteSnapshot } from "@/lib/market/providers/eodhd";
-import { fetchFmpFallbackData, fetchFmpQuoteSnapshot } from "@/lib/market/providers/fmp";
-import {
-  fetchFinnhubLatestEarnings,
-  fetchFinnhubInsiderSignal,
-  fetchFinnhubMetrics,
-  fetchFinnhubOptionFlow,
-  fetchFinnhubQuoteSnapshot,
-  fetchFinnhubSentiment,
-  fetchFinnhubCompanyProfile
-} from "@/lib/market/providers/finnhub";
-import { extractFinnhubMetrics } from "@/lib/market/providers/finnhub-metrics";
-import { fetchMassiveOptionFlow, fetchMassiveQuoteSnapshot, fetchMassiveShortInterest } from "@/lib/market/providers/massive";
 import { mergePriceObservations } from "@/lib/market/orchestration/price-merge";
+import { fetchMarketSnapshotFallbacks, fetchMarketSnapshotSignals } from "@/lib/market/orchestration/market-snapshot-support";
 import { rsi, sma } from "@/lib/market/indicators";
-import { fetchMacroSignals } from "@/lib/market/orchestration/macro";
-import { fetchSP500Directory } from "@/lib/market/universe/sp500";
 import { fetchTemporaryHistoryFallback, fetchTemporaryQuoteFallback } from "@/lib/market/orchestration/temporary-fallbacks";
+import { env } from "@/lib/env";
+import { log } from "@/lib/logger";
 import { getLastKnownPrice } from "@/lib/storage/index";
 import type { MarketSnapshot } from "@/lib/types";
 import { resolveSectorFromCandidates } from "@/lib/scoring/sector/config";
@@ -91,7 +75,13 @@ function warnProvider(symbol: string, scope: string, error: unknown): void {
     return;
   }
   providerWarnings.set(key, now);
-  console.warn(`[Yahoo Snapshot][${symbol}][${scope}]: ${message}`);
+  log({
+    level: "warn",
+    service: "provider-yahoo",
+    message,
+    symbol,
+    scope
+  });
 }
 
 function toYahooSymbol(symbol: string): string {
@@ -430,60 +420,26 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
   const [
     summaryResult,
     dailyResult,
-    monthlyResult,
-    macroResult,
-    finnhubMetricsResult,
-    finnhubEarningsResult,
-    finnhubProfileResult,
-    finnhubInsiderResult,
-    sp500DirectoryResult
+    monthlyResult
   ] =
     await Promise.allSettled([
       fetchQuoteSummary(normalizedSymbol),
       fetchChartHistory(normalizedSymbol, "2y", "1d"),
-      fetchChartHistory(normalizedSymbol, "12y", "1mo"),
-      fetchMacroSignals(),
-      fetchFinnhubMetrics(normalizedSymbol),
-      fetchFinnhubLatestEarnings(normalizedSymbol),
-      fetchFinnhubCompanyProfile(normalizedSymbol),
-      fetchFinnhubInsiderSignal(normalizedSymbol),
-      fetchSP500Directory()
+      fetchChartHistory(normalizedSymbol, "12y", "1mo")
     ]);
+
+  const {
+    macro,
+    finnhubMetrics,
+    finnhubEarnings,
+    finnhubProfile,
+    finnhubInsider,
+    sp500Directory
+  } = await fetchMarketSnapshotSignals(normalizedSymbol);
 
   const summary = summaryResult.status === "fulfilled" ? summaryResult.value : {};
   let dailyHistory = dailyResult.status === "fulfilled" ? dailyResult.value : [];
   let monthlyHistory = monthlyResult.status === "fulfilled" ? monthlyResult.value : [];
-  const finnhubMetricsPayload = finnhubMetricsResult.status === "fulfilled" ? finnhubMetricsResult.value : null;
-  const finnhubMetrics = extractFinnhubMetrics(finnhubMetricsPayload);
-  const finnhubEarnings =
-    finnhubEarningsResult.status === "fulfilled"
-      ? finnhubEarningsResult.value
-      : {
-          actual: null,
-          estimate: null,
-          period: null,
-          reportDate: null,
-          surprisePercent: null
-        };
-
-  const finnhubProfile =
-    finnhubProfileResult.status === "fulfilled"
-      ? finnhubProfileResult.value
-      : {
-          sector: null,
-          industry: null,
-          shareOutstanding: null
-        };
-  const finnhubInsider =
-    finnhubInsiderResult.status === "fulfilled"
-      ? finnhubInsiderResult.value
-      : {
-          netChangeShares90d: null,
-          buyShares90d: 0,
-          sellShares90d: 0,
-          transactionCount90d: 0
-        };
-  const sp500Directory = sp500DirectoryResult.status === "fulfilled" ? sp500DirectoryResult.value : {};
   const canonicalCompanyName =
     typeof sp500Directory[normalizedSymbol]?.companyName === "string" &&
     sp500Directory[normalizedSymbol].companyName.trim().length > 0
@@ -494,22 +450,6 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
     sp500Directory[normalizedSymbol].sector.trim().length > 0
       ? sp500Directory[normalizedSymbol].sector.trim()
       : null;
-
-  const macro =
-    macroResult.status === "fulfilled"
-      ? macroResult.value
-      : {
-          fedSignal: "UNKNOWN" as const,
-          fedDelta: null,
-          fedCutProbability: null,
-          fedHoldProbability: null,
-          fedHikeProbability: null,
-          fedNextMeetingDate: null,
-          fedOddsSource: null,
-          vixLevel: null,
-          marketPutCallRatio: null,
-          gdpSurprise: null
-        };
 
   if (dailyHistory.length < 220 || monthlyHistory.length < 110) {
     // Temporary patch: these extra free-tier lookups are a build-stage bridge.
@@ -574,7 +514,7 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
 
   const needsSentimentFallback = yahooSentiment.upgrades90d + yahooSentiment.downgrades90d === 0;
 
-  const [
+  const {
     avFallback,
     fmpFallback,
     eodhdFallback,
@@ -587,52 +527,10 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
     fmpQuote,
     eodhdQuote,
     massiveQuote
-  ] =
-    await Promise.all([
-    needsOverviewFallback || needsSentimentFallback
-      ? fetchAlphaVantageFallbackData(normalizedSymbol)
-      : Promise.resolve({
-          companyName: null,
-          sector: null,
-          industry: null,
-          currency: null,
-          marketCap: null,
-          forwardPE: null,
-          forwardPEBasis: null,
-          debtToEquity: null,
-          profitMargin: null,
-          revenueGrowth: null,
-          operatingCashflow: null,
-          bullishNewsCount: 0,
-          bearishNewsCount: 0
-        }),
-    needsOverviewFallback || needsSentimentFallback
-      ? fetchFmpFallbackData(normalizedSymbol)
-      : Promise.resolve({
-          companyName: null,
-          sector: null,
-          industry: null,
-          currency: null,
-          marketCap: null,
-          currentPrice: null,
-          forwardPE: null,
-          forwardPEBasis: null,
-          debtToEquity: null,
-          profitMargin: null,
-          revenueGrowth: null,
-          articleCount: 0
-        }),
-    fetchEodhdFallbackData(normalizedSymbol),
-    fetchFinnhubSentiment(normalizedSymbol),
-    fetchMassiveOptionFlow(normalizedSymbol),
-    fetchMassiveShortInterest(normalizedSymbol),
-    fetchFinnhubOptionFlow(normalizedSymbol),
-    fetchFinnhubQuoteSnapshot(normalizedSymbol),
-    fetchAlphaVantageQuoteSnapshot(normalizedSymbol),
-    fetchFmpQuoteSnapshot(normalizedSymbol),
-    fetchEodhdQuoteSnapshot(normalizedSymbol),
-    fetchMassiveQuoteSnapshot(normalizedSymbol)
-  ]);
+  } = await fetchMarketSnapshotFallbacks(normalizedSymbol, {
+    needsOverviewFallback,
+    needsSentimentFallback
+  });
 
   const resolvedSector = resolveSectorFromCandidates([
     canonicalSector,
@@ -648,21 +546,24 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
     finnhubProfile.industry
   ]);
 
-  if (process.env.ELDAR_DEBUG_SECTOR === "1") {
-    console.log(
-      `[SECTOR] ${normalizedSymbol} raw=${JSON.stringify({
-        yahooSector,
-        yahooIndustry,
-        avSector: avFallback.sector,
-        avIndustry: avFallback.industry,
-        fmpSector: fmpFallback.sector,
-        fmpIndustry: fmpFallback.industry,
-        eodhdSector: eodhdFallback.sector,
-        eodhdIndustry: eodhdFallback.industry,
-        finnhubSector: finnhubProfile.sector,
-        finnhubIndustry: finnhubProfile.industry
-      })} final=${resolvedSector}`
-    );
+  if (env.NODE_ENV !== "production" && env.ELDAR_DEBUG_SECTOR) {
+    log({
+      level: "debug",
+      service: "yahoo-snapshot",
+      message: "Resolved sector candidates",
+      symbol: normalizedSymbol,
+      resolvedSector,
+      yahooSector,
+      yahooIndustry,
+      avSector: avFallback.sector,
+      avIndustry: avFallback.industry,
+      fmpSector: fmpFallback.sector,
+      fmpIndustry: fmpFallback.industry,
+      eodhdSector: eodhdFallback.sector,
+      eodhdIndustry: eodhdFallback.industry,
+      finnhubSector: finnhubProfile.sector,
+      finnhubIndustry: finnhubProfile.industry
+    });
   }
 
   const optionFlow = hasOptionFlowData(massiveOptionFlow)
@@ -742,7 +643,13 @@ export async function fetchMarketSnapshot(symbol: string): Promise<MarketSnapsho
   });
 
   for (const warning of mergedPrice.warnings) {
-    console.warn(`[${warning.type}] ${warning.message}`);
+    log({
+      level: "warn",
+      service: "provider-yahoo",
+      message: warning.message,
+      warningType: warning.type,
+      symbol: normalizedSymbol
+    });
   }
 
   const currentPrice = mergedPrice.value ?? (filterCloses(dailyHistory).at(-1) ?? null);

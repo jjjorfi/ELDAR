@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
+import { errorResponse, okResponse } from "@/lib/api";
 import { runRouteGuards } from "@/lib/api/route-security";
-import { isAuthorizedAdminRequest } from "@/lib/security/admin";
+import { verifyCronSecret } from "@/lib/auth";
+import { AuthError } from "@/lib/errors";
+import { log } from "@/lib/logger";
 import { listDefaultAggregateKeys } from "@/lib/snapshots/aggregate";
 import { requestAggregateSnapshotRefresh, requestSnapshotRefresh } from "@/lib/snapshots/service";
 import { getRecentAnalyses } from "@/lib/storage/index";
@@ -62,11 +65,9 @@ export async function GET(request: Request): Promise<NextResponse> {
   const blocked = await runRouteGuards(request);
   if (blocked) return blocked;
 
-  if (!isAuthorizedAdminRequest(request) && request.headers.get("x-vercel-cron") !== "1") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    verifyCronSecret(request);
+
     const { searchParams } = new URL(request.url);
     const symbolLimit = parseSymbolLimit(searchParams);
     const symbols = await buildWarmupSymbols(symbolLimit);
@@ -100,7 +101,17 @@ export async function GET(request: Request): Promise<NextResponse> {
     const aggregateCreated = aggregateResults.filter((result) => result.created).length;
     const symbolCreated = symbolResults.filter((result) => result.created).length;
 
-    return NextResponse.json({
+    log({
+      level: "info",
+      service: "api-cron-snapshots-warmup",
+      message: "Snapshot warmup jobs enqueued",
+      symbolRequested: symbolResults.length,
+      symbolCreated,
+      aggregateRequested: aggregateResults.length,
+      aggregateCreated
+    });
+
+    return okResponse({
       ok: true,
       aggregate: {
         requested: aggregateResults.length,
@@ -112,7 +123,10 @@ export async function GET(request: Request): Promise<NextResponse> {
       }
     });
   } catch (error) {
-    console.error("/api/cron/snapshots/warmup GET error", error);
-    return NextResponse.json({ error: "Failed to enqueue snapshot warmup jobs." }, { status: 500 });
+    if (error instanceof AuthError) {
+      return errorResponse(error, { route: "api-cron-snapshots-warmup" });
+    }
+
+    return errorResponse(error, { route: "api-cron-snapshots-warmup" });
   }
 }

@@ -1,6 +1,6 @@
-import { cacheGetJson, cacheSetJson } from "@/lib/cache/redis";
+import { log } from "@/lib/logger";
 import { getFetchSignal } from "@/lib/market/adapter-utils";
-import { fetchTemporaryHistoryFallback } from "@/lib/market/orchestration/temporary-fallbacks";
+import { isNySessionOpen } from "@/lib/market/ny-session";
 import { fetchSP500Directory } from "@/lib/market/universe/sp500";
 import { resolveSp500DirectorySymbol } from "@/lib/market/universe/sp500-universe";
 import { sanitizeSymbol } from "@/lib/utils";
@@ -12,11 +12,6 @@ interface ParsedChartRows {
   latestPrice: number | null;
 }
 
-interface HistoryFallbackPoint {
-  date: Date;
-  close: number | null;
-}
-
 const RANGE_MAP: Record<PriceRange, { range: string; interval: string }> = {
   "1W": { range: "5d", interval: "1d" },
   "1M": { range: "1mo", interval: "1d" },
@@ -24,11 +19,10 @@ const RANGE_MAP: Record<PriceRange, { range: string; interval: string }> = {
   "1Y": { range: "1y", interval: "1d" }
 };
 
-const CACHE_TTL_MS = 2 * 60 * 1000;
-const REDIS_CACHE_TTL_SECONDS = 10 * 60;
 const FETCH_TIMEOUT_MS = 3_500;
-const routeCache = new Map<string, { expiresAt: number; payload: PriceHistoryPayload }>();
-const routeInFlight = new Map<string, Promise<PriceHistoryPayload>>();
+const LOG_TTL_MS = 60_000;
+const recentWarnings = new Map<string, number>();
+const PRICE_HISTORY_AGGREGATE_PREFIX = "price-history:v1";
 
 function toYahooSymbol(symbol: string): string {
   return symbol.replace(/\./g, "-");
@@ -41,6 +35,53 @@ export function parsePriceRange(raw: string | null): PriceRange {
   return "3M";
 }
 
+/**
+ * Builds the aggregate snapshot key used for a symbol/range history payload.
+ *
+ * @param symbol - Supported uppercase symbol.
+ * @param range - Requested history window.
+ * @returns Aggregate snapshot key.
+ */
+export function priceHistoryAggregateKey(symbol: string, range: PriceRange): string {
+  return `${PRICE_HISTORY_AGGREGATE_PREFIX}:${sanitizeSymbol(symbol)}:${range}`;
+}
+
+/**
+ * Parses a price-history aggregate key into its typed parts.
+ *
+ * @param key - Aggregate snapshot key candidate.
+ * @returns Parsed key parts or null when the format is invalid.
+ */
+export function parsePriceHistoryAggregateKey(key: string): { symbol: string; range: PriceRange } | null {
+  const normalized = key.trim();
+  const match = normalized.match(/^price-history:v1:([A-Z.\-]+):(1W|1M|3M|1Y)$/);
+  if (!match) {
+    return null;
+  }
+
+  const [, symbol, range] = match;
+  const parsedRange = parsePriceRange(range);
+  return {
+    symbol,
+    range: parsedRange
+  };
+}
+
+/**
+ * Computes the TTL for a price-history aggregate snapshot.
+ *
+ * @returns TTL in milliseconds.
+ */
+export function priceHistoryAggregateTtlMs(): number {
+  return isNySessionOpen() ? 5 * 60_000 : 30 * 60_000;
+}
+
+/**
+ * Resolves a request symbol to a supported S&P 500 symbol.
+ *
+ * @param rawSymbol - Raw symbol input from the request layer.
+ * @returns Normalized supported symbol, or null when unsupported.
+ */
 export async function resolveSupportedPriceHistorySymbol(rawSymbol: string): Promise<string | null> {
   const normalized = sanitizeSymbol(rawSymbol ?? "");
   if (!normalized) return null;
@@ -111,17 +152,23 @@ function computeChangePercent(points: PricePoint[], latestPrice: number | null):
   return ((last - first) / first) * 100;
 }
 
-function mapFallbackHistory(points: HistoryFallbackPoint[]): PricePoint[] {
-  return points
-    .filter((point): point is { date: Date; close: number } => point.close !== null && point.close > 0)
-    .map((point) => ({
-      time: point.date.toISOString(),
-      price: point.close
-    }))
-    .sort((a, b) => Date.parse(a.time) - Date.parse(b.time));
+function warnOnce(scope: string, message: string): void {
+  const key = `${scope}:${message}`;
+  const now = Date.now();
+  const previous = recentWarnings.get(key) ?? 0;
+  if (now - previous < LOG_TTL_MS) {
+    return;
+  }
+  recentWarnings.set(key, now);
+  log({
+    level: "warn",
+    service: "price-history-service",
+    message,
+    scope
+  });
 }
 
-async function buildPriceHistoryPayload(symbol: string, range: PriceRange): Promise<PriceHistoryPayload> {
+async function buildPriceHistoryPayloadFromProvider(symbol: string, range: PriceRange): Promise<PriceHistoryPayload> {
   const config = RANGE_MAP[range];
   const yahooSymbol = toYahooSymbol(symbol);
   const yahooUrl = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}`);
@@ -131,49 +178,30 @@ async function buildPriceHistoryPayload(symbol: string, range: PriceRange): Prom
 
   let points: PricePoint[] = [];
   let latestPrice: number | null = null;
-  let fallbackPoints: PricePoint[] = [];
 
   try {
-    const fallback = await fetchTemporaryHistoryFallback(symbol, {
-      range: config.range,
-      interval: config.interval,
-      minimumPoints
-    });
-    fallbackPoints = mapFallbackHistory(fallback.points);
-    if (fallback.source === "ALPACA" && fallbackPoints.length >= minimumPoints) {
-      points = fallbackPoints;
-      latestPrice = points[points.length - 1]?.price ?? null;
-    }
-  } catch (error) {
-    console.warn(`[Price History Service]: Alpaca-first fallback failed for ${symbol} ${range}.`, error);
-  }
-
-  if (points.length < minimumPoints) {
-    try {
-      const response = await fetch(yahooUrl.toString(), {
-        cache: "no-store",
-        signal: getFetchSignal(FETCH_TIMEOUT_MS),
-        headers: {
-          "User-Agent": "Mozilla/5.0"
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Yahoo chart request failed (${response.status})`);
+    const response = await fetch(yahooUrl.toString(), {
+      cache: "no-store",
+      signal: getFetchSignal(FETCH_TIMEOUT_MS),
+      headers: {
+        "User-Agent": "Mozilla/5.0"
       }
+    });
 
-      const payload = (await response.json()) as unknown;
-      const parsed = parseRows(payload);
-      points = parsed.points;
-      latestPrice = parsed.latestPrice;
-    } catch (error) {
-      console.warn(`[Price History Service]: Yahoo failed for ${symbol} ${range}.`, error);
+    if (!response.ok) {
+      throw new Error(`Yahoo chart request failed (${response.status})`);
     }
+
+    const payload = (await response.json()) as unknown;
+    const parsed = parseRows(payload);
+    points = parsed.points;
+    latestPrice = parsed.latestPrice;
+  } catch (error) {
+    warnOnce("yahoo", `${symbol} ${range} primary history fetch failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 
-  if (points.length < minimumPoints && fallbackPoints.length > points.length) {
-    points = fallbackPoints;
-    latestPrice = points[points.length - 1]?.price ?? latestPrice;
+  if (points.length > 0 && points.length < minimumPoints) {
+    warnOnce("insufficient", `${symbol} ${range} returned ${points.length} point(s); expected at least ${minimumPoints}`);
   }
 
   return {
@@ -184,40 +212,17 @@ async function buildPriceHistoryPayload(symbol: string, range: PriceRange): Prom
   };
 }
 
-export async function getPriceHistoryPayloadCached(
-  symbol: string,
-  range: PriceRange
-): Promise<{ payload: PriceHistoryPayload; cache: "memory" | "redis" | "in-flight" | "computed" }> {
-  const cacheKey = `${symbol}:${range}`;
-  const redisKey = `price:history:v2:${cacheKey}`;
-  const cached = routeCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return { payload: cached.payload, cache: "memory" };
-  }
-
-  const redisCached = await cacheGetJson<PriceHistoryPayload>(redisKey);
-  if (redisCached) {
-    routeCache.set(cacheKey, {
-      expiresAt: Date.now() + CACHE_TTL_MS,
-      payload: redisCached
-    });
-    return { payload: redisCached, cache: "redis" };
-  }
-
-  let inFlight = routeInFlight.get(cacheKey);
-  const hadInFlight = Boolean(inFlight);
-  if (!inFlight) {
-    inFlight = buildPriceHistoryPayload(symbol, range).finally(() => {
-      routeInFlight.delete(cacheKey);
-    });
-    routeInFlight.set(cacheKey, inFlight);
-  }
-
-  const payload = await inFlight;
-  routeCache.set(cacheKey, {
-    expiresAt: Date.now() + CACHE_TTL_MS,
-    payload
-  });
-  await cacheSetJson(redisKey, payload, REDIS_CACHE_TTL_SECONDS);
-  return { payload, cache: hadInFlight ? "in-flight" : "computed" };
+/**
+ * Builds a price-history payload from the upstream chart provider.
+ *
+ * This function is intended for background snapshot builders only. User-facing
+ * request paths must read from persisted aggregate snapshots instead of calling
+ * the upstream provider inline.
+ *
+ * @param symbol - Supported uppercase symbol.
+ * @param range - Requested price-history range.
+ * @returns Price-history payload.
+ */
+export async function buildPriceHistoryPayload(symbol: string, range: PriceRange): Promise<PriceHistoryPayload> {
+  return buildPriceHistoryPayloadFromProvider(symbol, range);
 }

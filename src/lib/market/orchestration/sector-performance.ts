@@ -7,6 +7,7 @@
 import { getFetchSignal } from "@/lib/market/adapter-utils";
 import { fetchTemporaryHistoryFallback } from "@/lib/market/orchestration/temporary-fallbacks";
 import { cacheGetJson, cacheSetJson } from "@/lib/cache/redis";
+import { log } from "@/lib/logger";
 
 export type SectorPerformanceWindow = "YTD" | "1M" | "3M" | "6M";
 export type SectorSentiment = "bullish" | "neutral" | "bearish";
@@ -37,7 +38,12 @@ function warnOnce(symbol: string, message: string): void {
     return;
   }
   recentWarnings.set(key, now);
-  console.warn(`[Sector Performance][${symbol}]: ${message}`);
+  log({
+    level: "warn",
+    service: "sector-performance",
+    message,
+    symbol
+  });
 }
 
 function sectorHistoryRedisKey(symbol: string): string {

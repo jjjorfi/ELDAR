@@ -17,6 +17,7 @@ import path from "node:path";
 
 import { sql } from "@vercel/postgres";
 
+import { env } from "@/lib/env";
 import { sicToGics, XBRL_TAGS } from "@/lib/financials/eldar-financials-taxonomy";
 import type {
   CompanyFinancials,
@@ -236,15 +237,6 @@ interface YahooChartPayload {
           adjclose?: Array<number | null>;
         }>;
       };
-    }>;
-  };
-}
-
-interface YahooQuotePayload {
-  quoteResponse?: {
-    result?: Array<{
-      regularMarketPrice?: number;
-      regularMarketTime?: number;
     }>;
   };
 }
@@ -1965,8 +1957,9 @@ async function fetchYahooDailyPrices(ticker: string): Promise<ProviderPriceRow[]
 
 async function fetchYahooQuote(ticker: string): Promise<ProviderQuoteRow | null> {
   try {
-    const url = new URL("https://query1.finance.yahoo.com/v7/finance/quote");
-    url.searchParams.set("symbols", toYahooSymbol(ticker));
+    const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(toYahooSymbol(ticker))}`);
+    url.searchParams.set("range", "5d");
+    url.searchParams.set("interval", "1d");
 
     const response = await fetch(url.toString(), {
       cache: "no-store",
@@ -1980,11 +1973,32 @@ async function fetchYahooQuote(ticker: string): Promise<ProviderQuoteRow | null>
       return null;
     }
 
-    const payload = (await response.json()) as YahooQuotePayload;
-    const row = payload.quoteResponse?.result?.[0];
-    if (!row) return null;
-    const last = parseOptionalNumber(row.regularMarketPrice);
-    const regularMarketTime = parseOptionalNumber(row.regularMarketTime);
+    const payload = (await response.json()) as {
+      chart?: {
+        result?: Array<{
+          meta?: {
+            regularMarketPrice?: number | null;
+            regularMarketTime?: number | null;
+          };
+          timestamp?: number[];
+          indicators?: {
+            quote?: Array<{
+              close?: Array<number | null>;
+            }>;
+          };
+        }>;
+      };
+    };
+    const result = payload.chart?.result?.[0];
+    if (!result) return null;
+
+    const timestamps = Array.isArray(result.timestamp) ? result.timestamp : [];
+    const closes = result.indicators?.quote?.[0]?.close ?? [];
+    const latestClose = [...closes].reverse().find((value): value is number => typeof value === "number" && Number.isFinite(value)) ?? null;
+    const last = latestClose ?? parseOptionalNumber(result.meta?.regularMarketPrice);
+    const regularMarketTime =
+      (typeof timestamps[timestamps.length - 1] === "number" ? timestamps[timestamps.length - 1] : null) ??
+      parseOptionalNumber(result.meta?.regularMarketTime);
 
     return {
       source: "YAHOO_FALLBACK",
@@ -2116,6 +2130,11 @@ async function fetchRankedQuote(ticker: string): Promise<ProviderQuoteRow | null
   }
 
   const run = (async (): Promise<ProviderQuoteRow | null> => {
+    const yahoo = await retryAsync(() => fetchYahooQuote(ticker), 2, 180).catch(() => null);
+    if (yahoo?.last !== undefined && yahoo.last !== null) {
+      return yahoo;
+    }
+
     const fallback = await fetchTemporaryQuoteFallback(ticker, { fast: true });
     if (fallback.price !== null) {
       const source = mapHistorySourceToPriceSource(fallback.source ?? null) ?? "YAHOO_FALLBACK";
@@ -2125,7 +2144,8 @@ async function fetchRankedQuote(ticker: string): Promise<ProviderQuoteRow | null
         timestamp: fallback.asOfMs !== null ? new Date(fallback.asOfMs).toISOString() : undefined
       };
     }
-    return retryAsync(() => fetchYahooQuote(ticker), 2, 180).catch(() => null);
+
+    return null;
   })();
 
   rankedQuoteInFlight.set(key, run);
@@ -2572,7 +2592,7 @@ function normalizeAnnualQ4Flows(
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function ensureTables(): Promise<void> {
-  if (tablesEnsured || !process.env.POSTGRES_URL) return;
+  if (tablesEnsured || !env.POSTGRES_URL) return;
 
   await sql`
     CREATE TABLE IF NOT EXISTS eldar_company_profile (
@@ -2660,7 +2680,7 @@ async function ensureTables(): Promise<void> {
 }
 
 async function loadCacheEnvelope(ticker: string): Promise<CacheEnvelope | null> {
-  if (!process.env.POSTGRES_URL) {
+  if (!env.POSTGRES_URL) {
     return loadLocalCacheEnvelope(ticker);
   }
   let rows: Array<{
@@ -2782,7 +2802,7 @@ async function saveToCache(financials: CompanyFinancials, restated: boolean, quo
     ratios: financials.ratios[index]
   }));
 
-  if (!process.env.POSTGRES_URL) {
+  if (!env.POSTGRES_URL) {
     await saveLocalCache(financials, nowIso, pricesRefreshedAt);
     return;
   }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { env } from "@/lib/env";
 import { requireAdminAccess } from "@/lib/security/admin";
 
 const GLOBAL_WINDOW_MS = 60_000;
@@ -33,22 +34,14 @@ export function isGuardBlockedError(error: unknown): error is GuardBlockedError 
  * Reads RPM config from env with a safe default.
  */
 function readRateLimitRpm(): number {
-  const parsed = Number.parseInt((process.env.RATE_LIMIT_RPM ?? "").trim(), 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return DEFAULT_RATE_LIMIT_RPM;
-  }
-  return parsed;
+  return env.RATE_LIMIT_RPM || DEFAULT_RATE_LIMIT_RPM;
 }
 
 /**
  * Reads request body-size ceiling from env with a safe default.
  */
 function readMaxBodyBytes(): number {
-  const parsed = Number.parseInt((process.env.MAX_BODY_BYTES ?? "").trim(), 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return DEFAULT_MAX_BODY_BYTES;
-  }
-  return parsed;
+  return env.MAX_BODY_BYTES || DEFAULT_MAX_BODY_BYTES;
 }
 
 /**
@@ -65,7 +58,7 @@ function firstHeaderToken(value: string | null): string | null {
  * BOT_WAF_HEADER takes priority so trusted edge IP headers can override spoofable ones.
  */
 function clientIdentifier(request: Request): string {
-  const botWafHeader = (process.env.BOT_WAF_HEADER ?? "").trim();
+  const botWafHeader = env.BOT_WAF_HEADER;
   if (botWafHeader.length > 0) {
     const wafValue = firstHeaderToken(request.headers.get(botWafHeader));
     if (wafValue) {
@@ -85,6 +78,7 @@ function isProtectedPath(pathname: string): boolean {
   return (
     pathname === "/api/health" ||
     pathname === "/api/health/" ||
+    pathname.startsWith("/api/system/") ||
     pathname.startsWith("/api/cron/") ||
     pathname.startsWith("/api/debug-") ||
     pathname.startsWith("/api/test-")

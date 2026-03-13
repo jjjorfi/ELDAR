@@ -4,6 +4,8 @@
 // fully active.
 
 import { getFetchSignal, parseOptionalNumber, parseTimestampMs, readEnvToken, setUrlSearchParams } from "@/lib/market/adapter-utils";
+import { log } from "@/lib/logger";
+import { buildSymbolCandidates, createProviderSuppression } from "@/lib/market/providers/provider-helpers";
 
 export interface AlpacaQuoteSnapshot {
   price: number | null;
@@ -22,43 +24,79 @@ const ALPACA_AUTH_DISABLE_TTL_MS = 10 * 60_000;
 const ALPACA_RATE_LIMIT_DISABLE_TTL_MS = 60_000;
 const ALPACA_MAX_HISTORY_PAGES = 10;
 const ALPACA_FEED = "iex";
+const alpacaSuppression = createProviderSuppression({ adapterLabel: "Alpaca" });
 
-let alpacaDisabledUntil = 0;
-let alpacaWarnedAt = 0;
-
+/**
+ * Reads the configured Alpaca key ID.
+ *
+ * @returns Alpaca key ID when configured, otherwise null.
+ */
 function alpacaKeyId(): string | null {
   return readEnvToken("ALPACA_API_KEY") ?? readEnvToken("ALPACA_API_KEY_ID") ?? readEnvToken("APCA_API_KEY_ID");
 }
 
+/**
+ * Reads the configured Alpaca secret key.
+ *
+ * @returns Alpaca secret when configured, otherwise null.
+ */
 function alpacaSecretKey(): string | null {
   return readEnvToken("ALPACA_API_SECRET") ?? readEnvToken("ALPACA_SECRET_KEY") ?? readEnvToken("APCA_API_SECRET_KEY");
 }
 
+/**
+ * Resolves the Alpaca data base URL.
+ *
+ * @returns Base URL for Alpaca market-data requests.
+ */
 function alpacaBaseUrl(): string {
   return readEnvToken("ALPACA_DATA_BASE_URL") ?? ALPACA_DEFAULT_BASE_URL;
 }
 
+/**
+ * Indicates whether Alpaca credentials are available.
+ *
+ * @returns True when both key ID and secret are configured.
+ */
 export function isAlpacaConfigured(): boolean {
   return alpacaKeyId() !== null && alpacaSecretKey() !== null;
 }
 
+/**
+ * Applies temporary request suppression after auth or rate-limit failures.
+ *
+ * @param ttlMs Suppression duration.
+ * @param label Failure class label.
+ */
 function suppressTemporarily(ttlMs: number, label: "auth" | "rate-limit"): void {
-  alpacaDisabledUntil = Date.now() + ttlMs;
-  if (Date.now() - alpacaWarnedAt > ttlMs) {
-    alpacaWarnedAt = Date.now();
-    console.warn(`[Alpaca Adapter]: temporary ${label} suppression for ${Math.round(ttlMs / 1000)}s.`);
-  }
+  alpacaSuppression.suppress(ttlMs, label);
 }
 
+/**
+ * Parses numeric Alpaca fields.
+ *
+ * @param value Raw provider field.
+ * @returns Finite parsed number or null.
+ */
 function parseNumber(value: unknown): number | null {
   return parseOptionalNumber(value, { allowCommas: true, allowPercent: true });
 }
 
+/**
+ * Builds preferred Alpaca symbol variants.
+ *
+ * @param symbol Input ticker.
+ * @returns Deduplicated provider-friendly symbol candidates.
+ */
 function symbolCandidates(symbol: string): string[] {
-  const upper = symbol.trim().toUpperCase();
-  return Array.from(new Set([upper, upper.replace(/\./g, "-"), upper.replace(/-/g, ".")])).filter(Boolean);
+  return buildSymbolCandidates(symbol, [(upper) => upper.replace(/\./g, "-"), (upper) => upper.replace(/-/g, ".")]);
 }
 
+/**
+ * Builds Alpaca auth headers from configured credentials.
+ *
+ * @returns Auth headers or null when credentials are incomplete.
+ */
 function getAuthHeaders(): Record<string, string> | null {
   const keyId = alpacaKeyId();
   const secret = alpacaSecretKey();
@@ -69,10 +107,37 @@ function getAuthHeaders(): Record<string, string> | null {
   };
 }
 
+/**
+ * Classifies text-only Alpaca payload failures into suppression windows.
+ *
+ * @param payload Parsed Alpaca payload.
+ * @returns Suppression descriptor or null.
+ */
+function classifyPayloadFailure(payload: Record<string, unknown>): { ttlMs: number; label: "auth" | "rate-limit" } | null {
+  const message = typeof payload.message === "string" ? payload.message.toLowerCase() : "";
+
+  if (message.includes("forbidden") || message.includes("unauthorized")) {
+    return { ttlMs: ALPACA_AUTH_DISABLE_TTL_MS, label: "auth" };
+  }
+
+  if (message.includes("limit") || message.includes("quota") || message.includes("too many")) {
+    return { ttlMs: ALPACA_RATE_LIMIT_DISABLE_TTL_MS, label: "rate-limit" };
+  }
+
+  return null;
+}
+
+/**
+ * Executes an Alpaca request with timeout, auth, and suppression handling.
+ *
+ * @param path Endpoint path relative to the Alpaca base URL.
+ * @param params Query parameters.
+ * @returns Parsed payload or null when unavailable.
+ */
 async function fetchAlpaca(path: string, params: Record<string, string | number | null> = {}): Promise<Record<string, unknown> | null> {
   const authHeaders = getAuthHeaders();
   if (!authHeaders) return null;
-  if (Date.now() < alpacaDisabledUntil) return null;
+  if (alpacaSuppression.isSuppressed()) return null;
 
   const cleanPath = path.startsWith("/") ? path.slice(1) : path;
   const url = new URL(`${alpacaBaseUrl()}/${cleanPath}`);
@@ -99,24 +164,31 @@ async function fetchAlpaca(path: string, params: Record<string, string | number 
     }
 
     const payload = (await response.json()) as Record<string, unknown>;
-    const message = typeof payload.message === "string" ? payload.message.toLowerCase() : "";
-    if (message.includes("forbidden") || message.includes("unauthorized")) {
-      suppressTemporarily(ALPACA_AUTH_DISABLE_TTL_MS, "auth");
-      return null;
-    }
-    if (message.includes("limit") || message.includes("quota") || message.includes("too many")) {
-      suppressTemporarily(ALPACA_RATE_LIMIT_DISABLE_TTL_MS, "rate-limit");
+    const failure = classifyPayloadFailure(payload);
+    if (failure) {
+      suppressTemporarily(failure.ttlMs, failure.label);
       return null;
     }
 
     return payload;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown Alpaca error.";
-    console.warn(`[Alpaca Adapter]: ${message}`);
+    log({
+      level: "warn",
+      service: "provider-alpaca",
+      message
+    });
     return null;
   }
 }
 
+/**
+ * Selects the most relevant snapshot row from mixed Alpaca response shapes.
+ *
+ * @param payload Parsed Alpaca payload.
+ * @param symbol Input ticker.
+ * @returns Snapshot row or null.
+ */
 function parseSnapshotRow(payload: Record<string, unknown>, symbol: string): Record<string, unknown> | null {
   for (const candidate of symbolCandidates(symbol)) {
     const direct = payload[candidate];
@@ -162,24 +234,53 @@ function parseSnapshotRow(payload: Record<string, unknown>, symbol: string): Rec
   return null;
 }
 
+/**
+ * Reads a numeric value from a top-level row field.
+ *
+ * @param row Provider row object.
+ * @param key Field name.
+ * @returns Parsed number or null.
+ */
 function fromRowNumber(row: Record<string, unknown>, key: string): number | null {
   if (typeof row[key] === "number") return parseNumber(row[key]);
   if (typeof row[key] === "string") return parseNumber(row[key]);
   return null;
 }
 
+/**
+ * Reads a numeric value from a nested row field.
+ *
+ * @param row Provider row object.
+ * @param parent Nested object key.
+ * @param child Nested field key.
+ * @returns Parsed number or null.
+ */
 function fromNestedRowNumber(row: Record<string, unknown>, parent: string, child: string): number | null {
   const nested = typeof row[parent] === "object" && row[parent] !== null ? (row[parent] as Record<string, unknown>) : null;
   if (!nested) return null;
   return fromRowNumber(nested, child);
 }
 
+/**
+ * Reads a nested timestamp field and converts it to epoch milliseconds.
+ *
+ * @param row Provider row object.
+ * @param parent Nested object key.
+ * @param child Nested field key.
+ * @returns Parsed timestamp or null.
+ */
 function fromNestedTimestampMs(row: Record<string, unknown>, parent: string, child: string): number | null {
   const nested = typeof row[parent] === "object" && row[parent] !== null ? (row[parent] as Record<string, unknown>) : null;
   if (!nested) return null;
   return parseTimestampMs(nested[child]);
 }
 
+/**
+ * Fetches the latest Alpaca quote snapshot.
+ *
+ * @param symbol Input ticker.
+ * @returns Best-effort quote snapshot.
+ */
 export async function fetchAlpacaQuoteSnapshot(symbol: string): Promise<AlpacaQuoteSnapshot> {
   if (!isAlpacaConfigured()) {
     return { price: null, changePercent: null, asOfMs: null };
@@ -225,6 +326,14 @@ export async function fetchAlpacaQuoteSnapshot(symbol: string): Promise<AlpacaQu
   };
 }
 
+/**
+ * Fetches Alpaca daily bar history and normalizes it into chronological close
+ * points.
+ *
+ * @param symbol Input ticker.
+ * @param lookbackDays Requested lookback horizon.
+ * @returns Sorted daily history points.
+ */
 export async function fetchAlpacaDailyHistory(symbol: string, lookbackDays: number): Promise<AlpacaHistoryPoint[]> {
   if (!isAlpacaConfigured()) {
     return [];

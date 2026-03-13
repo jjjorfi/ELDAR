@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
+import { isAuthorizedCronRequest } from "@/lib/security/admin";
 import guard, { isGuardBlockedError } from "@/lib/security/guard";
 
 const ENV = process.env as Record<string, string | undefined>;
@@ -39,6 +40,20 @@ test("guard blocks protected health route in production without admin token", as
 
   await assert.rejects(
     () => guard(request("/api/health")),
+    (error: unknown) =>
+      isGuardBlockedError(error) &&
+      error.response.status === 404 &&
+      error.response.headers.get("cache-control") === "no-store"
+  );
+});
+
+test("guard blocks protected system route in production without admin token", async () => {
+  ENV.NODE_ENV = "production";
+  ENV.CRON_SECRET = "unit-test-cron-secret";
+  ENV.RATE_LIMIT_RPM = "1000";
+
+  await assert.rejects(
+    () => guard(request("/api/system/cache")),
     (error: unknown) =>
       isGuardBlockedError(error) &&
       error.response.status === 404 &&
@@ -115,5 +130,19 @@ test("guard blocks oversized write requests when MAX_BODY_BYTES is exceeded", as
         )
       ),
     (error: unknown) => isGuardBlockedError(error) && error.response.status === 413
+  );
+});
+
+test("cron authorization rejects spoofed x-vercel-cron header without shared secret", () => {
+  ENV.NODE_ENV = "production";
+  ENV.CRON_SECRET = "unit-test-cron-secret";
+
+  assert.equal(
+    isAuthorizedCronRequest(
+      request("/api/cron/mag7", {
+        "x-vercel-cron": "1"
+      })
+    ),
+    false
   );
 });

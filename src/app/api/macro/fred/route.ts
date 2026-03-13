@@ -1,6 +1,8 @@
-import { NextResponse } from "next/server";
+import type { NextResponse } from "next/server";
 
+import { errorResponse, okResponse } from "@/lib/api";
 import { runRouteGuards } from "@/lib/api/route-security";
+import { log } from "@/lib/logger";
 import type { MacroFredPayload } from "@/lib/macro/fred-snapshot";
 import { AGGREGATE_SNAPSHOT_KEYS } from "@/lib/snapshots/contracts";
 import { getAggregateSnapshotForRead } from "@/lib/snapshots/service";
@@ -10,7 +12,11 @@ export const dynamic = "force-dynamic";
 
 const CACHE_HEADER = "public, max-age=300, s-maxage=600, stale-while-revalidate=1200";
 
+/**
+ * Returns the cached FRED macro snapshot used by the dashboard.
+ */
 export async function GET(request: Request): Promise<NextResponse> {
+  const startedAt = Date.now();
   const blocked = await runRouteGuards(request, {
     bucket: "api-macro-fred",
     max: 90,
@@ -28,7 +34,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     const payload = snapshotRead.snapshot?.payload ?? null;
     if (!payload) {
-      return NextResponse.json(
+      return okResponse(
         {
           indicators: [],
           fetchedAt: null,
@@ -46,28 +52,21 @@ export async function GET(request: Request): Promise<NextResponse> {
       );
     }
 
-    return NextResponse.json(payload, {
+    log({
+      level: "info",
+      service: "api-macro-fred",
+      message: "Macro FRED snapshot served",
+      state: snapshotRead.state,
+      durationMs: Date.now() - startedAt
+    });
+
+    return okResponse(payload, {
       headers: {
         "Cache-Control": CACHE_HEADER,
         "X-ELDAR-Data-State": snapshotRead.state + (snapshotRead.enqueued ? "+queued" : "")
       }
     });
   } catch (error) {
-    console.error("/api/macro/fred GET error", error);
-    return NextResponse.json(
-      {
-        indicators: [],
-        fetchedAt: null,
-        macroRegime: null,
-        stale: true
-      },
-      {
-        status: 503,
-        headers: {
-          "Cache-Control": CACHE_HEADER,
-          "X-ELDAR-Data-State": "degraded"
-        }
-      }
-    );
+    return errorResponse(error, { route: "api-macro-fred" }, { "Cache-Control": CACHE_HEADER });
   }
 }

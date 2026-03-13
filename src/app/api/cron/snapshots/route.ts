@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 
+import { errorResponse, okResponse } from "@/lib/api";
 import { runRouteGuards } from "@/lib/api/route-security";
+import { AuthError } from "@/lib/errors";
+import { log } from "@/lib/logger";
 import { processSnapshotJobs } from "@/lib/snapshots/service";
-import { isAuthorizedAdminRequest } from "@/lib/security/admin";
+import { verifyCronSecret } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -16,22 +19,34 @@ export async function GET(request: Request): Promise<NextResponse> {
   const blocked = await runRouteGuards(request);
   if (blocked) return blocked;
 
-  if (!isAuthorizedAdminRequest(request) && request.headers.get("x-vercel-cron") !== "1") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    verifyCronSecret(request);
+
     const { searchParams } = new URL(request.url);
     const batch = parseBatch(searchParams);
     const worker = searchParams.get("worker")?.trim() || "snapshot-cron";
     const result = await processSnapshotJobs(batch, worker);
-    return NextResponse.json({
+
+    log({
+      level: "info",
+      service: "api-cron-snapshots",
+      message: "Snapshot jobs processed",
+      batch,
+      worker,
+      claimed: result.claimed,
+      succeeded: result.succeeded,
+      failed: result.failed
+    });
+
+    return okResponse({
       ok: true,
       ...result
     });
   } catch (error) {
-    console.error("/api/cron/snapshots GET error", error);
-    return NextResponse.json({ error: "Failed to process snapshot jobs." }, { status: 500 });
+    if (error instanceof AuthError) {
+      return errorResponse(error, { route: "api-cron-snapshots" });
+    }
+
+    return errorResponse(error, { route: "api-cron-snapshots" });
   }
 }
-

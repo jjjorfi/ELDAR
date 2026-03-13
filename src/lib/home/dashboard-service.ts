@@ -6,6 +6,7 @@ import {
 import { GICS_SECTORS, GICS_SECTOR_ETFS } from "@/lib/market/universe/gics-sectors";
 import { buildDashboardNewsFocusSymbols, getDashboardMarketNews } from "@/lib/home/dashboard-news";
 import { getDashboardMacroRegime } from "@/lib/home/dashboard-macro";
+import { isUsableHomeDashboardPayload } from "@/lib/home/dashboard-validators";
 import { fetchTopSp500Movers } from "@/lib/home/sp500-movers";
 import { normalizeSectorName } from "@/lib/scoring/sector/config";
 import { getRecentAnalyses } from "@/lib/storage/index";
@@ -34,7 +35,7 @@ let payloadCacheByWindow = new Map<SectorRotationWindow, { expiresAt: number; pa
 let payloadInFlightByWindow = new Map<SectorRotationWindow, Promise<HomeDashboardPayload>>();
 
 function dashboardRedisKey(window: SectorRotationWindow): string {
-  return `home:dashboard:v3:${window}`;
+  return `home:dashboard:v4:${window}`;
 }
 
 export function parseSectorWindow(raw: string | null): SectorRotationWindow {
@@ -283,7 +284,12 @@ async function buildPayload(
 
 export async function getHomeDashboardPayloadWithMeta(window: SectorRotationWindow): Promise<HomeDashboardPayloadResult> {
   const memoryCached = payloadCacheByWindow.get(window);
-  if (memoryCached && Date.now() < memoryCached.expiresAt && hasRequiredMoverBuckets(memoryCached.payload.marketMovers)) {
+  if (
+    memoryCached &&
+    Date.now() < memoryCached.expiresAt &&
+    isUsableHomeDashboardPayload(memoryCached.payload) &&
+    hasRequiredMoverBuckets(memoryCached.payload.marketMovers)
+  ) {
     return {
       payload: memoryCached.payload,
       cacheLayer: "memory"
@@ -291,7 +297,7 @@ export async function getHomeDashboardPayloadWithMeta(window: SectorRotationWind
   }
 
   const redisCached = await cacheGetJson<HomeDashboardPayload>(dashboardRedisKey(window));
-  if (redisCached && hasRequiredMoverBuckets(redisCached.marketMovers)) {
+  if (redisCached && isUsableHomeDashboardPayload(redisCached) && hasRequiredMoverBuckets(redisCached.marketMovers)) {
     payloadCacheByWindow.set(window, {
       expiresAt: Date.now() + CACHE_TTL_MS,
       payload: redisCached
@@ -305,7 +311,11 @@ export async function getHomeDashboardPayloadWithMeta(window: SectorRotationWind
   let inFlight = payloadInFlightByWindow.get(window);
   const hadInFlight = Boolean(inFlight);
   if (!inFlight) {
-    inFlight = buildPayload(window, memoryCached?.payload ?? redisCached ?? null)
+    const previousPayload =
+      (memoryCached && isUsableHomeDashboardPayload(memoryCached.payload) ? memoryCached.payload : null) ??
+      (redisCached && isUsableHomeDashboardPayload(redisCached) ? redisCached : null);
+
+    inFlight = buildPayload(window, previousPayload)
       .then(async (payload) => {
         payloadCacheByWindow.set(window, {
           expiresAt: Date.now() + CACHE_TTL_MS,
@@ -328,22 +338,4 @@ export async function getHomeDashboardPayloadWithMeta(window: SectorRotationWind
 
 export async function getHomeDashboardPayload(window: SectorRotationWindow): Promise<HomeDashboardPayload> {
   return (await getHomeDashboardPayloadWithMeta(window)).payload;
-}
-
-export async function getHomeDashboardPayloadCached(window: SectorRotationWindow): Promise<HomeDashboardPayload | null> {
-  const memoryCached = payloadCacheByWindow.get(window);
-  if (memoryCached && Date.now() < memoryCached.expiresAt && hasRequiredMoverBuckets(memoryCached.payload.marketMovers)) {
-    return memoryCached.payload;
-  }
-
-  const redisCached = await cacheGetJson<HomeDashboardPayload>(dashboardRedisKey(window));
-  if (!redisCached || !hasRequiredMoverBuckets(redisCached.marketMovers)) {
-    return null;
-  }
-
-  payloadCacheByWindow.set(window, {
-    expiresAt: Date.now() + CACHE_TTL_MS,
-    payload: redisCached
-  });
-  return redisCached;
 }

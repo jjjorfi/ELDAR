@@ -1,20 +1,16 @@
-import { NextResponse } from "next/server";
+import type { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { errorResponse, okResponse } from "@/lib/api";
 import { getApiAuthContext } from "@/lib/api/auth-context";
-import {
-  badRequest,
-  jsonError,
-  jsonNoStore,
-  notFound,
-  unauthorized
-} from "@/lib/api/responses";
 import { runRouteGuards } from "@/lib/api/route-security";
+import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 import { getJournalEntryById, softDeleteJournalEntry, updateJournalEntry } from "@/lib/journal/store";
+import { log } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
-const updateSchema = z.object({
+const UpdateSchema = z.object({
   thesis: z.string().max(220).optional(),
   technicalSetup: z.string().max(10_000).optional(),
   fundamentalNote: z.string().max(10_000).optional(),
@@ -34,11 +30,15 @@ const updateSchema = z.object({
   tags: z.array(z.string().min(1).max(32)).max(30).optional()
 });
 
-interface RouteContext {
+type RouteContext = {
   params: Promise<{ id: string }>;
-}
+};
 
+/**
+ * Returns a single journal entry for the requesting user.
+ */
 export async function GET(request: Request, context: RouteContext): Promise<NextResponse> {
+  const startedAt = Date.now();
   const blocked = await runRouteGuards(request, {
     bucket: "api-journal-v1-entry-get",
     max: 180,
@@ -49,24 +49,36 @@ export async function GET(request: Request, context: RouteContext): Promise<Next
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
-      return unauthorized();
+      throw new AuthError("Unauthenticated");
     }
-    const { userId } = authContext;
 
+    const { userId } = authContext;
     const { id } = await context.params;
     const entry = await getJournalEntryById(userId, id);
     if (!entry) {
-      return notFound("Entry not found.");
+      throw new NotFoundError("Journal entry");
     }
 
-    return jsonNoStore({ entry });
+    log({
+      level: "info",
+      service: "api-journal-entry",
+      message: "Journal entry loaded",
+      userId,
+      entryId: id,
+      durationMs: Date.now() - startedAt
+    });
+
+    return okResponse({ entry }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    console.error("/api/journal/entries/[id] GET error", error);
-    return jsonError("Failed to load entry.", 500, { noStore: false });
+    return errorResponse(error, { route: "api-journal-entry-get" }, { "Cache-Control": "no-store" });
   }
 }
 
+/**
+ * Updates a journal entry for the requesting user.
+ */
 export async function PATCH(request: Request, context: RouteContext): Promise<NextResponse> {
+  const startedAt = Date.now();
   const blocked = await runRouteGuards(request, {
     bucket: "api-journal-v1-entry-patch",
     max: 90,
@@ -77,31 +89,41 @@ export async function PATCH(request: Request, context: RouteContext): Promise<Ne
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
-      return unauthorized();
+      throw new AuthError("Unauthenticated");
     }
-    const { userId } = authContext;
 
+    const { userId } = authContext;
     const { id } = await context.params;
-    const raw = await request.json();
-    const parsed = updateSchema.safeParse(raw);
+    const parsed = UpdateSchema.safeParse(await request.json());
     if (!parsed.success) {
-      return badRequest("Invalid update payload.");
+      throw new ValidationError("Invalid update payload.");
     }
 
     const entry = await updateJournalEntry(userId, id, parsed.data);
     if (!entry) {
-      return notFound("Entry not found.");
+      throw new NotFoundError("Journal entry");
     }
 
-    return jsonNoStore({ entry });
+    log({
+      level: "info",
+      service: "api-journal-entry",
+      message: "Journal entry updated",
+      userId,
+      entryId: id,
+      durationMs: Date.now() - startedAt
+    });
+
+    return okResponse({ entry }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update entry.";
-    console.error("/api/journal/entries/[id] PATCH error", error);
-    return jsonError(message, 500, { noStore: false });
+    return errorResponse(error, { route: "api-journal-entry-patch" }, { "Cache-Control": "no-store" });
   }
 }
 
+/**
+ * Soft-deletes a journal entry for the requesting user.
+ */
 export async function DELETE(request: Request, context: RouteContext): Promise<NextResponse> {
+  const startedAt = Date.now();
   const blocked = await runRouteGuards(request, {
     bucket: "api-journal-v1-entry-delete",
     max: 60,
@@ -112,19 +134,27 @@ export async function DELETE(request: Request, context: RouteContext): Promise<N
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
-      return unauthorized();
+      throw new AuthError("Unauthenticated");
     }
-    const { userId } = authContext;
 
+    const { userId } = authContext;
     const { id } = await context.params;
     const deleted = await softDeleteJournalEntry(userId, id);
     if (!deleted) {
-      return notFound("Entry not found.");
+      throw new NotFoundError("Journal entry");
     }
 
-    return jsonNoStore({ ok: true });
+    log({
+      level: "info",
+      service: "api-journal-entry",
+      message: "Journal entry deleted",
+      userId,
+      entryId: id,
+      durationMs: Date.now() - startedAt
+    });
+
+    return okResponse({ ok: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    console.error("/api/journal/entries/[id] DELETE error", error);
-    return jsonError("Failed to delete entry.", 500, { noStore: false });
+    return errorResponse(error, { route: "api-journal-entry-delete" }, { "Cache-Control": "no-store" });
   }
 }

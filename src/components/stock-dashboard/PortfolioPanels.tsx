@@ -3,9 +3,9 @@ import type { WheelEventHandler } from "react";
 
 import { PortfolioRatingPanel } from "@/components/portfolio";
 import { EmptyState, RatingCardSkeleton } from "@/components/ui/FintechPrimitives";
+import { Money, Num, Pct } from "@/components/ui/Numeric";
 import { RATING_BANDS } from "@/lib/rating";
 import type { PortfolioRating } from "@/lib/scoring/portfolio/types";
-import { formatPrice } from "@/lib/utils";
 
 import { describeDonutSlicePath, scoreBandColor } from "@/components/stock-dashboard/view-helpers";
 
@@ -101,19 +101,24 @@ export function PortfolioMainPanel({
                 onSubmitAdd();
               }}
             >
-              <button
-                type="button"
-                onClick={() => onOpenPaletteForAdd(portfolioInputTicker || "")}
-                className="eldar-btn-silver flex min-h-[44px] items-center justify-between rounded-xl px-4 text-left text-sm font-semibold backdrop-blur-xl transition-all duration-300 hover:scale-[1.01]"
-              >
-                <span className="flex items-center gap-2 text-slate-900">
-                  <Search className="h-4 w-4" />
-                  {portfolioInputTicker ? portfolioInputTicker : "Search"}
-                </span>
-                <span className="rounded-md border border-black/20 bg-black/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-700">
-                  /
-                </span>
-              </button>
+              <div className="btn-outer min-h-[44px] w-full rounded-[2rem]">
+                <button
+                  type="button"
+                  onClick={() => onOpenPaletteForAdd(portfolioInputTicker || "")}
+                  className="btn eldar-search-shell min-h-[44px] rounded-[2rem] text-left text-sm font-semibold"
+                >
+                  <div className="btn-inner" />
+                  <span className="eldar-search-shell__inner gap-2 pl-4 pr-3">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Search className="eldar-search-shell__icon h-4 w-4" />
+                      <span className="eldar-search-shell__copy truncate">{portfolioInputTicker ? portfolioInputTicker : "Search"}</span>
+                    </span>
+                    <span className="eldar-search-shell__hint rounded-md px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em]">
+                      /
+                    </span>
+                  </span>
+                </button>
+              </div>
               <input
                 type="number"
                 min={1}
@@ -182,7 +187,7 @@ export function PortfolioMainPanel({
                       fill="#9ca3af"
                     >
                       {activePortfolioWheelRow?.allocationPct !== null && activePortfolioWheelRow?.allocationPct !== undefined
-                        ? `${activePortfolioWheelRow.allocationPct.toFixed(1)}%`
+                        ? `${activePortfolioWheelRow.allocationPct >= 0 ? "" : "-"}${Math.abs(activePortfolioWheelRow.allocationPct).toFixed(1)}%`
                         : "allocation"}
                     </text>
                   </svg>
@@ -252,20 +257,32 @@ export function PortfolioHoldingDrawer({
         <div onWheelCapture={onWheelCapture} className="eldar-scrollbar space-y-3 overflow-y-auto pb-24">
           <div className="rounded-xl border border-white/12 bg-black/25 p-3">
             <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Allocation</p>
-            <p className="mt-1 font-mono text-2xl font-bold text-white">
-              {drawerRow.allocationPct !== null ? `${drawerRow.allocationPct.toFixed(1)}%` : "Pending"}
-            </p>
+            {drawerRow.allocationPct !== null ? (
+              <Pct value={drawerRow.allocationPct} decimals={1} signed={false} color={false} className="mt-1 text-2xl font-bold text-white" />
+            ) : (
+              <p className="mt-1 font-mono text-2xl font-bold text-white">Pending</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-xl border border-white/12 bg-black/25 p-3">
               <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Shares</p>
-              <p className="mt-1 font-mono text-lg font-semibold text-white">{drawerRow.shares}</p>
+              <Num
+                value={drawerRow.shares}
+                decimals={Number.isInteger(drawerRow.shares) ? 0 : 4}
+                className="mt-1 text-lg font-semibold text-white"
+              />
             </div>
             <div className="rounded-xl border border-white/12 bg-black/25 p-3">
               <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Position Value</p>
-              <p className="mt-1 font-mono text-lg font-semibold text-white">
-                {drawerRow.positionValue !== null ? formatPrice(drawerRow.positionValue, drawerRow.currency) : "N/A"}
-              </p>
+              {drawerRow.positionValue !== null ? (
+                <Money
+                  value={drawerRow.positionValue}
+                  currency={drawerRow.currency}
+                  className="mt-1 text-lg font-semibold text-white"
+                />
+              ) : (
+                <p className="mt-1 font-mono text-lg font-semibold text-white">N/A</p>
+              )}
             </div>
           </div>
           <div className="rounded-xl border border-white/12 bg-black/25 p-3">

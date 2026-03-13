@@ -1,5 +1,8 @@
 import { createClient } from "redis";
 
+import { env } from "@/lib/env";
+import { log } from "@/lib/logger";
+
 const REDIS_PREFIX = "eldar:next";
 
 type RedisClientInstance = ReturnType<typeof createClient>;
@@ -17,15 +20,22 @@ function warnOperation(operation: string, key: string, error: unknown): void {
     return;
   }
   recentOperationWarnings.set(signature, now);
-  console.warn(`[Redis Cache]: ${operation} failed for ${keyName(key)} (${message})`);
+  log({
+    level: "warn",
+    service: "redis",
+    message: "Redis operation failed",
+    operation,
+    key: keyName(key),
+    error: message
+  });
 }
 
 function redisEnabledByConfig(): boolean {
-  return String(process.env.USE_REDIS ?? "").trim().toLowerCase() === "true";
+  return env.USE_REDIS;
 }
 
 function redisUrl(): string {
-  return String(process.env.REDIS_URL ?? "").trim();
+  return env.REDIS_URL;
 }
 
 async function getClient(): Promise<RedisClientInstance | null> {
@@ -35,7 +45,12 @@ async function getClient(): Promise<RedisClientInstance | null> {
   const url = redisUrl();
   if (!url) {
     hardDisabledReason = "REDIS_URL is missing while USE_REDIS=true";
-    console.warn(`[Redis Cache]: ${hardDisabledReason}. Falling back to no-cache mode.`);
+    log({
+      level: "warn",
+      service: "redis",
+      message: "Redis unavailable; falling back to no-cache mode",
+      reason: hardDisabledReason
+    });
     return null;
   }
 
@@ -45,16 +60,30 @@ async function getClient(): Promise<RedisClientInstance | null> {
         const client = createClient({ url });
         client.on("error", (error) => {
           const message = error instanceof Error ? error.message : "Unknown Redis error";
-          console.error(`[Redis Cache]: client error: ${message}`);
+          log({
+            level: "error",
+            service: "redis",
+            message: "Redis client error",
+            error: message
+          });
         });
         await client.connect();
         await client.ping();
-        console.log("[Redis Cache]: connected.");
+        log({
+          level: "info",
+          service: "redis",
+          message: "Redis connected"
+        });
         return client;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown Redis bootstrap error";
         hardDisabledReason = message;
-        console.warn(`[Redis Cache]: unavailable (${message}). Falling back to no-cache mode.`);
+        log({
+          level: "warn",
+          service: "redis",
+          message: "Redis unavailable; falling back to no-cache mode",
+          error: message
+        });
         clientPromise = null;
         return null;
       }

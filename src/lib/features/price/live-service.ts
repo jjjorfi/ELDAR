@@ -1,5 +1,6 @@
 import { cacheGetJson, cacheSetJson } from "@/lib/cache/redis";
-import { fetchTemporaryQuoteFallback } from "@/lib/market/orchestration/temporary-fallbacks";
+import { log } from "@/lib/logger";
+import { REDIS_KEYS } from "@/lib/redis/keys";
 import { getSnapshotForRead } from "@/lib/snapshots/service";
 import { sanitizeSymbol } from "@/lib/utils";
 
@@ -11,8 +12,6 @@ const LIVE_ROUTE_REDIS_TTL_SECONDS = 10;
 
 const liveRouteCache = new Map<string, { expiresAt: number; payload: LiveQuotePayload }>();
 const liveRouteInFlight = new Map<string, Promise<LiveQuotePayload>>();
-
-interface QuickQuoteRow extends LiveQuoteRow {}
 
 export function parseLiveQuoteSymbols(raw: string | null): string[] {
   if (!raw) return [];
@@ -31,7 +30,7 @@ function liveRouteCacheKey(symbols: string[]): string {
 }
 
 function liveRouteRedisKey(symbols: string[]): string {
-  return `price:live:v2:${liveRouteCacheKey(symbols)}`;
+  return REDIS_KEYS.liveQuotes(symbols);
 }
 
 function parseIsoMs(value: string | null | undefined): number | null {
@@ -67,7 +66,13 @@ async function readSnapshotQuote(symbol: string): Promise<SnapshotQuoteRead> {
       asOfMs: parseIsoMs(analysis?.createdAt ?? read.snapshot?.asOf ?? null)
     };
   } catch (error) {
-    console.warn(`[Live Quote Service]: snapshot read failed for ${symbol}.`, error);
+    log({
+      level: "warn",
+      service: "live-quote-service",
+      message: "Snapshot read failed",
+      symbol,
+      error: error instanceof Error ? error.message : String(error)
+    });
     return {
       symbol,
       price: null,
@@ -79,44 +84,21 @@ async function readSnapshotQuote(symbol: string): Promise<SnapshotQuoteRead> {
 
 async function buildLiveQuotePayload(symbols: string[]): Promise<LiveQuotePayload> {
   const snapshotRows = await Promise.all(symbols.map((symbol) => readSnapshotQuote(symbol)));
-  const missingSymbols = snapshotRows.filter((row) => row.price === null).map((row) => row.symbol);
-
-  const fallbackRows = await Promise.all(
-    missingSymbols.map(async (symbol): Promise<QuickQuoteRow> => {
-      const snapshot = await fetchTemporaryQuoteFallback(symbol, { fast: true });
-      return {
-        symbol,
-        price: snapshot.price,
-        changePercent: snapshot.changePercent,
-        asOfMs: snapshot.asOfMs
-      };
-    })
-  );
-
   const snapshotMap = new Map(snapshotRows.map((row) => [row.symbol, row]));
-  const fallbackMap = new Map(fallbackRows.map((row) => [row.symbol, row]));
 
   const quotes: LiveQuoteRow[] = symbols.map((symbol) => {
     const fromSnapshot = snapshotMap.get(symbol);
-    const fallback = fallbackMap.get(symbol);
-    const resolvedPrice = fromSnapshot?.price ?? fallback?.price ?? null;
-    const resolvedAsOfMs = fromSnapshot?.asOfMs ?? fallback?.asOfMs ?? null;
-    const resolvedChangePercent = fallback?.changePercent ?? fromSnapshot?.changePercent ?? null;
     return {
       symbol,
-      price: resolvedPrice,
-      changePercent: resolvedChangePercent,
-      asOfMs: resolvedAsOfMs
+      price: fromSnapshot?.price ?? null,
+      changePercent: fromSnapshot?.changePercent ?? null,
+      asOfMs: fromSnapshot?.asOfMs ?? null
     };
   });
 
   const hasSnapshotData = snapshotRows.some((row) => row.price !== null);
-  const usedFallback = fallbackRows.length > 0;
-  const source = hasSnapshotData
-    ? usedFallback
-      ? "SNAPSHOT+HTTP_POLL"
-      : "SNAPSHOT"
-    : "HTTP_POLL";
+  const missingCount = snapshotRows.length - snapshotRows.filter((row) => row.price !== null).length;
+  const source = !hasSnapshotData ? "SNAPSHOT_EMPTY" : missingCount > 0 ? "SNAPSHOT_PARTIAL" : "SNAPSHOT";
 
   return {
     quotes,

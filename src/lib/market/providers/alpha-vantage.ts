@@ -36,6 +36,12 @@ export interface AlphaVantageNewsHeadline {
   sentiment: "POSITIVE" | "NEGATIVE" | "NEUTRAL";
 }
 
+/**
+ * Converts Alpha Vantage publication timestamps into ISO 8601 strings.
+ *
+ * @param value Alpha timestamp in YYYYMMDDTHHMMSS format.
+ * @returns ISO timestamp or null when parsing fails.
+ */
 function parseAlphaVantagePublishedAt(value: unknown): string | null {
   if (typeof value !== "string" || value.length < 15) {
     return null;

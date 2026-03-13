@@ -1,6 +1,7 @@
 "use client";
 
 import clsx from "clsx";
+import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -523,9 +524,10 @@ export default function SectorsPage(): JSX.Element {
               <button
                 type="button"
                 onClick={() => setActiveSectorEtf(null)}
-                className="eldar-btn-ghost min-h-[40px] rounded-xl px-3 text-xs font-semibold uppercase tracking-[0.12em]"
+                aria-label="Close sector detail"
+                className="eldar-btn-ghost inline-flex h-9 w-9 items-center justify-center rounded-full"
               >
-                Close
+                <X className="h-4 w-4" />
               </button>
             </div>
 

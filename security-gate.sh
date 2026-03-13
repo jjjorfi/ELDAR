@@ -35,6 +35,27 @@ if [[ -n "$TRACKED_ENV" ]]; then
   fail "tracked .env file detected. Remove it from git and rotate exposed secrets."
 fi
 
+info "checking repository env artifacts for secrets"
+while IFS= read -r env_file; do
+  [[ -z "$env_file" ]] && continue
+  case "$env_file" in
+    ./.env.example|./.env.local.template|.env.example|.env.local.template)
+      continue
+      ;;
+  esac
+  if [[ "$HAS_RG" -eq 1 ]]; then
+    if rg -n --pcre2 -i "$SECRET_PATTERN" "$env_file" >/dev/null; then
+      echo "$env_file" >&2
+      fail "possible secret detected in env artifact. Rotate compromised credentials before merge."
+    fi
+  else
+    if grep -E -i "$SECRET_PATTERN" "$env_file" >/dev/null 2>&1; then
+      echo "$env_file" >&2
+      fail "possible secret detected in env artifact. Rotate compromised credentials before merge."
+    fi
+  fi
+done < <(find . -maxdepth 1 -type f -name '.env*' 2>/dev/null | sort)
+
 info "checking all API routes enforce shared guard"
 MISSING_GUARD=()
 if [[ "$HAS_RG" -eq 1 ]]; then
@@ -87,6 +108,17 @@ if (( ${#MISSING_GUARD[@]} > 0 )); then
   fail "API route(s) missing security guard."
 fi
 
+info "checking for spoofable cron-marker authorization"
+if [[ "$HAS_RG" -eq 1 ]]; then
+  if rg -n 'x-vercel-cron' src/app/api realtime-server >/dev/null; then
+    fail "spoofable x-vercel-cron authorization pattern detected. Require shared-secret auth instead."
+  fi
+else
+  if grep -R -n 'x-vercel-cron' src/app/api realtime-server >/dev/null 2>&1; then
+    fail "spoofable x-vercel-cron authorization pattern detected. Require shared-secret auth instead."
+  fi
+fi
+
 info "checking git diff for leaked secrets"
 DIFF_BLOB="$(git diff --cached --no-color -U0; git diff --no-color -U0)"
 if [[ -n "$DIFF_BLOB" ]]; then
@@ -131,9 +163,9 @@ done < <(
 info "running guard regression unit tests"
 npm run --silent test:security >/dev/null
 
-info "running dependency vulnerability check (prod deps only)"
+info "running dependency vulnerability check (full dependency graph)"
 AUDIT_JSON="$(mktemp)"
-npm audit --omit=dev --json >"$AUDIT_JSON" || true
+npm audit --json >"$AUDIT_JSON" || true
 
 read -r HIGH_COUNT CRITICAL_COUNT < <(
   node -e '

@@ -1,42 +1,18 @@
 import { NextResponse } from "next/server";
 
+import { errorResponse, okResponse } from "@/lib/api";
 import { runRouteGuards } from "@/lib/api/route-security";
 import { withApiPerfHeaders } from "@/lib/api/responses";
-import { fetchTopSp500Movers } from "@/lib/home/sp500-movers";
-import { getHomeDashboardPayloadCached, getHomeDashboardPayloadWithMeta, parseSectorWindow } from "@/lib/home/dashboard-service";
-import type { HomeDashboardPayload } from "@/lib/home/dashboard-types";
+import { resolveHomeDashboardPayload } from "@/lib/home/dashboard-read";
+import { parseSectorWindow } from "@/lib/home/dashboard-service";
+import { log } from "@/lib/logger";
 import { isNySessionOpen } from "@/lib/market/ny-session";
-import { AGGREGATE_SNAPSHOT_KEYS } from "@/lib/snapshots/contracts";
-import { getAggregateSnapshotForRead } from "@/lib/snapshots/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const CACHE_HEADER_OPEN = "public, max-age=20, s-maxage=45, stale-while-revalidate=90";
 const CACHE_HEADER_CLOSED = "public, max-age=90, s-maxage=240, stale-while-revalidate=480";
-const ALLOW_ON_DEMAND_DASHBOARD_FALLBACK =
-  process.env.NODE_ENV !== "production" || process.env.ELDAR_ALLOW_DASHBOARD_FALLBACK === "1";
-const REQUIRED_MOVER_BUCKET_SIZE = 3;
-
-function aggregateDashboardKey(window: ReturnType<typeof parseSectorWindow>): string {
-  if (window === "1M") return AGGREGATE_SNAPSHOT_KEYS.HOME_DASHBOARD_1M;
-  if (window === "3M") return AGGREGATE_SNAPSHOT_KEYS.HOME_DASHBOARD_3M;
-  if (window === "6M") return AGGREGATE_SNAPSHOT_KEYS.HOME_DASHBOARD_6M;
-  return AGGREGATE_SNAPSHOT_KEYS.HOME_DASHBOARD_YTD;
-}
-
-function hasRequiredMoverBuckets(
-  movers: Array<{ changePercent: number }>,
-  perBucket = REQUIRED_MOVER_BUCKET_SIZE
-): boolean {
-  let winners = 0;
-  let losers = 0;
-  for (const mover of movers) {
-    if (mover.changePercent > 0) winners += 1;
-    if (mover.changePercent < 0) losers += 1;
-  }
-  return winners >= perBucket && losers >= perBucket;
-}
 
 export async function GET(request: Request): Promise<NextResponse> {
   const startedAt = Date.now();
@@ -50,49 +26,14 @@ export async function GET(request: Request): Promise<NextResponse> {
   try {
     const url = new URL(request.url);
     const sectorWindow = parseSectorWindow(url.searchParams.get("sectorWindow"));
-    const snapshotRead = await getAggregateSnapshotForRead<HomeDashboardPayload>({
-      key: aggregateDashboardKey(sectorWindow),
-      priority: "hot",
-      reason: "api-home-dashboard",
-      requestedBy: null
-    });
-
-    let payload = snapshotRead.snapshot?.payload ?? null;
-    let cacheLayer = snapshotRead.state === "fresh" ? "snapshot" : "snapshot-stale";
+    const resolved = await resolveHomeDashboardPayload(sectorWindow);
+    const payload = resolved.payload;
     if (!payload) {
-      const cached = await getHomeDashboardPayloadCached(sectorWindow);
-      if (cached) {
-        payload = cached;
-        cacheLayer = "redis-fallback";
-      }
-    }
-    if (!payload && ALLOW_ON_DEMAND_DASHBOARD_FALLBACK) {
-      const computed = await getHomeDashboardPayloadWithMeta(sectorWindow);
-      payload = computed.payload;
-      cacheLayer = `ondemand-${computed.cacheLayer}`;
-    }
-
-    if (payload && !hasRequiredMoverBuckets(payload.marketMovers)) {
-      const repairedMovers = await fetchTopSp500Movers(REQUIRED_MOVER_BUCKET_SIZE);
-      if (hasRequiredMoverBuckets(repairedMovers)) {
-        payload = {
-          ...payload,
-          marketMovers: repairedMovers
-        };
-        cacheLayer = `${cacheLayer}+movers-repaired`;
-      }
-    }
-    if (payload && !hasRequiredMoverBuckets(payload.marketMovers) && ALLOW_ON_DEMAND_DASHBOARD_FALLBACK) {
-      const computed = await getHomeDashboardPayloadWithMeta(sectorWindow);
-      payload = computed.payload;
-      cacheLayer = `ondemand-${computed.cacheLayer}`;
-    }
-    if (payload && !hasRequiredMoverBuckets(payload.marketMovers)) {
-      return NextResponse.json(
+      return okResponse(
         {
           pending: true,
           sectorWindow,
-          refreshQueued: true
+          refreshQueued: resolved.enqueued
         },
         {
           status: 202,
@@ -102,28 +43,7 @@ export async function GET(request: Request): Promise<NextResponse> {
             },
             {
               startedAt,
-              cache: "warming"
-            }
-          )
-        }
-      );
-    }
-    if (!payload) {
-      return NextResponse.json(
-        {
-          pending: true,
-          sectorWindow,
-          refreshQueued: snapshotRead.enqueued
-        },
-        {
-          status: 202,
-          headers: withApiPerfHeaders(
-            {
-              "Cache-Control": "no-store"
-            },
-            {
-              startedAt,
-              cache: "warming"
+              cache: resolved.cacheLayer
             }
           )
         }
@@ -131,34 +51,39 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     const cacheHeader = isNySessionOpen() ? CACHE_HEADER_OPEN : CACHE_HEADER_CLOSED;
+    log({
+      level: "info",
+      service: "api-home-dashboard",
+      message: "Home dashboard resolved",
+      sectorWindow,
+      cacheLayer: resolved.cacheLayer,
+      snapshotState: resolved.snapshotState,
+      durationMs: Date.now() - startedAt
+    });
 
-    return NextResponse.json(payload, {
+    return okResponse(payload, {
       headers: withApiPerfHeaders(
         {
           "Cache-Control": cacheHeader,
-          "X-ELDAR-Snapshot-State": snapshotRead.state
+          "X-ELDAR-Snapshot-State": resolved.snapshotState
         },
         {
           startedAt,
-          cache: cacheLayer + (snapshotRead.enqueued ? "+queued" : "")
+          cache: resolved.cacheLayer + (resolved.enqueued ? "+queued" : "")
         }
       )
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to build dashboard payload.";
-    console.error(`[API Home Dashboard]: ${message}`);
-    return NextResponse.json(
-      { error: "Failed to build dashboard payload." },
-      {
-        status: 500,
-        headers: withApiPerfHeaders(
-          { "Cache-Control": "no-store" },
-          {
-            startedAt,
-            cache: "error"
-          }
-        )
-      }
+    return errorResponse(
+      error,
+      { route: "api-home-dashboard" },
+      withApiPerfHeaders(
+        { "Cache-Control": "no-store" },
+        {
+          startedAt,
+          cache: "error"
+        }
+      )
     );
   }
 }

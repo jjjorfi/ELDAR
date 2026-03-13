@@ -5,6 +5,8 @@
 // fundamentals source; it is intentionally limited to price-oriented patches.
 
 import { getFetchSignal, parseOptionalNumber, parseTimestampMs, readEnvToken, setUrlSearchParams } from "@/lib/market/adapter-utils";
+import { log } from "@/lib/logger";
+import { buildSymbolCandidates, createProviderSuppression } from "@/lib/market/providers/provider-helpers";
 
 export interface TwelveDataQuoteSnapshot {
   price: number | null;
@@ -21,27 +23,52 @@ const TWELVE_DATA_BASE_URL = "https://api.twelvedata.com";
 const TWELVE_DATA_FETCH_TIMEOUT_MS = 2_000;
 const TWELVE_DATA_AUTH_DISABLE_TTL_MS = 10 * 60_000;
 const TWELVE_DATA_RATE_LIMIT_DISABLE_TTL_MS = 60_000;
+const twelveDataSuppression = createProviderSuppression({ adapterLabel: "Twelve Data" });
 
-let twelveDataDisabledUntil = 0;
-let twelveDataWarnedAt = 0;
-
+/**
+ * Reads the configured Twelve Data API key.
+ *
+ * @returns API key value when configured, otherwise null.
+ */
 function twelveDataApiKey(): string | null {
   return readEnvToken("TWELVEDATA_API_KEY") ?? readEnvToken("TWELVE_DATA_API_KEY");
 }
 
+/**
+ * Indicates whether Twelve Data is configured.
+ *
+ * @returns True when a valid API key is present.
+ */
 export function isTwelveDataConfigured(): boolean {
   return twelveDataApiKey() !== null;
 }
 
+/**
+ * Parses a numeric Twelve Data field.
+ *
+ * @param value Raw provider value.
+ * @returns Finite parsed number or null.
+ */
 function parseNumber(value: unknown): number | null {
   return parseOptionalNumber(value, { allowCommas: true, allowPercent: true });
 }
 
+/**
+ * Builds preferred Twelve Data ticker variants.
+ *
+ * @param symbol Input ticker.
+ * @returns Candidate symbols in provider-friendly order.
+ */
 function symbolCandidates(symbol: string): string[] {
-  const upper = symbol.trim().toUpperCase();
-  return Array.from(new Set([upper, upper.replace(/\./g, "-")])).filter(Boolean);
+  return buildSymbolCandidates(symbol, [(upper) => upper.replace(/\./g, "-")]);
 }
 
+/**
+ * Classifies provider payload errors into suppression windows.
+ *
+ * @param payload Parsed Twelve Data payload.
+ * @returns Temporary suppression descriptor or null.
+ */
 function classifyPayloadFailure(payload: Record<string, unknown>): { ttlMs: number; label: string } | null {
   const rawMessage = typeof payload.message === "string" ? payload.message : typeof payload.status === "string" ? payload.status : "";
   const message = rawMessage.toLowerCase();
@@ -58,24 +85,32 @@ function classifyPayloadFailure(payload: Record<string, unknown>): { ttlMs: numb
   return null;
 }
 
+/**
+ * Applies adapter suppression when the provider reports auth or rate-limit
+ * issues.
+ *
+ * @param reason Suppression descriptor or null.
+ */
 function suppressTemporarily(reason: { ttlMs: number; label: string } | null): void {
   if (!reason) return;
-  twelveDataDisabledUntil = Date.now() + reason.ttlMs;
-  if (Date.now() - twelveDataWarnedAt > reason.ttlMs) {
-    twelveDataWarnedAt = Date.now();
-    console.warn(
-      `[Twelve Data Adapter]: temporary ${reason.label} suppression for ${Math.round(reason.ttlMs / 1000)}s.`
-    );
-  }
+  twelveDataSuppression.suppress(reason.ttlMs, reason.label);
 }
 
+/**
+ * Executes a Twelve Data request with common auth, timeout, and suppression
+ * handling.
+ *
+ * @param path Endpoint path under the Twelve Data base URL.
+ * @param params Query parameters.
+ * @returns Parsed payload or null when the request cannot be used.
+ */
 async function fetchTwelveData(path: string, params: Record<string, string | number>): Promise<Record<string, unknown> | null> {
   const apiKey = twelveDataApiKey();
   if (!apiKey) {
     return null;
   }
 
-  if (Date.now() < twelveDataDisabledUntil) {
+  if (twelveDataSuppression.isSuppressed()) {
     return null;
   }
 
@@ -114,11 +149,21 @@ async function fetchTwelveData(path: string, params: Record<string, string | num
     return payload;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown Twelve Data error.";
-    console.warn(`[Twelve Data Adapter]: ${message}`);
+    log({
+      level: "warn",
+      service: "provider-twelvedata",
+      message
+    });
     return null;
   }
 }
 
+/**
+ * Fetches the latest quote snapshot available from Twelve Data.
+ *
+ * @param symbol Input ticker.
+ * @returns Best-effort quote snapshot.
+ */
 export async function fetchTwelveDataQuoteSnapshot(symbol: string): Promise<TwelveDataQuoteSnapshot> {
   if (!isTwelveDataConfigured()) {
     return { price: null, changePercent: null, asOfMs: null };
@@ -153,6 +198,14 @@ export async function fetchTwelveDataQuoteSnapshot(symbol: string): Promise<Twel
   return { price: null, changePercent: null, asOfMs: null };
 }
 
+/**
+ * Fetches daily history from Twelve Data and normalizes it into chronological
+ * close points.
+ *
+ * @param symbol Input ticker.
+ * @param outputSize Maximum number of daily rows to request.
+ * @returns Sorted daily history points.
+ */
 export async function fetchTwelveDataDailyHistory(
   symbol: string,
   outputSize: number

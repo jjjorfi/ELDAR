@@ -2,7 +2,7 @@ import { GICS_SECTORS } from "@/lib/market/universe/gics-sectors";
 import { isNySessionOpen } from "@/lib/market/ny-session";
 import { fetchSP500Directory } from "@/lib/market/universe/sp500";
 import { buildSp500SymbolUniverse, resolveSp500DirectorySymbol } from "@/lib/market/universe/sp500-universe";
-import { fetchGoogleNewsByQuery } from "@/lib/market/providers/google-news";
+import { log } from "@/lib/logger";
 import { resolveSectorFromCandidates } from "@/lib/scoring/sector/config";
 import { getCachedAnalysis, getRecentAnalyses, getWatchlist } from "@/lib/storage/index";
 import { getSnapshotForRead } from "@/lib/snapshots/service";
@@ -136,35 +136,9 @@ function fetchSectorFallbackNews(sector: string): ContextNewsItem[] {
   return [sectorNewsFallbackHeadline(sector, sectorDefinition?.etf ?? null)];
 }
 
-function mapGoogleNewsToContextItems(
-  items: Awaited<ReturnType<typeof fetchGoogleNewsByQuery>>
-): ContextNewsItem[] {
-  return items
-    .map((item) => ({
-      headline: item.headline,
-      url: item.url,
-      source: item.source,
-      publishedAt: item.publishedAt
-    }))
-    .filter((item) => item.headline.trim().length > 0);
-}
-
 function isGenericFallbackHeadline(item: ContextNewsItem): boolean {
   const normalized = item.headline.trim().toLowerCase();
   return normalized.endsWith("sector headlines") || normalized === "market headlines";
-}
-
-async function fetchNewsFallbackChain(symbol: string, sector: string): Promise<ContextNewsItem[]> {
-  const stockNews = mapGoogleNewsToContextItems(await fetchGoogleNewsByQuery(`${symbol} stock`, [symbol], 6));
-  if (stockNews.length > 0) return stockNews;
-
-  const sectorNews = mapGoogleNewsToContextItems(await fetchGoogleNewsByQuery(`${sector} sector stocks`, [symbol], 6));
-  if (sectorNews.length > 0) return sectorNews;
-
-  const marketNews = mapGoogleNewsToContextItems(await fetchGoogleNewsByQuery("S&P 500 market", [symbol], 6));
-  if (marketNews.length > 0) return marketNews;
-
-  return fetchSectorFallbackNews(sector);
 }
 
 async function refreshAnalysisScore(
@@ -290,7 +264,7 @@ async function buildContextPayload(options: BuildContextPayloadOptions): Promise
     publishedAt: item.publishedAt
   }));
   if (news.length === 0 || news.every(isGenericFallbackHeadline)) {
-    news = await fetchNewsFallbackChain(options.symbol, sector);
+    news = fetchSectorFallbackNews(sector);
   }
 
   return {
@@ -378,7 +352,13 @@ export async function getContextPayload(options: GetContextPayloadOptions): Prom
       cache: hadInFlight ? "in-flight" : "computed"
     };
   } catch (error) {
-    console.error("[Context Service] getContextPayload failed", error);
+    log({
+      level: "error",
+      service: "context-service",
+      message: "Context payload build failed",
+      symbol,
+      error: error instanceof Error ? error.message : String(error)
+    });
     return {
       ok: false,
       status: 500,

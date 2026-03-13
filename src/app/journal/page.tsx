@@ -961,18 +961,23 @@ export default function JournalPage(): JSX.Element {
           <p className="text-base text-white/85">Sign in to access your private investment journal.</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          <div>
-            <div className="relative max-w-md">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search trades"
-                className="eldar-field-surface h-10 w-full pl-10 pr-3 text-sm text-white outline-none"
-              />
+          <div className="space-y-3">
+            <div>
+              <div className="btn-outer h-10 w-full max-w-md rounded-[2rem]">
+                <div className="btn eldar-search-shell h-10 w-full rounded-[2rem]">
+                  <div className="btn-inner" />
+                  <div className="eldar-search-shell__inner gap-3 pl-4 pr-3">
+                    <Search className="eldar-search-shell__icon h-4 w-4" />
+                    <input
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Search trades"
+                      className="eldar-search-shell__field text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
 
           {renderTabs()}
           {error ? <p className="mb-4 text-sm text-red-300">{error}</p> : null}

@@ -15,7 +15,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { sign } from "jsonwebtoken";
 
+import { okResponse, errorResponse } from "@/lib/api";
 import { runRouteGuards } from "@/lib/api/route-security";
+import { env } from "@/lib/env";
+import { ExternalAPIError } from "@/lib/errors";
+import { log } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -83,7 +87,15 @@ async function isRealtimeReachable(socketUrl: string): Promise<boolean> {
       available
     };
     return available;
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown realtime health error";
+    log({
+      level: "warn",
+      service: "api-realtime-token",
+      message: "Realtime health check failed",
+      socketUrl,
+      error: message
+    });
     realtimeHealthCache = {
       checkedAt: Date.now(),
       available: false
@@ -106,10 +118,14 @@ export async function GET(request: Request): Promise<NextResponse> {
   const effectiveUserId = userId ?? `anon:${randomUUID()}`;
   const isAnonymous = !userId;
 
-  const jwtSecret = process.env.JWT_SECRET;
+  const jwtSecret = env.JWT_SECRET;
   if (!jwtSecret || jwtSecret.trim().length < 16) {
-    console.warn("[Realtime Token API]: JWT_SECRET missing/weak. Realtime socket auth disabled.");
-    return NextResponse.json(
+    log({
+      level: "warn",
+      service: "api-realtime-token",
+      message: "Realtime socket auth disabled because JWT_SECRET is missing or weak"
+    });
+    return okResponse(
       {
         disabled: true,
         reason: "Realtime token service is not configured."
@@ -134,34 +150,46 @@ export async function GET(request: Request): Promise<NextResponse> {
     expiresIn: "15m"
   });
 
-  const socketUrl = process.env.NEXT_PUBLIC_REALTIME_URL ?? "http://localhost:4100";
-  const realtimeAvailable = await isRealtimeReachable(socketUrl);
+  try {
+    const socketUrl = env.NEXT_PUBLIC_REALTIME_URL || "http://localhost:4100";
+    const realtimeAvailable = await isRealtimeReachable(socketUrl);
 
-  if (!realtimeAvailable) {
-    return NextResponse.json(
+    if (!realtimeAvailable) {
+      return okResponse(
+        {
+          disabled: true,
+          reason: "Realtime socket server is unavailable. Falling back to HTTP polling."
+        },
+        {
+          headers: { "Cache-Control": "no-store" }
+        }
+      );
+    }
+
+    log({
+      level: "info",
+      service: "api-realtime-token",
+      message: "Realtime token issued",
+      userId: effectiveUserId,
+      orgId: orgId ?? null,
+      isAnonymous
+    });
+
+    return okResponse(
       {
-        disabled: true,
-        reason: "Realtime socket server is unavailable. Falling back to HTTP polling."
+        token,
+        socketUrl
       },
       {
         headers: { "Cache-Control": "no-store" }
       }
     );
+  } catch (error) {
+    return errorResponse(
+      error instanceof Error
+        ? new ExternalAPIError("realtime", error.message)
+        : error,
+      { route: "api-realtime-token" }
+    );
   }
-
-  console.log(
-    isAnonymous
-      ? "[Realtime Token API]: Issued anonymous socket token for public realtime channels."
-      : `[Realtime Token API]: Issued socket token for user ${effectiveUserId}${orgId ? ` (org ${orgId})` : ""}`
-  );
-
-  return NextResponse.json(
-    {
-      token,
-      socketUrl
-    },
-    {
-      headers: { "Cache-Control": "no-store" }
-    }
-  );
 }

@@ -58,7 +58,7 @@ pending. They should stay easy to remove later.
 - `emptyFallback()`: null-initialized fallback shape.
 - `extractFirstPrice(payload)`: best first valid quote price from mixed payload shapes.
 - `extractFirstQuoteSnapshot(payload)`: quote snapshot extraction from mixed payload shapes.
-- `fetchFmpQuoteSnapshot(symbol)`: stable/v3 quote snapshot resolver.
+- `fetchFmpQuoteSnapshot(symbol)`: stable quote snapshot resolver.
 - `fetchFmpQuotePrice(symbol)`: quote-price convenience wrapper.
 - `fetchFmpFallbackData(symbol)`: profile + quote fallback fundamentals.
 - `normalizeEarningsPeriod(row)`: builds period labels from quarter/year.

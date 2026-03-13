@@ -2,14 +2,10 @@
 
 import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import Image from "next/image";
-import { useMemo } from "react";
 import { ArrowRight, ArrowUpRight, Check, CircleHelp, ShieldCheck, Sparkles } from "lucide-react";
-
-import type { Mag7ScoreCard } from "@/lib/types";
 
 interface HeroLandingProps {
   logoSrc: string;
-  scores: Mag7ScoreCard[];
   onOpenApp: () => void;
 }
 
@@ -115,46 +111,43 @@ const FAQ = [
   }
 ] as const;
 
-function signedMove(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "--";
-  return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
-}
+const HERO_SYSTEM_RAILS = [
+  {
+    title: "Snapshot-first reads",
+    body: "Core routes read from persisted snapshots so upstream volatility does not block the interface."
+  },
+  {
+    title: "Structured factor scoring",
+    body: "Every ticker follows the same scoring contract, with the same weight ladder and visible inputs."
+  },
+  {
+    title: "Fallback-aware market data",
+    body: "Ranked provider chains preserve continuity without hiding freshness or confidence."
+  }
+] as const;
 
-function moveTone(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "var(--eldar-text-muted)";
-  return value >= 0 ? "#10b981" : "#ef4444";
-}
+const TESTIMONIALS = [
+  {
+    id: "operator-1",
+    quote: "It cut my pre-market scan time by more than half.",
+    author: "Single-manager account",
+    role: "Daily operator"
+  },
+  {
+    id: "operator-2",
+    quote: "The snapshot flow is clean: read, decide, move on.",
+    author: "Event-driven trader",
+    role: "Multi-screen workflow"
+  },
+  {
+    id: "operator-3",
+    quote: "Finally a terminal-like surface that stays calm under pressure.",
+    author: "Independent PM",
+    role: "Macro + single-name book"
+  }
+] as const;
 
-function scoreBarWidth(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "24%";
-  return `${Math.max(16, Math.min(100, Math.abs(value) * 16))}%`;
-}
-
-export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): JSX.Element {
-  const movers = useMemo(
-    () =>
-      scores
-        .slice()
-        .sort((a, b) => Math.abs(b.changePercent ?? 0) - Math.abs(a.changePercent ?? 0))
-        .slice(0, 6),
-    [scores]
-  );
-
-  const testimonials = useMemo(
-    () =>
-      movers.slice(0, 3).map((item, index) => ({
-        id: `${item.symbol}-${index}`,
-        quote:
-          index === 0
-            ? "It cut my pre-market scan time by more than half."
-            : index === 1
-              ? "The snapshot flow is clean: read, decide, move on."
-              : "Finally a terminal-like surface that stays calm under pressure.",
-        author: item.companyName,
-        role: `${item.symbol} tracked signal`
-      })),
-    [movers]
-  );
+export function HeroLanding({ logoSrc, onOpenApp }: HeroLandingProps): JSX.Element {
 
   return (
     <div className="min-h-screen bg-[var(--eldar-bg-primary)] text-[var(--eldar-text-primary)]">
@@ -262,31 +255,16 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
           </div>
 
           <div className="rounded-2xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-secondary)] p-5">
-            <div className="mb-3 text-[11px] uppercase tracking-[0.14em] text-[var(--eldar-text-muted)]">Live market surface</div>
+            <div className="mb-3 text-[11px] uppercase tracking-[0.14em] text-[var(--eldar-text-muted)]">System rails</div>
             <div className="space-y-3 rounded-xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-primary)] p-4">
-              {movers.length > 0 ? (
-                movers.map((item) => (
-                  <article key={item.symbol} className="grid grid-cols-[68px_1fr_auto] items-center gap-3">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em]">{item.symbol}</div>
-                    <div className="h-[6px] rounded-full" style={{ backgroundColor: "rgba(163,163,163,0.24)" }}>
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: scoreBarWidth(item.changePercent),
-                          backgroundColor: moveTone(item.changePercent)
-                        }}
-                      />
-                    </div>
-                    <div className="text-[11px] font-semibold" style={{ color: moveTone(item.changePercent) }}>
-                      {signedMove(item.changePercent)}
-                    </div>
-                  </article>
-                ))
-              ) : (
-                <div className="py-10 text-center text-sm text-[var(--eldar-text-muted)]">Loading signal preview…</div>
-              )}
+              {HERO_SYSTEM_RAILS.map((item) => (
+                <article key={item.title} className="rounded-xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-secondary)] p-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em]">{item.title}</div>
+                  <p className="mt-2 text-[12px] leading-6 text-[var(--eldar-text-secondary)]">{item.body}</p>
+                </article>
+              ))}
             </div>
-            <div className="mt-4 text-[11px] text-[var(--eldar-text-muted)]">Preview built from current ranked movers.</div>
+            <div className="mt-4 text-[11px] text-[var(--eldar-text-muted)]">Built around stable reads, explicit freshness, and controlled fallback chains.</div>
           </div>
         </section>
 
@@ -385,7 +363,7 @@ export function HeroLanding({ logoSrc, scores, onOpenApp }: HeroLandingProps): J
         <section id="testimonials" className="scroll-mt-24 rounded-3xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-surface)] p-6 md:p-8">
           <h2 className="text-2xl font-semibold tracking-[-0.03em] md:text-3xl">Loved by operators worldwide</h2>
           <div className="mt-6 grid gap-3 md:grid-cols-3">
-            {testimonials.map((item) => (
+            {TESTIMONIALS.map((item) => (
               <article
                 key={item.id}
                 className="rounded-2xl border border-[var(--eldar-border-default)] bg-[var(--eldar-bg-secondary)] p-4 transition hover:border-[var(--eldar-amber-border)]"

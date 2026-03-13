@@ -1,9 +1,18 @@
 import {
   buildHomeDashboardAggregate,
+  buildIndicesYtdSnapshotAggregate,
+  buildMag7SnapshotAggregate,
   buildMacroFredAggregate,
   buildMoversAggregate,
+  buildEarningsAggregate,
+  buildPriceHistoryAggregate,
   buildSectorSentimentAggregate
 } from "@/lib/home/aggregate-builders";
+import {
+  parsePriceHistoryAggregateKey,
+  priceHistoryAggregateTtlMs
+} from "@/lib/features/price/history-service";
+import { isNySessionOpen } from "@/lib/market/ny-session";
 import type { AggregateSnapshotContract, AggregateSnapshotKey, FreshnessClass } from "@/lib/snapshots/contracts";
 import { AGGREGATE_SNAPSHOT_KEYS } from "@/lib/snapshots/contracts";
 
@@ -33,16 +42,34 @@ export function parseAggregateKeyFromJobSymbol(symbol: string): string | null {
 
 function keyFreshnessClass(key: string): FreshnessClass {
   if (key.startsWith("home-dashboard:")) return "MARKET_INTRADAY";
+  if (key === AGGREGATE_SNAPSHOT_KEYS.INDICES_YTD) return "MARKET_INTRADAY";
+  if (key === AGGREGATE_SNAPSHOT_KEYS.MAG7_LIVE) return "MARKET_INTRADAY";
+  if (key === AGGREGATE_SNAPSHOT_KEYS.MAG7_HOME) return "MARKET_INTRADAY";
+  if (parsePriceHistoryAggregateKey(key)) return "MARKET_INTRADAY";
   if (key === AGGREGATE_SNAPSHOT_KEYS.SECTOR_SENTIMENT_YTD) return "MARKET_INTRADAY";
   if (key === AGGREGATE_SNAPSHOT_KEYS.MOVERS_TOP3) return "MARKET_INTRADAY";
+  if (key === AGGREGATE_SNAPSHOT_KEYS.EARNINGS) return "ANALYTICS_SCHEDULED";
   if (key === AGGREGATE_SNAPSHOT_KEYS.MACRO_FRED) return "ANALYTICS_SCHEDULED";
   return "ANALYTICS_SCHEDULED";
 }
 
 function keyTtlMs(key: string): number {
   if (key.startsWith("home-dashboard:")) return 2 * 60_000;
+  if (key === AGGREGATE_SNAPSHOT_KEYS.INDICES_YTD) {
+    return isNySessionOpen() ? 5 * 60_000 : 15 * 60_000;
+  }
+  if (key === AGGREGATE_SNAPSHOT_KEYS.MAG7_LIVE) {
+    return isNySessionOpen() ? 60_000 : 10 * 60_000;
+  }
+  if (key === AGGREGATE_SNAPSHOT_KEYS.MAG7_HOME) {
+    return isNySessionOpen() ? 2 * 60_000 : 15 * 60_000;
+  }
+  if (parsePriceHistoryAggregateKey(key)) {
+    return priceHistoryAggregateTtlMs();
+  }
   if (key === AGGREGATE_SNAPSHOT_KEYS.SECTOR_SENTIMENT_YTD) return 10 * 60_000;
   if (key === AGGREGATE_SNAPSHOT_KEYS.MOVERS_TOP3) return 60_000;
+  if (key === AGGREGATE_SNAPSHOT_KEYS.EARNINGS) return 6 * 60 * 60_000;
   if (key === AGGREGATE_SNAPSHOT_KEYS.MACRO_FRED) return 10 * 60_000;
   return 5 * 60_000;
 }
@@ -58,8 +85,14 @@ async function buildAggregatePayloadByKey(key: string): Promise<unknown> {
   if (key === AGGREGATE_SNAPSHOT_KEYS.HOME_DASHBOARD_1M) return buildHomeDashboardAggregate("1M");
   if (key === AGGREGATE_SNAPSHOT_KEYS.HOME_DASHBOARD_3M) return buildHomeDashboardAggregate("3M");
   if (key === AGGREGATE_SNAPSHOT_KEYS.HOME_DASHBOARD_6M) return buildHomeDashboardAggregate("6M");
+  if (key === AGGREGATE_SNAPSHOT_KEYS.INDICES_YTD) return buildIndicesYtdSnapshotAggregate();
+  if (key === AGGREGATE_SNAPSHOT_KEYS.MAG7_LIVE) return buildMag7SnapshotAggregate("live");
+  if (key === AGGREGATE_SNAPSHOT_KEYS.MAG7_HOME) return buildMag7SnapshotAggregate("home");
+  const priceHistoryKey = parsePriceHistoryAggregateKey(key);
+  if (priceHistoryKey) return buildPriceHistoryAggregate(priceHistoryKey.symbol, priceHistoryKey.range);
   if (key === AGGREGATE_SNAPSHOT_KEYS.SECTOR_SENTIMENT_YTD) return buildSectorSentimentAggregate();
   if (key === AGGREGATE_SNAPSHOT_KEYS.MOVERS_TOP3) return buildMoversAggregate(3);
+  if (key === AGGREGATE_SNAPSHOT_KEYS.EARNINGS) return buildEarningsAggregate();
   if (key === AGGREGATE_SNAPSHOT_KEYS.MACRO_FRED) return buildMacroFredAggregate();
   throw new Error(`Unsupported aggregate snapshot key: ${key}`);
 }
@@ -97,8 +130,12 @@ export function listDefaultAggregateKeys(): AggregateSnapshotKey[] {
     AGGREGATE_SNAPSHOT_KEYS.HOME_DASHBOARD_1M,
     AGGREGATE_SNAPSHOT_KEYS.HOME_DASHBOARD_3M,
     AGGREGATE_SNAPSHOT_KEYS.HOME_DASHBOARD_6M,
+    AGGREGATE_SNAPSHOT_KEYS.INDICES_YTD,
+    AGGREGATE_SNAPSHOT_KEYS.MAG7_LIVE,
+    AGGREGATE_SNAPSHOT_KEYS.MAG7_HOME,
     AGGREGATE_SNAPSHOT_KEYS.SECTOR_SENTIMENT_YTD,
     AGGREGATE_SNAPSHOT_KEYS.MOVERS_TOP3,
+    AGGREGATE_SNAPSHOT_KEYS.EARNINGS,
     AGGREGATE_SNAPSHOT_KEYS.MACRO_FRED
   ];
 }

@@ -1,21 +1,23 @@
-import { NextResponse } from "next/server";
+import type { NextResponse } from "next/server";
 
+import { errorResponse, okResponse } from "@/lib/api";
 import { runRouteGuards } from "@/lib/api/route-security";
+import { env } from "@/lib/env";
+import { log } from "@/lib/logger";
 import { isAuthorizedAdminRequest } from "@/lib/security/admin";
 
 export const runtime = "nodejs";
 
-interface ProviderCheck {
+type ProviderCheck = {
   ok: boolean;
   status: number | null;
   endpoint: string;
   detail?: string;
   latencyMs: number;
-}
+};
 
-function keyExists(name: string): boolean {
-  const value = process.env[name];
-  return typeof value === "string" && value.trim().length > 0;
+function keyExists(value: string): boolean {
+  return value.trim().length > 0;
 }
 
 function redactProviderEndpoint(rawUrl: string): string {
@@ -65,24 +67,16 @@ async function timedFetch(
       latencyMs: elapsed
     };
   } catch (error) {
-    const elapsed = Date.now() - start;
     return {
       ok: false,
       status: null,
       endpoint: redactProviderEndpoint(url),
       detail: includeDetail ? (error instanceof Error ? error.message : "Unknown fetch error") : undefined,
-      latencyMs: elapsed
+      latencyMs: Date.now() - start
     };
   } finally {
     clearTimeout(timeout);
   }
-}
-
-function safeToken(token: string | undefined): string | null {
-  if (!token) return null;
-  const value = token.trim();
-  if (!value) return null;
-  return value;
 }
 
 function sampleSymbol(input: string | null): string {
@@ -95,7 +89,11 @@ function toEodhdSymbol(symbol: string): string {
   return symbol.includes(".") ? symbol : `${symbol}.US`;
 }
 
+/**
+ * Returns service/provider health. Admin callers receive provider-level detail.
+ */
 export async function GET(request: Request): Promise<NextResponse> {
+  const startedAt = Date.now();
   const blocked = await runRouteGuards(request, {
     bucket: "api-health",
     max: 30,
@@ -103,114 +101,115 @@ export async function GET(request: Request): Promise<NextResponse> {
   });
   if (blocked) return blocked;
 
-  const includeDetail = isAuthorizedAdminRequest(request);
-  const requestUrl = new URL(request.url);
-  const symbol = sampleSymbol(requestUrl.searchParams.get("symbol"));
+  try {
+    const includeDetail = isAuthorizedAdminRequest(request);
+    const requestUrl = new URL(request.url);
+    const symbol = sampleSymbol(requestUrl.searchParams.get("symbol"));
 
-  const finnhubKey = safeToken(process.env.FINNHUB_API_KEY);
-  const alphaKey = safeToken(process.env.ALPHA_VANTAGE_API_KEY);
-  const fmpKey = safeToken(process.env.FMP_API_KEY);
-  const massiveKey = safeToken(process.env.MASSIVE_API_KEY);
-  const eodhdKey = safeToken(process.env.EODHD_API_KEY);
-  const alpacaKey =
-    safeToken(process.env.ALPACA_API_KEY) ??
-    safeToken(process.env.ALPACA_API_KEY_ID) ??
-    safeToken(process.env.APCA_API_KEY_ID);
-  const alpacaSecret =
-    safeToken(process.env.ALPACA_API_SECRET) ??
-    safeToken(process.env.ALPACA_SECRET_KEY) ??
-    safeToken(process.env.APCA_API_SECRET_KEY);
+    const alpacaKey = env.ALPACA_API_KEY || env.ALPACA_API_KEY_ID || env.APCA_API_KEY_ID;
+    const alpacaSecret = env.ALPACA_API_SECRET || env.ALPACA_SECRET_KEY || env.APCA_API_SECRET_KEY;
 
-  const checks = await Promise.all([
-    timedFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`, includeDetail),
-    timedFetch(
-      finnhubKey
-        ? `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(finnhubKey)}`
-        : "https://finnhub.io/api/v1/quote?symbol=AAPL&token=MISSING_KEY",
-      includeDetail
-    ),
-    timedFetch(
-      alphaKey
-        ? `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(alphaKey)}`
-        : "https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=AAPL&apikey=MISSING_KEY",
-      includeDetail
-    ),
-    timedFetch(
-      fmpKey
-        ? `https://financialmodelingprep.com/stable/quote?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(fmpKey)}`
-        : "https://financialmodelingprep.com/stable/quote?symbol=AAPL&apikey=MISSING_KEY",
-      includeDetail
-    ),
-    timedFetch(
-      massiveKey
-        ? `https://api.massive.com/v3/snapshot/options/${encodeURIComponent(symbol)}?contract_type=call&limit=1&apikey=${encodeURIComponent(massiveKey)}&apiKey=${encodeURIComponent(massiveKey)}`
-        : "https://api.massive.com/v3/snapshot/options/AAPL?contract_type=call&limit=1&apikey=MISSING_KEY&apiKey=MISSING_KEY",
-      includeDetail
-    ),
-    timedFetch(
-      eodhdKey
-        ? `https://eodhd.com/api/real-time/${encodeURIComponent(toEodhdSymbol(symbol))}?api_token=${encodeURIComponent(eodhdKey)}&fmt=json`
-        : "https://eodhd.com/api/real-time/AAPL.US?api_token=MISSING_KEY&fmt=json",
-      includeDetail
-    ),
-    timedFetch(
-      `https://data.alpaca.markets/v2/stocks/${encodeURIComponent(symbol)}/bars/latest?feed=iex`,
+    const checks = await Promise.all([
+      timedFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`, includeDetail),
+      timedFetch(
+        env.FINNHUB_API_KEY
+          ? `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(env.FINNHUB_API_KEY)}`
+          : "https://finnhub.io/api/v1/quote?symbol=AAPL&token=MISSING_KEY",
+        includeDetail
+      ),
+      timedFetch(
+        env.ALPHA_VANTAGE_API_KEY
+          ? `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(env.ALPHA_VANTAGE_API_KEY)}`
+          : "https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=AAPL&apikey=MISSING_KEY",
+        includeDetail
+      ),
+      timedFetch(
+        env.FMP_API_KEY
+          ? `https://financialmodelingprep.com/stable/quote?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(env.FMP_API_KEY)}`
+          : "https://financialmodelingprep.com/stable/quote?symbol=AAPL&apikey=MISSING_KEY",
+        includeDetail
+      ),
+      timedFetch(
+        env.MASSIVE_API_KEY
+          ? `https://api.massive.com/v3/snapshot/options/${encodeURIComponent(symbol)}?contract_type=call&limit=1&apikey=${encodeURIComponent(env.MASSIVE_API_KEY)}&apiKey=${encodeURIComponent(env.MASSIVE_API_KEY)}`
+          : "https://api.massive.com/v3/snapshot/options/AAPL?contract_type=call&limit=1&apikey=MISSING_KEY&apiKey=MISSING_KEY",
+        includeDetail
+      ),
+      timedFetch(
+        env.EODHD_API_KEY
+          ? `https://eodhd.com/api/real-time/${encodeURIComponent(toEodhdSymbol(symbol))}?api_token=${encodeURIComponent(env.EODHD_API_KEY)}&fmt=json`
+          : "https://eodhd.com/api/real-time/AAPL.US?api_token=MISSING_KEY&fmt=json",
+        includeDetail
+      ),
+      timedFetch(
+        `https://data.alpaca.markets/v2/stocks/${encodeURIComponent(symbol)}/bars/latest?feed=iex`,
+        includeDetail,
+        12_000,
+        alpacaKey && alpacaSecret
+          ? {
+              "APCA-API-KEY-ID": alpacaKey,
+              "APCA-API-SECRET-KEY": alpacaSecret
+            }
+          : {}
+      )
+    ]);
+
+    const [yahoo, finnhub, alpha, fmp, massive, eodhd, alpaca] = checks;
+    const providersOk = checks.some((item) => item.ok);
+
+    log({
+      level: "info",
+      service: "api-health",
+      message: "Health check completed",
       includeDetail,
-      12_000,
-      alpacaKey && alpacaSecret
-        ? {
-            "APCA-API-KEY-ID": alpacaKey,
-            "APCA-API-SECRET-KEY": alpacaSecret
-          }
-        : {}
-    )
-  ]);
+      providersOk,
+      durationMs: Date.now() - startedAt
+    });
 
-  const [yahoo, finnhub, alpha, fmp, massive, eodhd, alpaca] = checks;
-  const providersOk = checks.some((item) => item.ok);
+    if (!includeDetail) {
+      return okResponse(
+        {
+          ok: providersOk,
+          service: "ELDAR",
+          timestamp: new Date().toISOString()
+        },
+        {
+          headers: { "Cache-Control": "no-store" }
+        }
+      );
+    }
 
-  if (!includeDetail) {
-    return NextResponse.json(
+    return okResponse(
       {
         ok: providersOk,
         service: "ELDAR",
-        timestamp: new Date().toISOString()
+        symbol,
+        timestamp: new Date().toISOString(),
+        configuredKeys: {
+          ALPHA_VANTAGE_API_KEY: keyExists(env.ALPHA_VANTAGE_API_KEY),
+          FINNHUB_API_KEY: keyExists(env.FINNHUB_API_KEY),
+          FMP_API_KEY: keyExists(env.FMP_API_KEY),
+          MASSIVE_API_KEY: keyExists(env.MASSIVE_API_KEY),
+          EODHD_API_KEY: keyExists(env.EODHD_API_KEY),
+          ALPACA_API_KEY: keyExists(env.ALPACA_API_KEY) || keyExists(env.ALPACA_API_KEY_ID) || keyExists(env.APCA_API_KEY_ID),
+          ALPACA_API_SECRET: keyExists(env.ALPACA_API_SECRET) || keyExists(env.ALPACA_SECRET_KEY) || keyExists(env.APCA_API_SECRET_KEY),
+          POSTGRES_URL: keyExists(env.POSTGRES_URL)
+        },
+        providers: {
+          yahoo,
+          finnhub,
+          alphaVantage: alpha,
+          financialModelingPrep: fmp,
+          massive,
+          eodhd,
+          alpaca
+        }
       },
       {
-        headers: {
-          "Cache-Control": "no-store"
-        }
+        headers: { "Cache-Control": "no-store" }
       }
     );
+  } catch (error) {
+    return errorResponse(error, { route: "api-health" }, { "Cache-Control": "no-store" });
   }
-
-  return NextResponse.json({
-    ok: providersOk,
-    service: "ELDAR",
-    symbol,
-    timestamp: new Date().toISOString(),
-    configuredKeys: {
-      ALPHA_VANTAGE_API_KEY: keyExists("ALPHA_VANTAGE_API_KEY"),
-      FINNHUB_API_KEY: keyExists("FINNHUB_API_KEY"),
-      FMP_API_KEY: keyExists("FMP_API_KEY"),
-      MASSIVE_API_KEY: keyExists("MASSIVE_API_KEY"),
-      EODHD_API_KEY: keyExists("EODHD_API_KEY"),
-      ALPACA_API_KEY: keyExists("ALPACA_API_KEY") || keyExists("ALPACA_API_KEY_ID") || keyExists("APCA_API_KEY_ID"),
-      ALPACA_API_SECRET: keyExists("ALPACA_API_SECRET") || keyExists("ALPACA_SECRET_KEY") || keyExists("APCA_API_SECRET_KEY"),
-      POSTGRES_URL: keyExists("POSTGRES_URL")
-    },
-    providers: {
-      yahoo,
-      finnhub,
-      alphaVantage: alpha,
-      financialModelingPrep: fmp,
-      massive,
-      eodhd,
-      alpaca
-    }
-  }, {
-    headers: {
-      "Cache-Control": "no-store"
-    }
-  });
 }

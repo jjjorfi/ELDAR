@@ -4,12 +4,14 @@ import path from "node:path";
 
 import { sql } from "@vercel/postgres";
 
+import { env } from "@/lib/env";
+import { log } from "@/lib/logger";
 import type { PersistedPortfolioSnapshot } from "@/lib/scoring/portfolio/types";
 import { SCORING_MODEL_VERSION } from "@/lib/scoring/version";
 import { ratingNoteForLabel } from "@/lib/rating";
 import type { AnalysisResult, Mag7ScoreCard, PersistedAnalysis } from "@/lib/types";
 
-export const hasPostgres = Boolean(process.env.POSTGRES_URL);
+export const hasPostgres = env.POSTGRES_URL.length > 0;
 
 const ANALYSIS_REDIS_KEY_PREFIX = "analysis";
 const PORTFOLIO_REDIS_KEY_PREFIX = "portfolio";
@@ -22,8 +24,8 @@ const ensuredStores = {
 };
 
 function resolveLocalDbPath(): string {
-  const fallback = process.env.VERCEL ? "/tmp/stock-ratings-store.json" : "./data/analyses.json";
-  const configured = process.env.LOCAL_DB_PATH ?? fallback;
+  const fallback = env.VERCEL ? "/tmp/stock-ratings-store.json" : "./data/analyses.json";
+  const configured = env.LOCAL_DB_PATH || fallback;
   return path.isAbsolute(configured) ? configured : path.join(process.cwd(), configured);
 }
 
@@ -50,8 +52,7 @@ function emptyLocalDb(): LocalDbShape {
 }
 
 export function getCacheWindowMinutes(): number {
-  const parsed = Number.parseInt(process.env.ANALYSIS_CACHE_MINUTES ?? "15", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 15;
+  return env.ANALYSIS_CACHE_MINUTES;
 }
 
 export function analysisRedisKey(symbol: string, userId: string | null): string {
@@ -197,7 +198,12 @@ export async function ensureWatchlistStore(): Promise<void> {
     await sql`ALTER TABLE watchlist ADD PRIMARY KEY (user_id, symbol)`;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown watchlist migration error.";
-    console.warn(`[Storage]: Watchlist primary key migration skipped: ${message}`);
+    log({
+      level: "warn",
+      service: "storage",
+      message: "Watchlist primary key migration skipped",
+      error: message
+    });
   }
 
   ensuredStores.watchlist = true;
@@ -310,7 +316,13 @@ export async function readLocal(): Promise<LocalDbShape> {
     }
 
     const message = error instanceof Error ? error.message : "Unknown local store error.";
-    console.warn(`[Storage]: Failed to read local store ${localDbPath}: ${message}`);
+    log({
+      level: "warn",
+      service: "storage",
+      message: "Failed to read local store",
+      path: localDbPath,
+      error: message
+    });
     return emptyLocalDb();
   }
 }

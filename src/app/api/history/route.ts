@@ -1,14 +1,16 @@
-import { NextResponse } from "next/server";
-
+import { errorResponse, okResponse } from "@/lib/api";
 import { getApiAuthContext } from "@/lib/api/auth-context";
-import { internalServerError, jsonNoStore, unauthorized } from "@/lib/api/responses";
+import { withApiPerfHeaders } from "@/lib/api/responses";
 import { runRouteGuards } from "@/lib/api/route-security";
+import { AuthError } from "@/lib/errors";
+import { log } from "@/lib/logger";
 import { getRecentAnalyses } from "@/lib/storage/index";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request): Promise<NextResponse> {
+export async function GET(request: Request) {
+  const startedAt = Date.now();
   const blocked = await runRouteGuards(request, {
     bucket: "api-history",
     max: 120,
@@ -19,7 +21,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
-      return unauthorized();
+      throw new AuthError("Unauthenticated");
     }
     const { userId } = authContext;
 
@@ -28,9 +30,38 @@ export async function GET(request: Request): Promise<NextResponse> {
     const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20;
 
     const analyses = await getRecentAnalyses(safeLimit, userId);
-    return jsonNoStore({ analyses });
+    log({
+      level: "info",
+      service: "api-history",
+      message: "History loaded",
+      userId,
+      count: analyses.length,
+      durationMs: Date.now() - startedAt
+    });
+
+    return okResponse(
+      { analyses },
+      {
+        headers: withApiPerfHeaders(
+          { "Cache-Control": "no-store" },
+          {
+            startedAt,
+            cache: "database"
+          }
+        )
+      }
+    );
   } catch (error) {
-    console.error("/api/history error", error);
-    return internalServerError("Failed to load history.");
+    return errorResponse(
+      error,
+      { route: "api-history" },
+      withApiPerfHeaders(
+        { "Cache-Control": "no-store" },
+        {
+          startedAt,
+          cache: "error"
+        }
+      )
+    );
   }
 }

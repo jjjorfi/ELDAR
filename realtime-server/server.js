@@ -16,6 +16,7 @@
 // - REST hierarchy remains intact; websocket is additive + fallback-safe.
 
 const http = require("node:http");
+const crypto = require("node:crypto");
 const {
   setInterval: setIntervalSafe,
   clearInterval: clearIntervalSafe,
@@ -77,6 +78,15 @@ function normalizeBearerToken(value) {
   return token.length > 0 ? token : null;
 }
 
+function constantTimeEqual(a, b) {
+  const aBuffer = Buffer.from(a);
+  const bBuffer = Buffer.from(b);
+  if (aBuffer.length !== bBuffer.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(aBuffer, bBuffer);
+}
+
 function userRoom(userId) {
   return `${ROOM_PREFIX.USER}${userId}`;
 }
@@ -112,6 +122,14 @@ async function main() {
     pingInterval: 25_000,
     pingTimeout: 20_000
   });
+
+  function isAuthorizedOpsRequest(req) {
+    const token = normalizeBearerToken(req.get("authorization"));
+    if (!token || !config.publishSecret) {
+      return false;
+    }
+    return constantTimeEqual(token, config.publishSecret);
+  }
 
   async function ensureThrottleEntry(key) {
     const existing = await stateAdapter.get(key);
@@ -349,7 +367,15 @@ async function main() {
     console.log("[Socket Server]: Quote stream disabled (missing keys/symbols or flag disabled).");
   }
 
-  app.get("/health", async (_req, res) => {
+  app.get("/health", async (req, res) => {
+    if (!isAuthorizedOpsRequest(req)) {
+      return res.status(200).json({
+        status: "ok",
+        service: "eldar-realtime-server",
+        timestamp: new Date().toISOString()
+      });
+    }
+
     const adapterSize = await stateAdapter.size().catch(() => -1);
     res.status(200).json({
       status: "ok",
@@ -368,7 +394,11 @@ async function main() {
     });
   });
 
-  app.get("/status", async (_req, res) => {
+  app.get("/status", async (req, res) => {
+    if (!isAuthorizedOpsRequest(req)) {
+      return res.status(404).json({ error: "Not found" });
+    }
+
     const adapterSize = await stateAdapter.size().catch(() => -1);
     res.status(200).json({
       CORS: config.corsOrigins.length > 0 ? "OK" : "MISSING",
@@ -392,9 +422,7 @@ async function main() {
   });
 
   app.post("/internal/publish", async (req, res) => {
-    const authHeader = req.get("authorization");
-    const token = normalizeBearerToken(authHeader);
-    if (!token || token !== config.publishSecret) {
+    if (!isAuthorizedOpsRequest(req)) {
       console.warn("[Socket Server]: Rejected internal publish request (invalid secret).");
       return res.status(401).json({ error: "Unauthorized" });
     }

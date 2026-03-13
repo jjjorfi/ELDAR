@@ -1,6 +1,7 @@
 import { fetchMarketSnapshot } from "@/lib/market/providers/yahoo";
 import { toMarketSnapshot } from "@/lib/financials/eldar-financials-adapter";
 import { getCompanyFinancials } from "@/lib/financials/eldar-financials-pipeline";
+import { log } from "@/lib/logger";
 import { fetchSecFundamentalsFallback } from "@/lib/market/providers/sec-companyfacts";
 import { isNySessionOpen } from "@/lib/market/ny-session";
 import { scoreSnapshot } from "@/lib/scoring/engine";
@@ -80,7 +81,13 @@ export async function analyzeStock(symbol: string): Promise<AnalysisResult> {
       getCompanyFinancials(normalizedSymbol)
         .then((financials) => toMarketSnapshot(financials))
         .catch((error) => {
-          console.warn(`[Analyze]: canonical SEC pipeline unavailable for ${normalizedSymbol}; using fallback bridge.`, error);
+          log({
+            level: "warn",
+            service: "analyze",
+            message: "Canonical SEC pipeline unavailable; using fallback bridge",
+            symbol: normalizedSymbol,
+            error: error instanceof Error ? error.message : String(error)
+          });
           return null;
         })
     ]);
@@ -88,7 +95,13 @@ export async function analyzeStock(symbol: string): Promise<AnalysisResult> {
     const secFallback =
       canonicalFundamentals === null
         ? await fetchSecFundamentalsFallback(normalizedSymbol).catch((error) => {
-            console.warn(`[Analyze]: SEC bridge fallback unavailable for ${normalizedSymbol}.`, error);
+            log({
+              level: "warn",
+              service: "analyze",
+              message: "SEC bridge fallback unavailable",
+              symbol: normalizedSymbol,
+              error: error instanceof Error ? error.message : String(error)
+            });
             return null;
           })
         : null;

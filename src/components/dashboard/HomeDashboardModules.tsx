@@ -6,10 +6,11 @@
 "use client";
 
 import clsx from "clsx";
-import { Info } from "lucide-react";
+import { Info, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { LinesSkeleton } from "@/components/ui/FintechPrimitives";
+import { Money, Num, Pct } from "@/components/ui/Numeric";
 import { usePopupWheelScroll } from "@/hooks/usePopupWheelScroll";
 import type {
   HomeMarketMoverItem,
@@ -20,21 +21,18 @@ import type {
   HomeSnapshotItem,
   SectorRotationWindow
 } from "@/lib/home/dashboard-types";
-import { formatPrice } from "@/lib/utils";
 
 const SECTOR_ROTATION_WINDOW_OPTIONS: SectorRotationWindow[] = ["YTD", "1M", "3M", "6M"];
-
-function formatSignedPercent(value: number | null, digits = 1): string {
-  if (value === null || !Number.isFinite(value)) return "N/A";
-  return `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(digits)}%`;
-}
-
-function dashboardValueToneClass(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "text-white/45";
-  if (value > 0) return "text-emerald-300";
-  if (value < 0) return "text-red-300";
-  return "text-white/70";
-}
+export const SNAPSHOT_WINDOW_OPTIONS = ["YTD", "1M", "3M", "6M"] as const;
+export type SnapshotWindow = (typeof SNAPSHOT_WINDOW_OPTIONS)[number];
+export const MARKET_MOVER_FILTER_OPTIONS = ["ALL", "W", "L"] as const;
+export type MarketMoverFilter = (typeof MARKET_MOVER_FILTER_OPTIONS)[number];
+const SNAPSHOT_WINDOW_POINT_LIMIT: Record<SnapshotWindow, number | null> = {
+  YTD: null,
+  "1M": 22,
+  "3M": 66,
+  "6M": 132
+};
 
 function dashboardToneClass(tone: HomeRegimeMetric["tone"]): string {
   if (tone === "positive") return "text-emerald-300";
@@ -96,16 +94,8 @@ function arcPath(cx: number, cy: number, radius: number, startAngleDeg: number, 
   return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} ${sweepFlag} ${end.x} ${end.y}`;
 }
 
-function formatSnapshotDisplayValue(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "—";
-  const absValue = Math.abs(value);
-  if (absValue >= 1000) {
-    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
-  }
-  if (absValue >= 100) {
-    return new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
-  }
-  return value.toFixed(2);
+function snapshotDecimals(value: number): number {
+  return Math.abs(value) >= 1000 ? 0 : 2;
 }
 
 function snapSectorAxisMagnitude(value: number): number {
@@ -301,6 +291,21 @@ export function MacroEnvironmentCard({
               strokeLinecap="round"
               className="transition-all duration-300 ease-out"
             />
+              <circle
+                cx={needleTip.x}
+                cy={needleTip.y}
+                r="8"
+                fill={tone.needle}
+                opacity="0.22"
+                style={{ filter: `drop-shadow(0 0 8px ${tone.needle})` }}
+              />
+              <circle
+                cx={needleTip.x}
+                cy={needleTip.y}
+                r="3.2"
+                fill={tone.needle}
+                style={{ filter: `drop-shadow(0 0 10px ${tone.needle})` }}
+              />
               <circle cx="110" cy="110" r="8" fill="#050505" stroke="rgba(255,255,255,0.14)" strokeWidth="1.5" />
               <circle cx="110" cy="110" r="2.5" fill={tone.needle} />
             </svg>
@@ -313,7 +318,7 @@ export function MacroEnvironmentCard({
               ) : (
                 <>
                   <p className="text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.needle }}>{formatMacroRegimeLabel(activeRegime.label)}</p>
-                  <p className="mt-1 font-mono text-[10px] text-white/42">{score > 0 ? "+" : ""}{score.toFixed(1)} current read</p>
+                  <Num value={score} signed decimals={1} className="mt-1 text-[10px] text-white/42" />
                 </>
               )}
             </div>
@@ -360,9 +365,10 @@ export function MacroEnvironmentCard({
               <button
                 type="button"
                 onClick={() => setDrawerOpen(false)}
-                className="rounded-full border border-white/12 px-3 py-1.5 text-[10px] uppercase tracking-[0.14em] text-white/68 transition hover:border-white/25 hover:text-white"
+                aria-label="Close macro breakdown"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/12 text-white/68 transition hover:border-white/25 hover:text-white"
               >
-                Close
+                <X className="h-4 w-4" />
               </button>
             </div>
 
@@ -423,12 +429,18 @@ export function SnapshotTile({ item }: { item: HomeSnapshotItem }): JSX.Element 
     <div className="eldar-dashboard-surface min-h-[124px] px-4 py-4">
       <p className="text-[10px] uppercase tracking-[0.16em] text-white/42">{item.label}</p>
       <p className="mt-5 font-mono text-[22px] font-semibold tracking-[-0.03em] text-white">
-        {formatSnapshotDisplayValue(item.price)}
+        {item.price !== null && Number.isFinite(item.price) ? (
+          <Num value={item.price} decimals={snapshotDecimals(item.price)} className="text-[22px] font-semibold tracking-[-0.03em] text-white" />
+        ) : (
+          "—"
+        )}
       </p>
       <div className="mt-5 flex items-center justify-between">
-        <span className={clsx("text-[11px] font-medium", dashboardValueToneClass(item.changePercent))}>
-          {item.changePercent === null ? "Flat feed" : formatSignedPercent(item.changePercent, 2)}
-        </span>
+        {item.changePercent === null ? (
+          <span className="text-[11px] font-medium text-white/45">Flat feed</span>
+        ) : (
+          <Pct value={item.changePercent} decimals={2} className="text-[11px] font-medium" />
+        )}
         <span
           className={clsx(
             "h-2.5 w-2.5 rounded-full",
@@ -445,11 +457,22 @@ export function SnapshotTile({ item }: { item: HomeSnapshotItem }): JSX.Element 
 export interface MarketSnapshotSeries {
   label: "SPX" | "NDX" | "RUT";
   points: number[];
+  pointDates: string[];
   changePercent: number | null;
 }
 
-function buildTrendPath(points: number[], width: number, height: number): string {
-  if (points.length < 2) return "";
+interface TrendCoordinate {
+  x: number;
+  y: number;
+}
+
+interface SnapshotSample {
+  value: number;
+  date: string | null;
+}
+
+function buildTrendCoordinates(points: number[], width: number, height: number): TrendCoordinate[] {
+  if (points.length < 2) return [];
   const min = Math.min(...points);
   const max = Math.max(...points);
   const span = Math.max(max - min, 0.000001);
@@ -458,62 +481,256 @@ function buildTrendPath(points: number[], width: number, height: number): string
     .map((point, index) => {
       const x = (index / (points.length - 1)) * width;
       const y = height - ((point - min) / span) * height;
-      return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
-    .join(" ");
+      return { x, y };
+    });
+}
+
+function buildTrendPath(coords: TrendCoordinate[]): string {
+  if (coords.length < 2) return "";
+  return coords.map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ");
+}
+
+function buildAreaPath(coords: TrendCoordinate[], height: number): string {
+  if (coords.length < 2) return "";
+  const first = coords[0];
+  const last = coords[coords.length - 1];
+  return `M${first.x.toFixed(2)} ${height.toFixed(2)} L${buildTrendPath(coords).slice(1)} L${last.x.toFixed(2)} ${height.toFixed(2)} Z`;
 }
 
 function seriesStroke(label: MarketSnapshotSeries["label"]): string {
   if (label === "SPX") return "#FF5E5E";
   if (label === "NDX") return "#47D9FF";
-  return "#FF8F66";
+  return "#FFBF00";
 }
 
 function seriesGlow(label: MarketSnapshotSeries["label"]): string {
   if (label === "SPX") return "rgba(255,94,94,0.55)";
   if (label === "NDX") return "rgba(71,217,255,0.55)";
-  return "rgba(255,143,102,0.55)";
+  return "rgba(255,191,0,0.55)";
 }
 
-export function MarketSnapshotChart({ series }: { series: MarketSnapshotSeries[] }): JSX.Element {
+function windowedSnapshotSamples(points: number[], pointDates: string[], window: SnapshotWindow): SnapshotSample[] {
+  const cleanPoints = points
+    .map((point, index) => {
+      if (!Number.isFinite(point)) return null;
+      return {
+        value: point,
+        date: typeof pointDates[index] === "string" ? pointDates[index] : null
+      } satisfies SnapshotSample;
+    })
+    .filter((point): point is SnapshotSample => point !== null);
+  const pointLimit = SNAPSHOT_WINDOW_POINT_LIMIT[window];
+  if (pointLimit === null || cleanPoints.length <= pointLimit) {
+    return cleanPoints;
+  }
+  return cleanPoints.slice(-pointLimit);
+}
+
+function formatSnapshotDate(value: string | null): string {
+  if (!value) return "Latest";
+  const parsed = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return "Latest";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(parsed);
+}
+
+function pointChangePercent(samples: SnapshotSample[]): number | null {
+  if (samples.length < 2) return null;
+  const start = samples[0]?.value ?? null;
+  const end = samples[samples.length - 1]?.value ?? null;
+  if (start === null || end === null || start === 0) return null;
+  return ((end - start) / Math.abs(start)) * 100;
+}
+
+export function MarketSnapshotChart({
+  series,
+  window
+}: {
+  series: MarketSnapshotSeries[];
+  window: SnapshotWindow;
+}): JSX.Element {
+  const [activeLabel, setActiveLabel] = useState<MarketSnapshotSeries["label"]>("SPX");
+  const [visibleLabels, setVisibleLabels] = useState<Record<MarketSnapshotSeries["label"], boolean>>({
+    SPX: true,
+    NDX: true,
+    RUT: true
+  });
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const width = 480;
   const height = 132;
   const rows = series.map((item) => {
-    const points = item.points.filter((point) => Number.isFinite(point));
+    const samples = windowedSnapshotSamples(item.points, item.pointDates, window);
+    const points = samples.map((sample) => sample.value);
+    const coords = buildTrendCoordinates(points, width, height);
     return {
       ...item,
-      points,
-      path: buildTrendPath(points, width, height),
+      samples,
+      coords,
+      path: buildTrendPath(coords),
+      areaPath: buildAreaPath(coords, height),
       stroke: seriesStroke(item.label),
-      glow: seriesGlow(item.label)
+      glow: seriesGlow(item.label),
+      windowChangePercent: pointChangePercent(samples)
     };
   });
-  const hasTrend = rows.some((row) => row.path.length > 0);
+  const visibleRows = rows.filter((row) => visibleLabels[row.label] ?? true);
+  const hasTrend = visibleRows.some((row) => row.path.length > 0);
+  const activeRow = visibleRows.find((row) => row.label === activeLabel) ?? visibleRows[0] ?? null;
+
+  useEffect(() => {
+    setVisibleLabels((previous) => {
+      const next = rows.reduce(
+        (acc, row) => {
+          acc[row.label] = previous[row.label] ?? true;
+          return acc;
+        },
+        {} as Record<MarketSnapshotSeries["label"], boolean>
+      );
+
+      const unchanged = rows.every((row) => next[row.label] === previous[row.label]);
+      return unchanged ? previous : next;
+    });
+  }, [rows]);
+
+  useEffect(() => {
+    if (!visibleRows.some((row) => row.label === activeLabel)) {
+      setActiveLabel(visibleRows[0]?.label ?? "SPX");
+    }
+  }, [activeLabel, visibleRows]);
+
+  const activeIndex = activeRow
+    ? Math.max(0, Math.min(hoverIndex ?? activeRow.samples.length - 1, activeRow.samples.length - 1))
+    : null;
+
+  const markerRows = activeIndex === null || !activeRow
+    ? []
+    : rows
+        .map((row) => {
+          if (row.samples.length === 0 || row.coords.length === 0) return null;
+          const relativeIndex =
+            activeRow.samples.length <= 1
+              ? row.samples.length - 1
+              : Math.round((activeIndex / (activeRow.samples.length - 1)) * (row.samples.length - 1));
+          const safeIndex = Math.max(0, Math.min(relativeIndex, row.samples.length - 1));
+          return {
+            row,
+            sample: row.samples[safeIndex] ?? null,
+            coord: row.coords[safeIndex] ?? null
+          };
+        })
+        .filter(
+          (item): item is { row: typeof rows[number]; sample: SnapshotSample; coord: TrendCoordinate } =>
+            item !== null && item.sample !== null && item.coord !== null
+        );
+
+  const activeMarker = markerRows.find((item) => item.row.label === activeLabel) ?? markerRows[0] ?? null;
+
+  const toggleSeriesVisibility = (label: MarketSnapshotSeries["label"]): void => {
+    setVisibleLabels((previous) => {
+      const nextVisible = !(previous[label] ?? true);
+      return {
+        ...previous,
+        [label]: nextVisible
+      };
+    });
+    setActiveLabel(label);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<SVGSVGElement>): void => {
+    if (!activeRow || activeRow.samples.length === 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const relativeX = Math.max(0, Math.min(event.clientX - rect.left, rect.width));
+    const ratio = rect.width === 0 ? 0 : relativeX / rect.width;
+    const nextIndex = Math.round(ratio * Math.max(activeRow.samples.length - 1, 0));
+    setHoverIndex(nextIndex);
+  };
+
+  const handlePointerLeave = (): void => {
+    setHoverIndex(null);
+  };
 
   return (
-    <div className="eldar-dashboard-surface mt-3 px-4 py-4">
-      <div className="mb-3 flex flex-wrap items-center gap-3">
+    <div className="flex min-h-[212px] flex-col">
+      <div className="mb-4 flex min-h-[36px] flex-wrap items-center gap-3">
         {rows.map((row) => (
-          <div
+          <button
             key={`legend-${row.label}`}
-            className="inline-flex items-center gap-2 rounded-full px-2.5 py-1.5"
+            type="button"
+            onClick={() => toggleSeriesVisibility(row.label)}
+            onMouseEnter={() => setActiveLabel(row.label)}
+            onFocus={() => setActiveLabel(row.label)}
+            aria-pressed={visibleLabels[row.label] ?? true}
+            className={clsx(
+              "inline-flex items-center gap-2 rounded-full px-2.5 py-1.5 transition",
+              (visibleLabels[row.label] ?? true) && activeLabel === row.label && "shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
+            )}
             style={{
-              border: "1px solid rgba(255,255,255,0.12)",
-              backgroundColor: "rgba(255,255,255,0.04)"
+              border:
+                visibleLabels[row.label] ?? true
+                  ? activeLabel === row.label
+                    ? `1px solid ${row.glow}`
+                    : "1px solid rgba(255,255,255,0.12)"
+                  : "1px solid rgba(255,255,255,0.08)",
+              backgroundColor:
+                visibleLabels[row.label] ?? true
+                  ? activeLabel === row.label
+                    ? "rgba(255,255,255,0.07)"
+                    : "rgba(255,255,255,0.04)"
+                  : "rgba(255,255,255,0.015)",
+              opacity: visibleLabels[row.label] ?? true ? 1 : 0.48
             }}
-          >
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: row.stroke }} />
-            <span className="text-[10px] uppercase tracking-[0.14em] text-white/68">{row.label}</span>
-            <span className={clsx("text-[10px] font-medium", dashboardValueToneClass(row.changePercent))}>
-              {row.changePercent === null ? "N/A" : formatSignedPercent(row.changePercent, 2)}
-            </span>
-          </div>
-        ))}
+            >
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: row.stroke }} />
+              <span className="text-[10px] uppercase tracking-[0.14em] text-white/68">{row.label}</span>
+              {row.windowChangePercent ?? row.changePercent ?? null ? (
+                <Pct value={(row.windowChangePercent ?? row.changePercent) as number} decimals={2} className="text-[10px] font-medium" />
+              ) : row.windowChangePercent === 0 || row.changePercent === 0 ? (
+                <Pct value={0} decimals={2} className="text-[10px] font-medium" />
+              ) : (
+                <span className="text-[10px] font-medium text-white/45">N/A</span>
+              )}
+            </button>
+          ))}
       </div>
 
       {hasTrend ? (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3">
-          <svg viewBox={`0 0 ${width} ${height}`} className="h-[132px] w-full" role="img" aria-label="SPX NDX RUT trend chart">
+        <div className="relative flex-1 pt-1">
+          <div className="mb-3 flex min-h-[20px] items-center justify-between gap-3">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-white/45">
+              {activeMarker ? formatSnapshotDate(activeMarker.sample.date) : "Latest"}
+            </span>
+            {activeMarker ? (
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                {markerRows.map((marker) => (
+                  <div key={`marker-read-${marker.row.label}`} className="text-right">
+                    <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: marker.row.stroke }}>
+                      {marker.row.label}
+                    </p>
+                    <Num
+                      value={marker.sample.value}
+                      decimals={snapshotDecimals(marker.sample.value)}
+                      className="mt-1 text-sm font-semibold text-white"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            className="h-[148px] w-full cursor-crosshair"
+            role="img"
+            aria-label="SPX NDX RUT trend chart"
+            onPointerMove={handlePointerMove}
+            onPointerLeave={handlePointerLeave}
+          >
+            <defs>
+              {rows.map((row) => (
+                <linearGradient key={`snapshot-fill-${row.label}`} id={`snapshot-fill-${row.label}`} x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor={row.stroke} stopOpacity="0.22" />
+                  <stop offset="100%" stopColor={row.stroke} stopOpacity="0" />
+                </linearGradient>
+              ))}
+            </defs>
             {[0.25, 0.5, 0.75].map((ratio) => (
               <line
                 key={`grid-${ratio}`}
@@ -526,25 +743,57 @@ export function MarketSnapshotChart({ series }: { series: MarketSnapshotSeries[]
                 strokeDasharray="4 6"
               />
             ))}
-            {rows.map((row) =>
+            {activeRow?.areaPath ? (
+              <path d={activeRow.areaPath} fill={`url(#snapshot-fill-${activeRow.label})`} opacity={0.55} />
+            ) : null}
+            {activeMarker ? (
+              <line
+                x1={activeMarker.coord.x}
+                y1={0}
+                x2={activeMarker.coord.x}
+                y2={height}
+                stroke="rgba(255,255,255,0.16)"
+                strokeWidth={1}
+                strokeDasharray="3 5"
+              />
+            ) : null}
+            {visibleRows.map((row) =>
               row.path ? (
                 <path
                   key={`path-${row.label}`}
                   d={row.path}
                   fill="none"
                   stroke={row.stroke}
-                  strokeWidth={2.2}
+                  strokeWidth={activeLabel === row.label ? 2.8 : 2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  style={{ filter: `drop-shadow(0 0 7px ${row.glow})` }}
+                  opacity={activeLabel === row.label ? 1 : 0.62}
+                  style={{ filter: `drop-shadow(0 0 9px ${row.glow})` }}
                 />
               ) : null
             )}
+            {markerRows.map((marker) => (
+              <g key={`marker-${marker.row.label}`}>
+                <circle
+                  cx={marker.coord.x}
+                  cy={marker.coord.y}
+                  r={activeLabel === marker.row.label ? 5 : 4}
+                  fill={marker.row.stroke}
+                  opacity={0.18}
+                />
+                <circle
+                  cx={marker.coord.x}
+                  cy={marker.coord.y}
+                  r={activeLabel === marker.row.label ? 2.7 : 2.2}
+                  fill={marker.row.stroke}
+                />
+              </g>
+            ))}
           </svg>
         </div>
       ) : (
-        <div className="flex h-[132px] items-center justify-center rounded-2xl border border-dashed border-white/12 bg-white/[0.02] text-sm text-white/50">
-          Index trend data is syncing.
+        <div className="flex h-[184px] items-center justify-center rounded-2xl border border-dashed border-white/12 bg-white/[0.02] text-sm text-white/50">
+          Toggle an index to view its price line.
         </div>
       )}
     </div>
@@ -613,9 +862,11 @@ export function SectorRotationBoard({ rows, currentWindow, onWindowChange }: Sec
               <p className="mt-2 font-mono text-[13px] text-white/46">{activeRow?.etf ?? "—"}</p>
             </div>
             <div>
-              <p className={clsx("text-[32px] font-semibold tracking-[-0.04em]", dashboardValueToneClass(activeRow?.performancePercent ?? null))}>
-                {formatSignedPercent(activeRow?.performancePercent ?? null, 1)}
-              </p>
+              {typeof activeRow?.performancePercent === "number" && Number.isFinite(activeRow.performancePercent) ? (
+                <Pct value={activeRow.performancePercent} decimals={1} className="text-[32px] font-semibold tracking-[-0.04em]" />
+              ) : (
+                <p className="text-[32px] font-semibold tracking-[-0.04em] text-white/45">N/A</p>
+              )}
               {activeRow?.signalStrength && activeRow.signalStrength !== "UNAVAILABLE" ? (
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <span className={clsx("text-[10px] uppercase tracking-[0.14em]", signalStrengthClass(activeRow.signalStrength))}>
@@ -623,7 +874,7 @@ export function SectorRotationBoard({ rows, currentWindow, onWindowChange }: Sec
                   </span>
                   {typeof activeRow.signalScore === "number" ? (
                     <span className="text-[10px] uppercase tracking-[0.14em] text-white/42">
-                      {activeRow.signalScore.toFixed(1)} signal
+                      <Num value={activeRow.signalScore} decimals={1} className="text-[10px] text-white/42" /> signal
                     </span>
                   ) : null}
                 </div>
@@ -686,12 +937,13 @@ export function SectorRotationBoard({ rows, currentWindow, onWindowChange }: Sec
 
 export function MarketMoverStack({
   items,
+  filter,
   onAnalyze
 }: {
   items: HomeMarketMoverItem[];
+  filter: MarketMoverFilter;
   onAnalyze: (symbol: string) => void;
 }): JSX.Element {
-  const [filter, setFilter] = useState<"ALL" | "W" | "L">("ALL");
   const filteredItems = useMemo(() => {
     if (filter === "W") {
       return items
@@ -712,23 +964,6 @@ export function MarketMoverStack({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1">
-        {(["ALL", "W", "L"] as const).map((option) => (
-          <button
-            key={`mover-filter-${option}`}
-            type="button"
-            onClick={() => setFilter(option)}
-            aria-pressed={filter === option}
-            className={clsx(
-              "eldar-dashboard-pill rounded-full px-3 py-1.5 text-[10px] uppercase tracking-[0.14em]",
-              filter === option && "bg-white text-black hover:bg-white"
-            )}
-          >
-            {option}
-          </button>
-        ))}
-      </div>
-
       {filteredItems.length === 0 ? (
         <div className="flex min-h-[180px] items-center justify-center rounded-[24px] border border-dashed border-white/10 text-center text-sm text-white/46">
           No movers in this bucket.
@@ -745,11 +980,17 @@ export function MarketMoverStack({
               <p className="font-mono text-[14px] font-semibold text-white">{item.symbol}</p>
             </div>
             <div className="text-right">
-              <p className={clsx("text-[13px] font-semibold", dashboardValueToneClass(item.changePercent ?? null))}>
-                {formatSignedPercent(item.changePercent, 2)}
-              </p>
+              {item.changePercent !== null ? (
+                <Pct value={item.changePercent} decimals={2} className="text-[13px] font-semibold" />
+              ) : (
+                <p className="text-[13px] font-semibold text-white/45">N/A</p>
+              )}
               <p className="mt-1 text-[11px] text-white/38">
-                {typeof item.currentPrice === "number" ? formatPrice(item.currentPrice, "USD") : "Price unavailable"}
+                {typeof item.currentPrice === "number" ? (
+                  <Money value={item.currentPrice} currency="USD" className="text-[11px] text-white/38" />
+                ) : (
+                  "Price unavailable"
+                )}
               </p>
             </div>
           </div>

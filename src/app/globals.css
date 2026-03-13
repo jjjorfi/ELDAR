@@ -71,14 +71,19 @@
     linear-gradient(180deg, rgba(40, 52, 78, 0.12) 0%, rgba(10, 14, 24, 0.92) 100%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 32%, rgba(255, 255, 255, 0.03) 100%);
   --eldar-search-border: rgba(182, 202, 240, 0.2);
-  --eldar-search-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 12px 24px rgba(0, 0, 0, 0.24);
+  --eldar-search-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   --eldar-search-hover-border: rgba(210, 223, 249, 0.28);
   --eldar-search-hover-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 14px 28px rgba(0, 0, 0, 0.3),
-    0 0 12px rgba(255, 255, 255, 0.06);
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 0 0 1px rgba(255, 255, 255, 0.12);
+  --eldar-search-gradient-1: #2962ff;
+  --eldar-search-gradient-2: #26c6da;
+  --eldar-search-gradient-3: #d568fb;
+  --eldar-search-gradient-4: #fe7f2d;
+  --eldar-search-gradient-5: #fbc130;
+  --eldar-search-shell-background: #0d0d0d;
+  --eldar-search-shell-color: #ffffff;
+  --eldar-search-shell-color-rgb: 255, 255, 255;
   --eldar-glass-border: rgba(182, 202, 240, 0.2);
   --eldar-glass-bg:
     linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.025) 38%, rgba(255, 255, 255, 0.04) 100%);
@@ -204,14 +209,19 @@ html[data-theme="light"] {
     linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(240, 242, 248, 0.92) 100%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(240, 243, 250, 0.5) 100%);
   --eldar-search-border: rgba(82, 82, 82, 0.2);
-  --eldar-search-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.86),
-    0 12px 24px rgba(174, 174, 192, 0.24);
+  --eldar-search-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
   --eldar-search-hover-border: rgba(64, 64, 64, 0.3);
   --eldar-search-hover-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 14px 28px rgba(174, 174, 192, 0.3),
-    0 0 8px rgba(255, 255, 255, 0.55);
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 0 0 1px rgba(64, 64, 64, 0.16);
+  --eldar-search-gradient-1: #2962ff;
+  --eldar-search-gradient-2: #26c6da;
+  --eldar-search-gradient-3: #d568fb;
+  --eldar-search-gradient-4: #fe7f2d;
+  --eldar-search-gradient-5: #fbc130;
+  --eldar-search-shell-background: #ffffff;
+  --eldar-search-shell-color: #0d0d0d;
+  --eldar-search-shell-color-rgb: 13, 13, 13;
   --eldar-glass-border: rgba(82, 82, 82, 0.18);
   --eldar-glass-bg:
     linear-gradient(145deg, rgba(255, 255, 255, 0.84) 0%, rgba(244, 246, 252, 0.6) 38%, rgba(235, 239, 248, 0.7) 100%);
@@ -325,6 +335,7 @@ body {
   padding-right: var(--eldar-content-pad-x);
   padding-bottom: clamp(84px, 9vw, 112px);
   padding-left: calc(var(--eldar-sidebar-offset) + var(--eldar-content-pad-x));
+  transition: padding-left 300ms ease-in-out;
 }
 
 .eldar-page-width-xl,
@@ -970,18 +981,171 @@ textarea:focus-visible {
   outline-offset: 0 !important;
 }
 
-.eldar-search-shell {
-  border: 1px solid var(--eldar-search-border) !important;
-  background: var(--eldar-search-bg) !important;
-  box-shadow: var(--eldar-search-shadow) !important;
-  backdrop-filter: blur(14px) saturate(1.04);
-  -webkit-backdrop-filter: blur(14px) saturate(1.04);
+.btn-outer {
+  position: relative;
+  display: inline-flex;
+  border-radius: 2rem;
+  box-shadow: none;
+  transition: box-shadow 0.5s ease;
 }
 
-.eldar-search-shell:hover,
-.eldar-search-shell:focus-visible {
-  border-color: var(--eldar-search-hover-border) !important;
-  box-shadow: var(--eldar-search-hover-shadow) !important;
+.btn-outer:hover {
+  box-shadow:
+    0 0 4px 1px rgba(220, 205, 175, 0.35),
+    0 0 10px 2px rgba(180, 155, 100, 0.15);
+}
+
+.btn {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2rem;
+  height: 1.875rem;
+  padding: 0 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  z-index: 0;
+}
+
+.btn::before {
+  content: "";
+  position: absolute;
+  width: 200%;
+  aspect-ratio: 1;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(0deg);
+  background: conic-gradient(
+    from 0deg,
+    transparent 4%,
+    rgba(100, 80, 50, 0.12) 9%,
+    rgba(140, 110, 65, 0.28) 15%,
+    rgba(175, 145, 90, 0.45) 22%,
+    rgba(200, 170, 110, 0.58) 29%,
+    rgba(218, 190, 130, 0.68) 35%,
+    rgba(232, 210, 155, 0.76) 40%,
+    rgba(248, 238, 210, 0.92) 45%,
+    rgba(255, 252, 240, 1) 48%,
+    rgba(255, 255, 255, 1) 50%,
+    rgba(255, 252, 240, 1) 52%,
+    rgba(248, 238, 210, 0.92) 52%,
+    rgba(232, 210, 155, 0.76) 56%,
+    rgba(215, 185, 120, 0.65) 62%,
+    rgba(190, 158, 95, 0.50) 68%,
+    rgba(160, 128, 72, 0.32) 74%,
+    rgba(120, 92, 50, 0.14) 79%,
+    transparent 84%
+  );
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+
+.btn::after {
+  content: "";
+  position: absolute;
+  inset: 1.5px;
+  border-radius: 2rem;
+  background: var(--eldar-search-shell-background);
+  z-index: -1;
+}
+
+.btn-inner {
+  position: absolute;
+  inset: 1.5px;
+  border-radius: 2rem;
+  z-index: 0;
+  pointer-events: none;
+  background: transparent;
+  transition: background 0.5s;
+}
+
+.btn span {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-outer:hover .btn::before {
+  opacity: 1;
+  animation: border-spin 2.6s linear infinite;
+}
+
+.btn-outer:hover .btn-inner {
+  background: linear-gradient(
+    135deg,
+    rgba(220, 195, 140, 0.05) 0%,
+    rgba(200, 175, 110, 0.04) 50%,
+    transparent 100%
+  );
+}
+
+@keyframes border-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.eldar-search-shell {
+  width: 100%;
+  height: 100%;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--eldar-search-shell-color);
+}
+
+.eldar-search-shell:active {
+  transform: none !important;
+}
+
+.eldar-search-shell__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  padding: 0 0.5rem 0 1.75rem;
+  border-radius: 2rem;
+  color: var(--eldar-search-shell-color);
+  overflow: clip;
+}
+
+.eldar-search-shell__field {
+  width: 100%;
+  height: 100%;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  color: inherit !important;
+  border-radius: 0 !important;
+}
+
+.eldar-search-shell__field::placeholder {
+  color: color-mix(in srgb, var(--eldar-search-shell-color) 44%, transparent) !important;
+}
+
+.eldar-search-shell__icon {
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--eldar-search-shell-color) 62%, transparent);
+}
+
+.eldar-search-shell__copy {
+  color: color-mix(in srgb, var(--eldar-search-shell-color) 84%, transparent);
+}
+
+.eldar-search-shell__hint {
+  flex: 0 0 auto;
+  border: 1px solid rgba(var(--eldar-search-shell-color-rgb), 0.1);
+  background: rgba(var(--eldar-search-shell-color-rgb), 0.04);
+  color: color-mix(in srgb, var(--eldar-search-shell-color) 56%, transparent);
 }
 
 button:active,

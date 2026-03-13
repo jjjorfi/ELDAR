@@ -1,5 +1,6 @@
 import { getFinnhubApiKeys } from "@/lib/market/providers/finnhub";
 import { normalizeSectorName } from "@/lib/scoring/sector/config";
+import sp500Seed from "@/lib/market/universe/sp500-seed.json";
 
 const WIKIPEDIA_SP500_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies";
 const DATAHUB_SP500_CSV_URL = "https://datahub.io/core/s-and-p-500-companies/r/constituents.csv";
@@ -7,6 +8,7 @@ const FINNHUB_CONSTITUENTS_URL = "https://finnhub.io/api/v1/index/constituents";
 
 const FALLBACK_SYMBOLS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "BRK.B", "LLY", "AVGO", "TSLA"];
 const KNOWN_BAD_SYMBOLS = new Set(["Q"]);
+const MIN_DIRECTORY_SIZE = 450;
 
 export interface SP500Constituent {
   symbol: string;
@@ -18,6 +20,25 @@ export interface SP500DirectoryEntry {
   companyName: string;
   sector: string;
 }
+
+function buildSeedDirectory(): Record<string, SP500DirectoryEntry> {
+  const entries = Array.isArray(sp500Seed) ? sp500Seed : [];
+  const directory = Object.fromEntries(
+    entries.map((item) => [
+      normalizeSymbol(item.symbol),
+      {
+        symbol: normalizeSymbol(item.symbol),
+        companyName: String(item.companyName ?? "").trim() || normalizeSymbol(item.symbol),
+        sector: normalizeSectorName(String(item.sector ?? ""))
+      }
+    ])
+  );
+
+  return directory;
+}
+
+const SP500_SEED_DIRECTORY = buildSeedDirectory();
+const SP500_SEED_SYMBOLS = uniqueSorted(Object.keys(SP500_SEED_DIRECTORY));
 
 function stripTags(input: string): string {
   return input.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&#160;/g, " ").trim();
@@ -275,6 +296,10 @@ let sp500DirectoryCache: Record<string, SP500DirectoryEntry> | null = null;
 let sp500DirectoryInFlight: Promise<Record<string, SP500DirectoryEntry>> | null = null;
 
 export async function fetchSP500Symbols(): Promise<string[]> {
+  if (SP500_SEED_SYMBOLS.length >= MIN_DIRECTORY_SIZE) {
+    return SP500_SEED_SYMBOLS;
+  }
+
   const [finnhubSymbols, datahubSymbols] = await Promise.all([
     fetchFromFinnhub(),
     fetchFromDataHub()
@@ -421,6 +446,11 @@ export async function fetchSP500Directory(): Promise<Record<string, SP500Directo
 
   if (sp500DirectoryInFlight) {
     return sp500DirectoryInFlight;
+  }
+
+  if (SP500_SEED_SYMBOLS.length >= MIN_DIRECTORY_SIZE) {
+    sp500DirectoryCache = SP500_SEED_DIRECTORY;
+    return sp500DirectoryCache;
   }
 
   sp500DirectoryInFlight = (async () => {

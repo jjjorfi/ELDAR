@@ -1,13 +1,14 @@
-import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
+import { okResponse } from "@/lib/api";
 import { withApiPerfHeaders } from "@/lib/api/responses";
 import { runRouteGuards } from "@/lib/api/route-security";
 import { getContextPayload } from "@/lib/features/context/service";
+import { log } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
-export async function GET(request: Request): Promise<NextResponse> {
+export async function GET(request: Request) {
   const startedAt = Date.now();
   const blocked = await runRouteGuards(request, {
     bucket: "api-context",
@@ -27,7 +28,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   });
 
   if (!result.ok) {
-    return NextResponse.json(
+    return okResponse(
       { error: result.error },
       {
         status: result.status,
@@ -42,7 +43,15 @@ export async function GET(request: Request): Promise<NextResponse> {
     );
   }
 
-  return NextResponse.json(result.payload, {
+  log({
+    level: "info",
+    service: "api-context",
+    message: "Context payload resolved",
+    cache: result.cache,
+    durationMs: Date.now() - startedAt
+  });
+
+  return okResponse(result.payload, {
     headers: withApiPerfHeaders(
       {
         "Cache-Control": result.cacheControl

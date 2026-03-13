@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import type { NextResponse } from "next/server";
 
+import { errorResponse, okResponse } from "@/lib/api";
 import { runRouteGuards } from "@/lib/api/route-security";
-import { fetchTopSp500Movers } from "@/lib/home/sp500-movers";
+import { log } from "@/lib/logger";
 import { publishMarketMovers } from "@/lib/realtime/publisher";
 import { AGGREGATE_SNAPSHOT_KEYS } from "@/lib/snapshots/contracts";
 import { getAggregateSnapshotForRead } from "@/lib/snapshots/service";
@@ -12,14 +13,14 @@ export const dynamic = "force-dynamic";
 const CACHE_HEADER = "public, max-age=20, s-maxage=60, stale-while-revalidate=120";
 const REQUIRED_MOVER_BUCKET_SIZE = 3;
 
-interface MoversPayload {
+type MoversPayload = {
   movers: Array<{
     symbol: string;
     companyName: string;
     currentPrice: number | null;
     changePercent: number | null;
   }>;
-}
+};
 
 function hasRequiredMoverBuckets(
   movers: Array<{ changePercent: number | null }>,
@@ -36,7 +37,14 @@ function hasRequiredMoverBuckets(
   return winners >= perBucket && losers >= perBucket;
 }
 
+/**
+ * Returns the cached top movers snapshot.
+ *
+ * The route never repairs movers inline. Incomplete buckets return warming so
+ * snapshot jobs can rebuild them outside the user request path.
+ */
 export async function GET(request: Request): Promise<NextResponse> {
+  const startedAt = Date.now();
   const blocked = await runRouteGuards(request, {
     bucket: "api-movers",
     max: 120,
@@ -53,8 +61,8 @@ export async function GET(request: Request): Promise<NextResponse> {
     });
 
     const payload = snapshotRead.snapshot?.payload ?? null;
-    if (!payload) {
-      return NextResponse.json(
+    if (!payload || !hasRequiredMoverBuckets(payload.movers)) {
+      return okResponse(
         {
           movers: [],
           pending: true,
@@ -70,47 +78,23 @@ export async function GET(request: Request): Promise<NextResponse> {
       );
     }
 
-    let resolvedPayload = payload;
-    if (!hasRequiredMoverBuckets(payload.movers)) {
-      const rebuilt = await fetchTopSp500Movers(REQUIRED_MOVER_BUCKET_SIZE);
-      resolvedPayload = { movers: rebuilt };
-    }
-    if (!hasRequiredMoverBuckets(resolvedPayload.movers)) {
-      return NextResponse.json(
-        {
-          movers: [],
-          pending: true,
-          refreshQueued: snapshotRead.enqueued
-        },
-        {
-          status: 202,
-          headers: {
-            "Cache-Control": "no-store",
-            "X-ELDAR-Data-State": "warming"
-          }
-        }
-      );
-    }
+    await publishMarketMovers(payload);
+    log({
+      level: "info",
+      service: "api-movers",
+      message: "Movers snapshot served",
+      state: snapshotRead.state,
+      moverCount: payload.movers.length,
+      durationMs: Date.now() - startedAt
+    });
 
-    const stateHeader = snapshotRead.state + (snapshotRead.enqueued ? "+queued" : "");
-    await publishMarketMovers(resolvedPayload);
-    return NextResponse.json(resolvedPayload, {
+    return okResponse(payload, {
       headers: {
         "Cache-Control": CACHE_HEADER,
-        "X-ELDAR-Data-State": stateHeader
+        "X-ELDAR-Data-State": snapshotRead.state + (snapshotRead.enqueued ? "+queued" : "")
       }
     });
   } catch (error) {
-    console.error("/api/movers GET error", error);
-    return NextResponse.json(
-      { movers: [] },
-      {
-        status: 200,
-        headers: {
-          "Cache-Control": CACHE_HEADER,
-          "X-ELDAR-Data-State": "degraded"
-        }
-      }
-    );
+    return errorResponse(error, { route: "api-movers" }, { "Cache-Control": CACHE_HEADER });
   }
 }

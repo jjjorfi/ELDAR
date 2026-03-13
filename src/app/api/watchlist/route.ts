@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getApiAuthContext } from "@/lib/api/auth-context";
-import { badRequest, internalServerError, jsonNoStore, unauthorized } from "@/lib/api/responses";
+import { errorResponse, okResponse } from "@/lib/api";
 import { runRouteGuards } from "@/lib/api/route-security";
+import { AuthError, ValidationError } from "@/lib/errors";
+import { log } from "@/lib/logger";
 import { addToWatchlist, getWatchlist, removeFromWatchlist } from "@/lib/storage/index";
 import { publishWatchlistDelta } from "@/lib/realtime/publisher";
 import { sanitizeSymbol } from "@/lib/utils";
@@ -25,15 +27,26 @@ export async function GET(request: Request): Promise<NextResponse> {
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
-      return unauthorized();
+      throw new AuthError("Unauthenticated");
     }
     const { userId } = authContext;
 
     const watchlist = await getWatchlist(userId);
-    return jsonNoStore({ watchlist });
+    log({
+      level: "info",
+      service: "api-watchlist",
+      message: "Watchlist loaded",
+      userId,
+      count: watchlist.length
+    });
+    return okResponse(
+      { watchlist },
+      {
+        headers: { "Cache-Control": "no-store" }
+      }
+    );
   } catch (error) {
-    console.error("/api/watchlist GET error", error);
-    return internalServerError("Failed to load watchlist.");
+    return errorResponse(error, { route: "api-watchlist-get" });
   }
 }
 
@@ -48,7 +61,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
-      return unauthorized();
+      throw new AuthError("Unauthenticated");
     }
     const { userId, orgId } = authContext;
 
@@ -56,13 +69,13 @@ export async function POST(request: Request): Promise<NextResponse> {
     const parsed = payloadSchema.safeParse(body);
 
     if (!parsed.success) {
-      return badRequest("Invalid payload.");
+      throw new ValidationError("Invalid payload.");
     }
 
     const symbol = sanitizeSymbol(parsed.data.symbol);
 
     if (!symbol) {
-      return badRequest("Ticker symbol is invalid.");
+      throw new ValidationError("Ticker symbol is invalid.");
     }
 
     await addToWatchlist(symbol, userId);
@@ -75,10 +88,23 @@ export async function POST(request: Request): Promise<NextResponse> {
       changedAt: new Date().toISOString()
     });
 
-    return jsonNoStore({ watchlist });
+    log({
+      level: "info",
+      service: "api-watchlist",
+      message: "Watchlist symbol added",
+      userId,
+      symbol,
+      count: watchlist.length
+    });
+
+    return okResponse(
+      { watchlist },
+      {
+        headers: { "Cache-Control": "no-store" }
+      }
+    );
   } catch (error) {
-    console.error("/api/watchlist POST error", error);
-    return internalServerError("Failed to add symbol.");
+    return errorResponse(error, { route: "api-watchlist-post" });
   }
 }
 
@@ -93,7 +119,7 @@ export async function DELETE(request: Request): Promise<NextResponse> {
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
-      return unauthorized();
+      throw new AuthError("Unauthenticated");
     }
     const { userId, orgId } = authContext;
 
@@ -101,7 +127,7 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     const symbol = sanitizeSymbol(url.searchParams.get("symbol") ?? "");
 
     if (!symbol) {
-      return badRequest("Ticker symbol is required.");
+      throw new ValidationError("Ticker symbol is required.");
     }
 
     await removeFromWatchlist(symbol, userId);
@@ -114,9 +140,22 @@ export async function DELETE(request: Request): Promise<NextResponse> {
       changedAt: new Date().toISOString()
     });
 
-    return jsonNoStore({ watchlist });
+    log({
+      level: "info",
+      service: "api-watchlist",
+      message: "Watchlist symbol removed",
+      userId,
+      symbol,
+      count: watchlist.length
+    });
+
+    return okResponse(
+      { watchlist },
+      {
+        headers: { "Cache-Control": "no-store" }
+      }
+    );
   } catch (error) {
-    console.error("/api/watchlist DELETE error", error);
-    return internalServerError("Failed to remove symbol.");
+    return errorResponse(error, { route: "api-watchlist-delete" });
   }
 }

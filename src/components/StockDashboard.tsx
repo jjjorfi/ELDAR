@@ -31,13 +31,18 @@ import {
   LinesSkeleton,
   RatingCardSkeleton
 } from "@/components/ui/FintechPrimitives";
+import { Money, Num, Pct } from "@/components/ui/Numeric";
 import { SignalHero } from "@/components/ui/AnalysisPrimitives";
 import { ScoreExplanationWidget } from "@/components/eldar/widgets";
 import {
   MacroEnvironmentCard,
+  MARKET_MOVER_FILTER_OPTIONS,
   MarketSnapshotChart,
   MarketNewsPanel,
   MarketMoverStack,
+  SNAPSHOT_WINDOW_OPTIONS,
+  type MarketMoverFilter,
+  type SnapshotWindow,
   SectorRotationBoard
 } from "@/components/dashboard/HomeDashboardModules";
 import { HeroLanding } from "@/components/landing/HeroLanding";
@@ -49,12 +54,10 @@ import {
 import { ResultsChartsPanel } from "@/components/stock-dashboard/ResultsChartsPanel";
 import { ResultsSidebar } from "@/components/stock-dashboard/ResultsSidebar";
 import {
-  areMag7CardsEqual,
   factorActionHint,
   factorSignalToneClass,
   findFactorMetric,
   findFactorSignal,
-  formatSignedPercent,
   isTypingTarget,
   mergeIndexRows,
   ratioToPercentPoints,
@@ -81,7 +84,6 @@ import {
   scoreLabel,
   sectorHeatFromScore,
   sectorHeatLabel,
-  sortMag7Cards,
   toConfidenceLevel
 } from "@/components/stock-dashboard/view-helpers";
 import type {
@@ -110,17 +112,17 @@ import {
   SOCKET_EVENTS,
   type EarningsPayload,
   type IndicesYtdPayload,
-  type Mag7Payload,
   type MarketMoversPayload,
   type QuoteTicksPayload,
   type WatchlistDeltaPayload
 } from "@/lib/realtime/events";
-import type { FactorResult, Mag7ScoreCard, PersistedAnalysis, RatingLabel, WatchlistItem } from "@/lib/types";
+import type { FactorResult, PersistedAnalysis, RatingLabel, WatchlistItem } from "@/lib/types";
 import { formatMarketCap, formatPrice } from "@/lib/utils";
 import type {
   HomeDashboardPayload,
   SectorRotationWindow
 } from "@/lib/home/dashboard-types";
+import { isNySessionOpen } from "@/lib/market/ny-session";
 import { exportCard } from "@/lib/share/export-card";
 import { DASHBOARD_RETURN_STATE_KEY } from "@/lib/ui/dashboard-intent";
 import { isPaletteOpenShortcut } from "@/lib/ui/command-palette";
@@ -136,20 +138,13 @@ const FALLBACK_UPCOMING_EARNINGS: UpcomingEarningsItem[] = [
   { symbol: "NVDA", companyName: "NVIDIA Corporation", date: null, epsEstimate: null }
 ];
 const FALLBACK_INDICES_YTD: IndexYtdItem[] = [
-  { code: "US2000", label: "RUT", symbol: "^RUT", current: null, ytdChangePercent: null, asOf: null, points: [] },
-  { code: "US100", label: "US100", symbol: "^NDX", current: null, ytdChangePercent: null, asOf: null, points: [] },
-  { code: "US500", label: "US500", symbol: "^GSPC", current: null, ytdChangePercent: null, asOf: null, points: [] }
+  { code: "US2000", label: "RUT", symbol: "^RUT", current: null, ytdChangePercent: null, asOf: null, points: [], pointDates: [] },
+  { code: "US100", label: "US100", symbol: "^NDX", current: null, ytdChangePercent: null, asOf: null, points: [], pointDates: [] },
+  { code: "US500", label: "US500", symbol: "^GSPC", current: null, ytdChangePercent: null, asOf: null, points: [], pointDates: [] }
 ];
 const COMMAND_PALETTE_LIMIT = 12;
 const JOURNAL_VISIBLE_COUNT = 5;
 const PRICE_RANGE_OPTIONS: PriceRange[] = ["1W", "1M", "3M", "1Y"];
-const SHORTCUTS = [
-  { key: "/", description: "Open search" },
-  { key: "S", description: "Search stocks" },
-  { key: "P", description: "Go to portfolio" },
-  { key: "J", description: "New journal entry" },
-  { key: "Esc", description: "Close modal / panel" }
-];
 
 const ELDAR_BRAND_LOGO = "/brand/eldar-logo.png";
 const ANALYSIS_CACHE_TTL_MS = 90_000;
@@ -164,7 +159,6 @@ const QUOTE_HTTP_POLL_SYMBOL_LIMIT = 24;
 export function StockDashboard({
   initialHistory,
   initialWatchlist,
-  initialMag7Scores,
   currentUserId,
   initialSymbol = null
 }: StockDashboardProps): JSX.Element {
@@ -180,7 +174,6 @@ export function StockDashboard({
   const [watchlistAddedSymbol, setWatchlistAddedSymbol] = useState<string | null>(null);
   const [apiError, setApiError] = useState("");
   const [pendingSymbol, setPendingSymbol] = useState<string | null>(null);
-  const [mag7Cards, setMag7Cards] = useState<Mag7ScoreCard[]>(() => sortMag7Cards(initialMag7Scores));
   const [isMarketOpen, setIsMarketOpen] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -204,6 +197,8 @@ export function StockDashboard({
   const [homeDashboard, setHomeDashboard] = useState<HomeDashboardPayload | null>(null);
   const [homeDashboardLoading, setHomeDashboardLoading] = useState(false);
   const [homeDashboardError, setHomeDashboardError] = useState("");
+  const [snapshotWindow, setSnapshotWindow] = useState<SnapshotWindow>("YTD");
+  const [marketMoverFilter, setMarketMoverFilter] = useState<MarketMoverFilter>("ALL");
   const [sectorRotationWindow, setSectorRotationWindow] = useState<SectorRotationWindow>("YTD");
   const [indicesYtd, setIndicesYtd] = useState<IndexYtdItem[]>(FALLBACK_INDICES_YTD);
   const [indicesError, setIndicesError] = useState("");
@@ -214,7 +209,6 @@ export function StockDashboard({
   const [homeHeaderVisible, setHomeHeaderVisible] = useState(false);
   const [isNewsExpanded, setIsNewsExpanded] = useState(false);
   const [showAllJournalLinks, setShowAllJournalLinks] = useState(false);
-  const [showShortcuts, setShowShortcuts] = useState(false);
   const [priceRange, setPriceRange] = useState<PriceRange>("3M");
   const [priceHistory, setPriceHistory] = useState<PriceHistoryPoint[]>([]);
   const [priceHistoryChangePercent, setPriceHistoryChangePercent] = useState<number | null>(null);
@@ -284,11 +278,10 @@ export function StockDashboard({
     add(currentRating?.symbol);
     add(homeTickerDrawer?.symbol);
     for (const mover of marketMovers) add(mover.symbol);
-    for (const card of mag7Cards) add(card.symbol);
     for (const holding of portfolioHoldings) add(holding.symbol);
 
     return Array.from(symbols).slice(0, QUOTE_HTTP_POLL_SYMBOL_LIMIT);
-  }, [ticker, currentRating?.symbol, homeTickerDrawer?.symbol, marketMovers, mag7Cards, portfolioHoldings]);
+  }, [ticker, currentRating?.symbol, homeTickerDrawer?.symbol, marketMovers, portfolioHoldings]);
   const headerVisible = view === "home" ? homeHeaderVisible : true;
   const showFadeTransition = view === "home";
 
@@ -320,20 +313,6 @@ export function StockDashboard({
           currentPrice: live.price
         };
       })
-    );
-
-    setMag7Cards((prev) =>
-      sortMag7Cards(
-        prev.map((card) => {
-          const live = bySymbol.get(card.symbol.toUpperCase());
-          if (!live) return card;
-          if (Math.abs(card.currentPrice - live.price) < 0.0001) return card;
-          return {
-            ...card,
-            currentPrice: live.price
-          };
-        })
-      )
     );
 
     setHomeTickerDrawer((prev) => {
@@ -562,7 +541,8 @@ export function StockDashboard({
           current: typeof item.current === "number" ? item.current : null,
           ytdChangePercent: typeof item.ytdChangePercent === "number" ? item.ytdChangePercent : null,
           asOf: typeof item.asOf === "string" ? item.asOf : null,
-          points: Array.isArray(item.points) ? item.points.filter((point) => typeof point === "number") : []
+          points: Array.isArray(item.points) ? item.points.filter((point) => typeof point === "number") : [],
+          pointDates: Array.isArray(item.pointDates) ? item.pointDates.filter((point) => typeof point === "string") : []
         }))
         .filter((item) => item.code === "US2000" || item.code === "US100" || item.code === "US500");
 
@@ -830,19 +810,6 @@ export function StockDashboard({
       }
     };
 
-    const handleMag7Delta = (payload: Mag7Payload): void => {
-      try {
-        if (!payload || !Array.isArray(payload.cards)) return;
-        setMag7Cards(sortMag7Cards(payload.cards as Mag7ScoreCard[]));
-        if (typeof payload.marketOpen === "boolean") {
-          setIsMarketOpen(payload.marketOpen);
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Malformed MAG7 realtime payload.";
-        console.error(`[Stock Dashboard]: MAG7 delta error: ${message}`);
-      }
-    };
-
     const handleQuoteTicksDelta = (payload: QuoteTicksPayload): void => {
       try {
         if (!payload || !Array.isArray(payload.updates) || payload.updates.length === 0) return;
@@ -872,7 +839,6 @@ export function StockDashboard({
     socket.on(SOCKET_EVENTS.MARKET_MOVERS_UPDATED, handleMarketMoversDelta);
     socket.on(SOCKET_EVENTS.INDICES_YTD_UPDATED, handleIndicesDelta);
     socket.on(SOCKET_EVENTS.EARNINGS_UPDATED, handleEarningsDelta);
-    socket.on(SOCKET_EVENTS.MAG7_UPDATED, handleMag7Delta);
     socket.on(SOCKET_EVENTS.QUOTE_TICKS_UPDATED, handleQuoteTicksDelta);
 
     return () => {
@@ -881,7 +847,6 @@ export function StockDashboard({
       socket.off(SOCKET_EVENTS.MARKET_MOVERS_UPDATED, handleMarketMoversDelta);
       socket.off(SOCKET_EVENTS.INDICES_YTD_UPDATED, handleIndicesDelta);
       socket.off(SOCKET_EVENTS.EARNINGS_UPDATED, handleEarningsDelta);
-      socket.off(SOCKET_EVENTS.MAG7_UPDATED, handleMag7Delta);
       socket.off(SOCKET_EVENTS.QUOTE_TICKS_UPDATED, handleQuoteTicksDelta);
     };
   }, [socket, currentUserId, applyLiveQuoteMap]);
@@ -1085,21 +1050,7 @@ export function StockDashboard({
         return;
       }
 
-      if (event.key === "Escape") {
-        if (showShortcuts) {
-          event.preventDefault();
-          setShowShortcuts(false);
-          return;
-        }
-      }
-
       if (isTypingTarget(event.target)) {
-        return;
-      }
-
-      if (event.key === "?" && !event.ctrlKey && !event.metaKey) {
-        event.preventDefault();
-        setShowShortcuts(true);
         return;
       }
 
@@ -1146,6 +1097,7 @@ export function StockDashboard({
       if (event.key === "Escape" && isProfileOpen) {
         event.preventDefault();
         closeProfileModal();
+        return;
       }
     }
 
@@ -1157,7 +1109,6 @@ export function StockDashboard({
     isProfileOpen,
     openCommandPalette,
     openJournalPage,
-    showShortcuts,
     ticker,
     closeCommandPalette,
     closeProfileModal,
@@ -1167,10 +1118,6 @@ export function StockDashboard({
     portfolioDrawerHoldingId,
     view
   ]);
-
-  useEffect(() => {
-    setMag7Cards(sortMag7Cards(initialMag7Scores));
-  }, [initialMag7Scores]);
 
   useEffect(() => {
     if (!isCommandPaletteOpen) return;
@@ -1245,6 +1192,18 @@ export function StockDashboard({
   }, []);
 
   useEffect(() => {
+    const syncMarketOpen = (): void => {
+      setIsMarketOpen(isNySessionOpen());
+    };
+
+    syncMarketOpen();
+    const timer = window.setInterval(syncMarketOpen, 60_000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
     if (analysisPhase !== "rendering") return;
     if (view !== "results" || !currentRating) return;
 
@@ -1288,77 +1247,6 @@ export function StockDashboard({
       }
     };
   }, [analysisPhase, view, currentRating]);
-
-  useEffect(() => {
-    if (!isAppOpen) {
-      return;
-    }
-
-    let disposed = false;
-    let timer: number | null = null;
-
-    const schedule = (delayMs: number): void => {
-      if (disposed) return;
-      timer = window.setTimeout(() => {
-        void poll();
-      }, delayMs);
-    };
-
-    const poll = async (): Promise<void> => {
-      if (!isPageVisible) {
-        schedule(180_000);
-        return;
-      }
-
-      try {
-        const response = await fetch("/api/mag7?live=1");
-        const payload = (await response.json()) as {
-          cards?: Mag7ScoreCard[];
-          marketOpen?: boolean;
-          error?: string;
-        };
-
-        if (!response.ok || !Array.isArray(payload.cards)) {
-          schedule(30_000);
-          return;
-        }
-
-        const nextCards = sortMag7Cards(payload.cards);
-        setMag7Cards((prev) => {
-          const frozenPercentCards = payload.marketOpen
-            ? nextCards
-            : nextCards.map((card) => {
-                const previous = prev.find((item) => item.symbol === card.symbol);
-                if (!previous || previous.changePercent === null) {
-                  return card;
-                }
-
-                return {
-                  ...card,
-                  changePercent: previous.changePercent
-                };
-              });
-
-          return areMag7CardsEqual(prev, frozenPercentCards) ? prev : frozenPercentCards;
-        });
-
-        const marketOpen = Boolean(payload.marketOpen);
-        setIsMarketOpen(marketOpen);
-        schedule(marketOpen ? 45_000 : 180_000);
-      } catch {
-        schedule(30_000);
-      }
-    };
-
-    void poll();
-
-    return () => {
-      disposed = true;
-      if (timer !== null) {
-        window.clearTimeout(timer);
-      }
-    };
-  }, [isAppOpen, isPageVisible]);
 
   useEffect(() => {
     if (!isAppOpen) return;
@@ -1801,6 +1689,8 @@ export function StockDashboard({
 
     let cancelled = false;
     const controller = new AbortController();
+    let retryTimer: number | null = null;
+    let attempts = 0;
 
     const load = async (): Promise<void> => {
       setPriceHistoryLoading(true);
@@ -1814,8 +1704,23 @@ export function StockDashboard({
         const payload = (await response.json()) as {
           points?: PriceHistoryPoint[];
           changePercent?: number | null;
+          pending?: boolean;
+          refreshQueued?: boolean;
           error?: string;
         };
+
+        if (response.status === 202) {
+          if (cancelled) return;
+          attempts += 1;
+          if (attempts <= 5) {
+            retryTimer = window.setTimeout(() => {
+              void load();
+            }, 1_500);
+          } else {
+            setPriceHistoryError("Price history is warming.");
+          }
+          return;
+        }
 
         if (!response.ok) {
           throw new Error(payload.error ?? "Failed to load price history.");
@@ -1848,6 +1753,9 @@ export function StockDashboard({
     return () => {
       cancelled = true;
       controller.abort();
+      if (retryTimer !== null) {
+        window.clearTimeout(retryTimer);
+      }
     };
   }, [view, currentRating, priceRange]);
 
@@ -3191,91 +3099,95 @@ export function StockDashboard({
           }}
         >
           <div className="border-b border-white/10 p-4">
-            <div className="eldar-panel flex items-center gap-3 rounded-2xl px-4 py-3">
-              <Search className="h-4 w-4 text-white/60" />
-              <input
-                ref={paletteInputRef}
-                value={paletteQuery}
-                onChange={(event) => setPaletteQuery(event.target.value)}
-                onBlur={() => {
-                  if (!isCommandPaletteOpen) return;
-                  window.setTimeout(() => {
+            <div className="btn-outer h-[52px] w-full rounded-[2rem]">
+              <div className="btn eldar-search-shell h-[52px] w-full rounded-[2rem]">
+                <div className="eldar-search-shell__inner gap-3 pl-4 pr-3">
+                  <Search className="eldar-search-shell__icon h-4 w-4" />
+                  <input
+                  ref={paletteInputRef}
+                  value={paletteQuery}
+                  onChange={(event) => setPaletteQuery(event.target.value)}
+                  onBlur={() => {
                     if (!isCommandPaletteOpen) return;
-                    paletteInputRef.current?.focus({ preventScroll: true });
-                  }, 0);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    closeCommandPalette();
-                    return;
-                  }
-
-                  if (event.key === "ArrowDown") {
-                    event.preventDefault();
-                    setPaletteSelectionIndex((prev) =>
-                      paletteResults.length === 0 ? 0 : (prev + 1) % paletteResults.length
-                    );
-                    return;
-                  }
-
-                  if (event.key === "ArrowUp") {
-                    event.preventDefault();
-                    setPaletteSelectionIndex((prev) =>
-                      paletteResults.length === 0 ? 0 : (prev - 1 + paletteResults.length) % paletteResults.length
-                    );
-                    return;
-                  }
-
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-
-                    if (paletteResults.length > 0) {
-                      const selected = paletteResults[paletteSelectionIndex] ?? paletteResults[0];
-                      if (selected) {
-                        selectSearchItem(selected);
-                      }
+                    window.setTimeout(() => {
+                      if (!isCommandPaletteOpen) return;
+                      paletteInputRef.current?.focus({ preventScroll: true });
+                    }, 0);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      closeCommandPalette();
                       return;
                     }
 
-                    if (paletteQuery.trim()) {
-                      closeCommandPalette();
-                      if (paletteAction === "portfolio-add") {
-                        setPortfolioInputTicker(paletteQuery.trim().toUpperCase());
-                      } else if (paletteAction === "compare-add") {
-                        void addComparisonSymbol(paletteQuery.trim().toUpperCase());
-                      } else if (paletteAction === "watchlist-add") {
-                        void addWatchlistSymbolDirect(paletteQuery.trim().toUpperCase());
-                      } else {
-                        void analyzeSymbol(paletteQuery);
+                    if (event.key === "ArrowDown") {
+                      event.preventDefault();
+                      setPaletteSelectionIndex((prev) =>
+                        paletteResults.length === 0 ? 0 : (prev + 1) % paletteResults.length
+                      );
+                      return;
+                    }
+
+                    if (event.key === "ArrowUp") {
+                      event.preventDefault();
+                      setPaletteSelectionIndex((prev) =>
+                        paletteResults.length === 0 ? 0 : (prev - 1 + paletteResults.length) % paletteResults.length
+                      );
+                      return;
+                    }
+
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+
+                      if (paletteResults.length > 0) {
+                        const selected = paletteResults[paletteSelectionIndex] ?? paletteResults[0];
+                        if (selected) {
+                          selectSearchItem(selected);
+                        }
+                        return;
+                      }
+
+                      if (paletteQuery.trim()) {
+                        closeCommandPalette();
+                        if (paletteAction === "portfolio-add") {
+                          setPortfolioInputTicker(paletteQuery.trim().toUpperCase());
+                        } else if (paletteAction === "compare-add") {
+                          void addComparisonSymbol(paletteQuery.trim().toUpperCase());
+                        } else if (paletteAction === "watchlist-add") {
+                          void addWatchlistSymbolDirect(paletteQuery.trim().toUpperCase());
+                        } else {
+                          void analyzeSymbol(paletteQuery);
+                        }
                       }
                     }
-                  }
-                }}
-                placeholder="Search"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                className="w-full bg-transparent text-sm font-medium tracking-wide text-white placeholder-white/45 outline-none"
-              />
-              {paletteQuery.trim() ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaletteQuery("");
-                    setPaletteSelectionIndex(0);
-                    paletteInputRef.current?.focus();
                   }}
-                  className="rounded-lg border border-white/20 bg-white/5 p-1 text-white/60 transition hover:border-white/35 hover:bg-white/10 hover:text-white"
-                  aria-label="Clear search"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              ) : null}
-              <span className="rounded-lg border border-white/20 bg-white/5 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-white/55">
-                Esc
-              </span>
+                  placeholder="Search"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  className="eldar-search-shell__field flex-1 text-sm font-medium tracking-wide"
+                  />
+                  {paletteQuery.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaletteQuery("");
+                        setPaletteSelectionIndex(0);
+                        paletteInputRef.current?.focus();
+                      }}
+                      className="eldar-search-shell__hint rounded-lg p-1 transition"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                  <span className="eldar-search-shell__hint rounded-lg px-2 py-1 font-mono text-[10px] uppercase tracking-[0.2em]">
+                    Esc
+                  </span>
+                </div>
+              </div>
             </div>
             <p className="eldar-caption mt-2 text-left text-[10px] text-white/45">
               {paletteAction === "portfolio-add"
@@ -3368,43 +3280,6 @@ export function StockDashboard({
                 />
               </div>
             ) : null}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderShortcutsModal = (): JSX.Element | null => {
-    if (!showShortcuts) return null;
-    return (
-      <div
-        className="fixed inset-0 z-[94] bg-[#090a0c]/78 px-4 backdrop-blur-md"
-        onMouseDown={(event) => {
-          if (event.target === event.currentTarget) {
-            setShowShortcuts(false);
-          }
-        }}
-      >
-        <div className="eldar-panel mx-auto mt-24 w-full max-w-md rounded-3xl p-5" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 id="shortcuts-title" className="text-sm font-semibold text-white">
-              Keyboard Shortcuts
-            </h3>
-            <button
-              type="button"
-              onClick={() => setShowShortcuts(false)}
-              className="eldar-btn-ghost rounded-lg border px-2 py-1 text-xs"
-            >
-              Esc
-            </button>
-          </div>
-          <div className="space-y-2">
-            {SHORTCUTS.map((shortcut) => (
-              <div key={shortcut.key} className="flex items-center justify-between border-b border-white/10 pb-2 text-xs">
-                <span className="text-white/70">{shortcut.description}</span>
-                <span className="font-mono text-white">{shortcut.key}</span>
-              </div>
-            ))}
           </div>
         </div>
       </div>
@@ -3621,31 +3496,33 @@ export function StockDashboard({
               <p className="text-sm font-semibold text-white">{homeTickerDrawer.companyName}</p>
               <p className="mt-2 text-xs text-white/70">
                 {homeTickerDrawer.date ? formatEarningsDate(homeTickerDrawer.date) : "No scheduled date"}
-                {homeTickerDrawer.epsEstimate !== null ? ` · Est EPS ${homeTickerDrawer.epsEstimate.toFixed(2)}` : ""}
+                {homeTickerDrawer.epsEstimate !== null ? (
+                  <>
+                    {" · Est EPS "}
+                    <Num value={homeTickerDrawer.epsEstimate} decimals={2} className="text-xs text-white/70" />
+                  </>
+                ) : (
+                  ""
+                )}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-xl border border-white/12 bg-black/25 p-3">
                 <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Price</p>
-                <p className="mt-1 font-mono text-lg font-semibold text-white">
-                  {homeTickerDrawer.currentPrice !== null ? `$${homeTickerDrawer.currentPrice.toFixed(2)}` : "Pending"}
-                </p>
+                {homeTickerDrawer.currentPrice !== null ? (
+                  <Money value={homeTickerDrawer.currentPrice} className="mt-1 text-lg font-semibold text-white" />
+                ) : (
+                  <p className="mt-1 font-mono text-lg font-semibold text-white">Pending</p>
+                )}
               </div>
               <div className="rounded-xl border border-white/12 bg-black/25 p-3">
                 <p className="text-[10px] uppercase tracking-[0.12em] text-white/55">Move</p>
-                <p
-                  className={clsx(
-                    "mt-1 font-mono text-lg font-semibold",
-                    homeTickerDrawer.changePercent !== null && homeTickerDrawer.changePercent > 0 && "text-emerald-300",
-                    homeTickerDrawer.changePercent !== null && homeTickerDrawer.changePercent < 0 && "text-red-300",
-                    homeTickerDrawer.changePercent === null && "text-white"
-                  )}
-                >
-                  {homeTickerDrawer.changePercent !== null
-                    ? `${homeTickerDrawer.changePercent > 0 ? "+" : ""}${homeTickerDrawer.changePercent.toFixed(2)}%`
-                    : "Pending"}
-                </p>
+                {homeTickerDrawer.changePercent !== null ? (
+                  <Pct value={homeTickerDrawer.changePercent} decimals={2} className="mt-1 text-lg font-semibold" />
+                ) : (
+                  <p className="mt-1 font-mono text-lg font-semibold text-white">Pending</p>
+                )}
               </div>
             </div>
 
@@ -3714,7 +3591,7 @@ export function StockDashboard({
   ) : null;
 
   if (!isAppOpen) {
-    return <HeroLanding logoSrc={ELDAR_BRAND_LOGO} scores={initialMag7Scores} onOpenApp={openApp} />;
+    return <HeroLanding logoSrc={ELDAR_BRAND_LOGO} onOpenApp={openApp} />;
   }
 
   if (view === "home") {
@@ -3730,6 +3607,7 @@ export function StockDashboard({
       return {
         label: entry.label,
         points: indexRow?.points ?? [],
+        pointDates: indexRow?.pointDates ?? [],
         changePercent: snapshotRow?.changePercent ?? indexRow?.ytdChangePercent ?? null
       };
     });
@@ -3769,18 +3647,31 @@ export function StockDashboard({
         <div className="eldar-main-layout pb-20">
             <div ref={heroSectionRef} className="eldar-page-width-xl">
               <div className="reveal-block mb-6 flex flex-col items-start gap-3">
-                <button
-                  type="button"
-                  onClick={() => openCommandPalette(ticker)}
-                  disabled={loading}
-                  className="eldar-search-shell primary-cta flex h-14 w-full max-w-[520px] items-center justify-between rounded-3xl px-5 text-left text-sm font-medium transition-all duration-300"
-                >
-                  <span className="flex items-center gap-3 text-white/68">
-                    {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
-                    {loading ? `Analyzing ${ticker || "symbol"}...` : "search stock"}
-                  </span>
-                  <span className="rounded-md border border-white/5 bg-white/[0.02] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/42">/</span>
-                </button>
+                <div className="btn-outer h-14 w-full max-w-[520px] rounded-[2rem]">
+                  <button
+                    type="button"
+                    onClick={() => openCommandPalette(ticker)}
+                    disabled={loading}
+                    className="btn eldar-search-shell h-14 w-full rounded-[2rem] text-left text-sm font-medium"
+                  >
+                    <div className="btn-inner" />
+                    <span className="eldar-search-shell__inner gap-3 pl-4 pr-3">
+                      <span className="flex min-w-0 items-center gap-3">
+                        {loading ? (
+                          <Loader2 className="eldar-search-shell__icon h-5 w-5 animate-spin" />
+                        ) : (
+                          <Search className="eldar-search-shell__icon h-5 w-5" />
+                        )}
+                        <span className="eldar-search-shell__copy truncate">
+                          {loading ? `Analyzing ${ticker || "symbol"}...` : "search stock"}
+                        </span>
+                      </span>
+                      <span className="eldar-search-shell__hint rounded-md px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em]">
+                        /
+                      </span>
+                    </span>
+                  </button>
+                </div>
 
               {apiError ? (
                 <div className="w-full max-w-[560px] rounded-2xl border border-zinc-400/35 bg-zinc-300/10 p-4 backdrop-blur-xl">
@@ -3804,13 +3695,29 @@ export function StockDashboard({
               )}
 
               <section className="eldar-panel texture-none xl:col-span-7 p-5">
-                <div className="mb-5 flex items-end justify-between gap-4">
+                <div className="mb-5 flex items-center justify-between gap-3">
                   <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Market Snapshot</p>
+                  <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1">
+                    {SNAPSHOT_WINDOW_OPTIONS.map((windowOption) => (
+                      <button
+                        key={`snapshot-window-${windowOption}`}
+                        type="button"
+                        onClick={() => setSnapshotWindow(windowOption)}
+                        aria-pressed={snapshotWindow === windowOption}
+                        className={clsx(
+                          "eldar-dashboard-pill rounded-full px-3 py-1.5 text-[10px] uppercase tracking-[0.14em]",
+                          snapshotWindow === windowOption && "bg-white text-black hover:bg-white"
+                        )}
+                      >
+                        {windowOption}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 {homeDashboardLoading && !homeDashboard ? (
                   <LinesSkeleton rows={3} />
                 ) : (
-                  <MarketSnapshotChart series={snapshotChartSeries} />
+                  <MarketSnapshotChart series={snapshotChartSeries} window={snapshotWindow} />
                 )}
               </section>
 
@@ -3831,8 +3738,24 @@ export function StockDashboard({
               )}
 
               <section className="eldar-panel texture-none xl:col-span-4 p-5">
-                <div className="mb-5">
+                <div className="mb-5 flex items-center justify-between gap-3">
                   <p className="text-[11px] uppercase tracking-[0.16em] text-white/48">Market Movers</p>
+                  <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1">
+                    {MARKET_MOVER_FILTER_OPTIONS.map((option) => (
+                      <button
+                        key={`mover-filter-${option}`}
+                        type="button"
+                        onClick={() => setMarketMoverFilter(option)}
+                        aria-pressed={marketMoverFilter === option}
+                        className={clsx(
+                          "eldar-dashboard-pill rounded-full px-3 py-1.5 text-[10px] uppercase tracking-[0.14em]",
+                          marketMoverFilter === option && "bg-white text-black hover:bg-white"
+                        )}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 {homeDashboardLoading && !homeDashboard ? (
                   <LinesSkeleton rows={5} />
@@ -3841,7 +3764,7 @@ export function StockDashboard({
                     No New York session mover data available.
                   </div>
                 ) : (
-                  <MarketMoverStack items={rankedMarketMovers} onAnalyze={analyzeHomeSymbol} />
+                  <MarketMoverStack items={rankedMarketMovers} filter={marketMoverFilter} onAnalyze={analyzeHomeSymbol} />
                 )}
               </section>
             </div>
@@ -3852,7 +3775,6 @@ export function StockDashboard({
         </div>
         {analysisPhase !== "idle" ? <AnalysisRadarOverlay symbol={(pendingSymbol ?? ticker) || null} phase={analysisPhase} /> : null}
         {renderCommandPalette()}
-        {renderShortcutsModal()}
         {renderProfileModal()}
         {renderShareModal()}
         {renderHomeTickerDrawer()}
@@ -3904,7 +3826,6 @@ export function StockDashboard({
         </div>
         {analysisPhase !== "idle" ? <AnalysisRadarOverlay symbol={(pendingSymbol ?? ticker) || null} phase={analysisPhase} /> : null}
         {renderCommandPalette()}
-        {renderShortcutsModal()}
         {renderProfileModal()}
         {renderShareModal()}
       </div>
@@ -3940,7 +3861,7 @@ export function StockDashboard({
       .slice(0, 3)
       .map((symbol) => ({
         symbol,
-        companyName: mag7Cards.find((card) => card.symbol === symbol)?.companyName ?? symbol
+        companyName: symbol
       }));
 
     return (
@@ -4129,7 +4050,6 @@ export function StockDashboard({
         </div>
         {analysisPhase !== "idle" ? <AnalysisRadarOverlay symbol={(pendingSymbol ?? ticker) || null} phase={analysisPhase} /> : null}
         {renderCommandPalette()}
-        {renderShortcutsModal()}
         {renderProfileModal()}
         {renderShareModal()}
       </div>
@@ -4193,7 +4113,6 @@ export function StockDashboard({
         ) : null}
         {analysisPhase !== "idle" ? <AnalysisRadarOverlay symbol={(pendingSymbol ?? ticker) || null} phase={analysisPhase} /> : null}
         {renderCommandPalette()}
-        {renderShortcutsModal()}
         {renderProfileModal()}
         {renderShareModal()}
       </div>
@@ -4289,7 +4208,6 @@ export function StockDashboard({
       </div>
       {analysisPhase !== "idle" ? <AnalysisRadarOverlay symbol={(pendingSymbol ?? ticker) || null} phase={analysisPhase} /> : null}
       {renderCommandPalette()}
-      {renderShortcutsModal()}
       {renderProfileModal()}
       {renderShareModal()}
     </div>

@@ -1,14 +1,11 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { errorResponse, okResponse } from "@/lib/api";
 import { getApiAuthContext } from "@/lib/api/auth-context";
-import {
-  badRequest,
-  internalServerError,
-  jsonNoStore,
-  unauthorized
-} from "@/lib/api/responses";
+import { withApiPerfHeaders } from "@/lib/api/responses";
 import { runRouteGuards } from "@/lib/api/route-security";
+import { AuthError, ValidationError } from "@/lib/errors";
+import { log } from "@/lib/logger";
 import { fetchSP500Directory } from "@/lib/market/universe/sp500";
 import { resolveSp500DirectorySymbol } from "@/lib/market/universe/sp500-universe";
 import { scorePortfolio } from "@/lib/scoring/portfolio/engine";
@@ -49,7 +46,8 @@ function normalizeHoldings(holdings: PortfolioInputHolding[]): PortfolioInputHol
     .filter((holding) => holding.ticker.length > 0 && holding.shares > 0);
 }
 
-export async function GET(request: Request): Promise<NextResponse> {
+export async function GET(request: Request) {
+  const startedAt = Date.now();
   const blocked = await runRouteGuards(request, {
     bucket: "api-portfolio-get",
     max: 90,
@@ -60,7 +58,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
-      return unauthorized();
+      throw new AuthError("Unauthenticated");
     }
     const { userId } = authContext;
 
@@ -68,14 +66,44 @@ export async function GET(request: Request): Promise<NextResponse> {
     const portfolioId = (searchParams.get("portfolioId") ?? "default").trim() || "default";
     const snapshot = await getLatestPortfolioSnapshot(userId, portfolioId);
 
-    return jsonNoStore({ snapshot });
+    log({
+      level: "info",
+      service: "api-portfolio",
+      message: "Portfolio snapshot loaded",
+      userId,
+      portfolioId,
+      durationMs: Date.now() - startedAt
+    });
+
+    return okResponse(
+      { snapshot },
+      {
+        headers: withApiPerfHeaders(
+          { "Cache-Control": "no-store" },
+          {
+            startedAt,
+            cache: "database"
+          }
+        )
+      }
+    );
   } catch (error) {
-    console.error("/api/portfolio GET error", error);
-    return internalServerError("Failed to load portfolio snapshot.");
+    return errorResponse(
+      error,
+      { route: "api-portfolio-get" },
+      withApiPerfHeaders(
+        { "Cache-Control": "no-store" },
+        {
+          startedAt,
+          cache: "error"
+        }
+      )
+    );
   }
 }
 
-export async function POST(request: Request): Promise<NextResponse> {
+export async function POST(request: Request) {
+  const startedAt = Date.now();
   const blocked = await runRouteGuards(request, {
     bucket: "api-portfolio-post",
     max: 90,
@@ -86,21 +114,21 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
-      return unauthorized();
+      throw new AuthError("Unauthenticated");
     }
     const { userId } = authContext;
 
     const rawBody = await request.json();
     const parsed = payloadSchema.safeParse(rawBody);
     if (!parsed.success) {
-      return badRequest("Invalid portfolio payload.");
+      throw new ValidationError("Invalid portfolio payload.");
     }
 
     const portfolioId = (parsed.data.portfolioId ?? "default").trim() || "default";
     const asOfDate = parsed.data.asOfDate ?? new Date().toISOString().slice(0, 10);
     const holdings = normalizeHoldings(parsed.data.holdings);
     if (holdings.length === 0) {
-      return badRequest("Portfolio holdings are empty.");
+      throw new ValidationError("Portfolio holdings are empty.");
     }
 
     const sp500Directory = await fetchSP500Directory();
@@ -109,7 +137,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       ticker: resolveSp500DirectorySymbol(holding.ticker, sp500Directory)
     }));
     const hasUnsupported = canonicalHoldings.some((holding) => !holding.ticker);
-    if (hasUnsupported) return badRequest("Portfolio supports S&P 500 symbols only.");
+    if (hasUnsupported) throw new ValidationError("Portfolio supports S&P 500 symbols only.");
     const supportedHoldings = canonicalHoldings as PortfolioInputHolding[];
 
     const rating = scorePortfolio({
@@ -131,9 +159,39 @@ export async function POST(request: Request): Promise<NextResponse> {
       rating
     });
 
-    return jsonNoStore({ snapshot });
+    log({
+      level: "info",
+      service: "api-portfolio",
+      message: "Portfolio snapshot saved",
+      userId,
+      portfolioId,
+      holdingCount: supportedHoldings.length,
+      durationMs: Date.now() - startedAt
+    });
+
+    return okResponse(
+      { snapshot },
+      {
+        headers: withApiPerfHeaders(
+          { "Cache-Control": "no-store" },
+          {
+            startedAt,
+            cache: "computed"
+          }
+        )
+      }
+    );
   } catch (error) {
-    console.error("/api/portfolio POST error", error);
-    return internalServerError("Failed to score portfolio.");
+    return errorResponse(
+      error,
+      { route: "api-portfolio-post" },
+      withApiPerfHeaders(
+        { "Cache-Control": "no-store" },
+        {
+          startedAt,
+          cache: "error"
+        }
+      )
+    );
   }
 }

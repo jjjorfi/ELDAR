@@ -5,6 +5,7 @@
 // it once premium market-data providers are upgraded.
 
 import { getFetchSignal, parseOptionalNumber } from "@/lib/market/adapter-utils";
+import { log } from "@/lib/logger";
 
 export interface GoogleFinanceQuoteSnapshot {
   price: number | null;
@@ -30,7 +31,11 @@ function warnOnce(message: string): void {
     return;
   }
   googleFinanceWarnedAt = Date.now();
-  console.warn(`[Google Finance Adapter]: ${message}`);
+  log({
+    level: "warn",
+    service: "provider-google-finance",
+    message
+  });
 }
 
 function parseNumber(value: string | undefined): number | null {

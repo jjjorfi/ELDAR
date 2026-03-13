@@ -5,6 +5,7 @@ import { fetchEodhdQuoteSnapshot } from "@/lib/market/providers/eodhd";
 import { fetchFinnhubQuoteSnapshot } from "@/lib/market/providers/finnhub";
 import { fetchFmpQuoteSnapshot } from "@/lib/market/providers/fmp";
 import { fetchMassiveQuoteSnapshot } from "@/lib/market/providers/massive";
+import { log } from "@/lib/logger";
 import { isNySessionOpen } from "@/lib/market/ny-session";
 import { mergePriceObservations } from "@/lib/market/orchestration/price-merge";
 import { fetchYahooQuoteSnapshot } from "@/lib/market/providers/yahoo";
@@ -16,6 +17,11 @@ const LIVE_OPEN_CACHE_TTL_MS = 20_000;
 const LIVE_CLOSED_CACHE_TTL_MS = 120_000;
 const HOME_OPEN_CACHE_TTL_MS = 30_000;
 const HOME_CLOSED_CACHE_TTL_MS = 180_000;
+
+export interface Mag7SnapshotPayload {
+  cards: Mag7ScoreCard[];
+  marketOpen: boolean | null;
+}
 
 interface Mag7RuntimeCache {
   cards: Mag7ScoreCard[];
@@ -83,7 +89,13 @@ async function fetchLatestQuoteWithFallback(symbol: string): Promise<{ price: nu
   });
 
   for (const warning of merged.warnings) {
-    console.warn(`[${warning.type}] ${warning.message}`);
+    log({
+      level: "warn",
+      service: "mag7",
+      message: warning.message,
+      warningType: warning.type,
+      symbol
+    });
   }
 
   return {
@@ -149,6 +161,24 @@ export async function getHomepageMag7Scores(): Promise<Mag7ScoreCard[]> {
     expiresAt: Date.now() + (marketOpen ? HOME_OPEN_CACHE_TTL_MS : HOME_CLOSED_CACHE_TTL_MS)
   };
   return cards;
+}
+
+/**
+ * Builds a MAG7 aggregate payload for background snapshot refreshes.
+ *
+ * @param mode - Snapshot mode controlling whether live or homepage semantics are used.
+ * @returns Snapshot payload consumed by the public MAG7 route.
+ */
+export async function buildMag7AggregatePayload(mode: "live" | "home"): Promise<Mag7SnapshotPayload> {
+  if (mode === "live") {
+    return getMag7LiveScores();
+  }
+
+  const cards = await getHomepageMag7Scores();
+  return {
+    cards,
+    marketOpen: isNySessionOpen()
+  };
 }
 
 export async function refreshMag7ScoresIfDue(): Promise<{ refreshed: boolean; cards: Mag7ScoreCard[] }> {

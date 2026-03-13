@@ -7,6 +7,7 @@ import {
   setUrlSearchParams,
   toRecord
 } from "@/lib/market/adapter-utils";
+import { createProviderSuppression } from "@/lib/market/providers/provider-helpers";
 import { normalizeRatio } from "@/lib/utils";
 
 export interface EodhdFallbackData {
@@ -35,8 +36,11 @@ const EODHD_BASE_URL = "https://eodhd.com/api";
 const EODHD_FETCH_TIMEOUT_MS = 4_500;
 const EODHD_AUTH_DISABLE_TTL_MS = 10 * 60_000;
 const EODHD_RATE_LIMIT_DISABLE_TTL_MS = 60_000;
-let eodhdDisabledUntil = 0;
-let eodhdWarnedAt = 0;
+const eodhdSuppression = createProviderSuppression({
+  adapterLabel: "EODHD",
+  formatMessage: (label, ttlMs) =>
+    `[EODHD Adapter]: provider unavailable (${label}). Suppressing EODHD requests for ${Math.round(ttlMs / 1000)}s.`
+});
 
 /**
  * Reads the configured EODHD API key from env.
@@ -112,7 +116,7 @@ async function fetchEodhd<T>(path: string, params: Record<string, string> = {}):
     return null;
   }
 
-  if (Date.now() < eodhdDisabledUntil) {
+  if (eodhdSuppression.isSuppressed()) {
     return null;
   }
 
@@ -145,13 +149,7 @@ async function fetchEodhd<T>(path: string, params: Record<string, string> = {}):
 
   if (terminalStatus !== null) {
     const ttlMs = terminalStatus === 429 ? EODHD_RATE_LIMIT_DISABLE_TTL_MS : EODHD_AUTH_DISABLE_TTL_MS;
-    eodhdDisabledUntil = Date.now() + ttlMs;
-    if (Date.now() - eodhdWarnedAt > ttlMs) {
-      eodhdWarnedAt = Date.now();
-      console.warn(
-        `[EODHD Adapter]: provider unavailable (${terminalStatus}). Suppressing EODHD requests for ${Math.round(ttlMs / 1000)}s.`
-      );
-    }
+    eodhdSuppression.suppress(ttlMs, String(terminalStatus));
   }
 
   return payload;

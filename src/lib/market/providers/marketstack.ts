@@ -5,6 +5,8 @@
 // so it must never outrank true live providers when they are healthy.
 
 import { getFetchSignal, parseOptionalNumber, parseTimestampMs, readEnvToken, setUrlSearchParams } from "@/lib/market/adapter-utils";
+import { log } from "@/lib/logger";
+import { buildSymbolCandidates, createProviderSuppression } from "@/lib/market/providers/provider-helpers";
 
 export interface MarketstackQuoteSnapshot {
   price: number | null;
@@ -21,35 +23,52 @@ const MARKETSTACK_BASE_URL = "https://api.marketstack.com/v2";
 const MARKETSTACK_FETCH_TIMEOUT_MS = 4_500;
 const MARKETSTACK_AUTH_DISABLE_TTL_MS = 10 * 60_000;
 const MARKETSTACK_RATE_LIMIT_DISABLE_TTL_MS = 60_000;
+const marketstackSuppression = createProviderSuppression({ adapterLabel: "Marketstack" });
 
-let marketstackDisabledUntil = 0;
-let marketstackWarnedAt = 0;
-
+/**
+ * Reads the configured marketstack API key.
+ *
+ * @returns API key when available, otherwise null.
+ */
 function marketstackApiKey(): string | null {
   return readEnvToken("MARKETSTACK_API_KEY") ?? readEnvToken("MARKET_STACK_API_KEY");
 }
 
+/**
+ * Indicates whether marketstack is configured.
+ *
+ * @returns True when an API key is present.
+ */
 export function isMarketstackConfigured(): boolean {
   return marketstackApiKey() !== null;
 }
 
+/**
+ * Parses numeric marketstack values.
+ *
+ * @param value Raw provider field.
+ * @returns Finite parsed number or null.
+ */
 function parseNumber(value: unknown): number | null {
   return parseOptionalNumber(value, { allowCommas: true, allowPercent: true });
 }
 
+/**
+ * Builds preferred marketstack ticker variants.
+ *
+ * @param symbol Input ticker.
+ * @returns Candidate symbols in provider-friendly order.
+ */
 function symbolCandidates(symbol: string): string[] {
-  const upper = symbol.trim().toUpperCase();
-  return Array.from(new Set([upper, upper.replace(/\./g, "-")])).filter(Boolean);
+  return buildSymbolCandidates(symbol, [(upper) => upper.replace(/\./g, "-")]);
 }
 
-function suppressTemporarily(ttlMs: number, label: string): void {
-  marketstackDisabledUntil = Date.now() + ttlMs;
-  if (Date.now() - marketstackWarnedAt > ttlMs) {
-    marketstackWarnedAt = Date.now();
-    console.warn(`[Marketstack Adapter]: temporary ${label} suppression for ${Math.round(ttlMs / 1000)}s.`);
-  }
-}
-
+/**
+ * Classifies marketstack error payloads into temporary suppression windows.
+ *
+ * @param payload Parsed provider payload.
+ * @returns Suppression descriptor or null.
+ */
 function classifyPayloadFailure(payload: Record<string, unknown>): { ttlMs: number; label: string } | null {
   const errorRecord =
     typeof payload.error === "object" && payload.error !== null ? (payload.error as Record<string, unknown>) : null;
@@ -65,13 +84,20 @@ function classifyPayloadFailure(payload: Record<string, unknown>): { ttlMs: numb
   return null;
 }
 
+/**
+ * Executes a marketstack request with timeout and suppression handling.
+ *
+ * @param path Endpoint path under the marketstack base URL.
+ * @param params Query parameters.
+ * @returns Parsed payload or null when unavailable.
+ */
 async function fetchMarketstack(path: string, params: Record<string, string | number>): Promise<Record<string, unknown> | null> {
   const apiKey = marketstackApiKey();
   if (!apiKey) {
     return null;
   }
 
-  if (Date.now() < marketstackDisabledUntil) {
+  if (marketstackSuppression.isSuppressed()) {
     return null;
   }
 
@@ -93,9 +119,9 @@ async function fetchMarketstack(path: string, params: Record<string, string | nu
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        suppressTemporarily(MARKETSTACK_AUTH_DISABLE_TTL_MS, "auth");
+        marketstackSuppression.suppress(MARKETSTACK_AUTH_DISABLE_TTL_MS, "auth");
       } else if (response.status === 402 || response.status === 429) {
-        suppressTemporarily(MARKETSTACK_RATE_LIMIT_DISABLE_TTL_MS, "rate-limit");
+        marketstackSuppression.suppress(MARKETSTACK_RATE_LIMIT_DISABLE_TTL_MS, "rate-limit");
       }
       return null;
     }
@@ -103,18 +129,29 @@ async function fetchMarketstack(path: string, params: Record<string, string | nu
     const payload = (await response.json()) as Record<string, unknown>;
     const failure = classifyPayloadFailure(payload);
     if (failure) {
-      suppressTemporarily(failure.ttlMs, failure.label);
+      marketstackSuppression.suppress(failure.ttlMs, failure.label);
       return null;
     }
 
     return payload;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown marketstack error.";
-    console.warn(`[Marketstack Adapter]: ${message}`);
+    log({
+      level: "warn",
+      service: "provider-marketstack",
+      message
+    });
     return null;
   }
 }
 
+/**
+ * Selects the most relevant latest EOD row from a marketstack payload.
+ *
+ * @param payload Parsed provider payload.
+ * @param requestedSymbol Input ticker used for matching.
+ * @returns Matching row or the best available fallback row.
+ */
 function parseLatestEodRow(payload: Record<string, unknown>, requestedSymbol: string): Record<string, unknown> | null {
   const rows = Array.isArray(payload.data) ? payload.data : [];
   const candidates = symbolCandidates(requestedSymbol);
@@ -137,6 +174,12 @@ function parseLatestEodRow(payload: Record<string, unknown>, requestedSymbol: st
   return null;
 }
 
+/**
+ * Fetches the latest quote snapshot from marketstack.
+ *
+ * @param symbol Input ticker.
+ * @returns Best-effort quote snapshot.
+ */
 export async function fetchMarketstackQuoteSnapshot(symbol: string): Promise<MarketstackQuoteSnapshot> {
   if (!isMarketstackConfigured()) {
     return { price: null, changePercent: null, asOfMs: null };
@@ -167,6 +210,13 @@ export async function fetchMarketstackQuoteSnapshot(symbol: string): Promise<Mar
   };
 }
 
+/**
+ * Fetches daily EOD history from marketstack.
+ *
+ * @param symbol Input ticker.
+ * @param lookbackDays Requested lookback horizon.
+ * @returns Sorted daily history points.
+ */
 export async function fetchMarketstackDailyHistory(
   symbol: string,
   lookbackDays: number

@@ -1,19 +1,10 @@
 import { resolveDomainForTicker } from "@/lib/branding/ticker-domain";
-import { fetchJsonOrNull, setUrlSearchParams } from "@/lib/market/adapter-utils";
+import { log } from "@/lib/logger";
 import { fetchSP500Directory, fetchSP500SectorMap } from "@/lib/market/universe/sp500";
 import { resolveSectorFromCandidates } from "@/lib/scoring/sector/config";
-import { sanitizeSymbol } from "@/lib/utils";
 
-const FMP_STABLE_BASE_URL = "https://financialmodelingprep.com/stable";
 const SEARCH_CACHE_TTL_MS = 90_000;
 export const SEARCH_CACHE_HEADER = "public, max-age=15, s-maxage=60, stale-while-revalidate=120";
-const SEARCH_FETCH_TIMEOUT_MS = 3_000;
-
-interface SearchRow {
-  symbol: string;
-  name: string;
-  exchangeShortName: string | null;
-}
 
 export interface SearchResultItem {
   symbol: string;
@@ -47,92 +38,10 @@ export type SearchServiceResult = SearchServiceSuccess | SearchServiceFailure;
 
 const searchResponseCache = new Map<string, { expiresAt: number; results: SearchResultItem[] }>();
 
-function fmpApiKey(): string | null {
-  const key = (process.env.FMP_API_KEY ?? "").trim();
-  return key.length > 0 ? key : null;
-}
-
-function asString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
 function boundedLimit(raw: string | null): number {
   const parsed = Number.parseInt(raw ?? "12", 10);
   if (!Number.isFinite(parsed)) return 12;
   return Math.max(1, Math.min(parsed, 20));
-}
-
-async function fetchFmp<T>(path: string, params: Record<string, string>): Promise<T | null> {
-  const key = fmpApiKey();
-  if (!key) return null;
-
-  const url = new URL(`${FMP_STABLE_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`);
-  setUrlSearchParams(url, {
-    apikey: key,
-    ...params
-  });
-
-  return fetchJsonOrNull<T>(url, {
-    timeoutMs: SEARCH_FETCH_TIMEOUT_MS,
-    revalidateSeconds: 180,
-    headers: {
-      "User-Agent": "Mozilla/5.0"
-    }
-  });
-}
-
-function normalizeSearchRows(payload: unknown): SearchRow[] {
-  if (!Array.isArray(payload)) return [];
-
-  const rows: SearchRow[] = [];
-  for (const raw of payload) {
-    if (typeof raw !== "object" || raw === null) continue;
-
-    const record = raw as Record<string, unknown>;
-    const symbol = sanitizeSymbol(asString(record.symbol) ?? "");
-    const name = asString(record.name) ?? symbol;
-    const exchangeShortName = asString(record.exchangeShortName);
-
-    if (!symbol) continue;
-    rows.push({ symbol, name, exchangeShortName });
-  }
-
-  const seen = new Set<string>();
-  return rows.filter((row) => {
-    if (seen.has(row.symbol)) return false;
-    seen.add(row.symbol);
-    return true;
-  });
-}
-
-function rankSearchRows(rows: SearchRow[], query: string): SearchRow[] {
-  const qUpper = query.toUpperCase();
-  const qLower = query.toLowerCase();
-
-  return [...rows].sort((a, b) => {
-    const score = (row: SearchRow): number => {
-      let value = 0;
-      const symbol = row.symbol;
-      const name = row.name.toLowerCase();
-
-      if (symbol === qUpper) value += 100;
-      else if (symbol.startsWith(qUpper)) value += 60;
-      else if (symbol.includes(qUpper)) value += 30;
-
-      if (name.startsWith(qLower)) value += 25;
-      else if (name.includes(qLower)) value += 10;
-
-      if (row.exchangeShortName === "NASDAQ" || row.exchangeShortName === "NYSE") {
-        value += 5;
-      }
-
-      return value;
-    };
-
-    return score(b) - score(a);
-  });
 }
 
 function rankSP500Items(items: SP500SearchItem[], query: string): SP500SearchItem[] {
@@ -295,40 +204,7 @@ export async function searchSymbols(queryRaw: string, limitRaw: string | null): 
       }
     }
 
-    const searchPayload = await fetchFmp<unknown>("/search-symbol", { query });
-    const rows = rankSearchRows(normalizeSearchRows(searchPayload), query)
-      .filter((row) => allowedSymbols.has(row.symbol))
-      .slice(0, limit);
-
-    if (rows.length === 0) {
-      const fallback = dedupeBySymbol(fallbackResults(query, limit, sp500Directory, sp500SectorMap, allowedSymbols));
-      setCachedResults(cacheKey, fallback);
-      return {
-        ok: true,
-        status: 200,
-        results: fallback,
-        cacheControl: SEARCH_CACHE_HEADER
-      };
-    }
-
-    const enriched = rows.map((row) => {
-      const canonical = sp500Directory[row.symbol];
-      const companyName = canonical?.companyName ?? row.name ?? row.symbol;
-      const sector = canonical?.sector ?? resolveSectorFromCandidates([sp500SectorMap[row.symbol]]);
-      const domain = resolveDomainForTicker(row.symbol);
-
-      const item: SearchResultItem = {
-        symbol: row.symbol,
-        companyName,
-        sector,
-        domain,
-        marketCap: null
-      };
-
-      return item;
-    });
-
-    const results = dedupeBySymbol(enriched);
+    const results = dedupeBySymbol(fallbackResults(query, limit, sp500Directory, sp500SectorMap, allowedSymbols));
     setCachedResults(cacheKey, results);
     return {
       ok: true,
@@ -337,7 +213,12 @@ export async function searchSymbols(queryRaw: string, limitRaw: string | null): 
       cacheControl: SEARCH_CACHE_HEADER
     };
   } catch (error) {
-    console.error("[Search Service] searchSymbols failed", error);
+    log({
+      level: "error",
+      service: "search-service",
+      message: "Search failed",
+      error: error instanceof Error ? error.message : String(error)
+    });
     return {
       ok: false,
       status: 500,

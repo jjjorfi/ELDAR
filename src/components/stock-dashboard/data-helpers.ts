@@ -1,4 +1,5 @@
 import type { HomeDashboardPayload, SectorRotationWindow } from "@/lib/home/dashboard-types";
+import { isUsableHomeDashboardPayload } from "@/lib/home/dashboard-validators";
 import type { FactorResult, Mag7ScoreCard, PersistedAnalysis } from "@/lib/types";
 
 const LOCAL_HOME_DASHBOARD_STORAGE_PREFIX = "eldar:home:dashboard";
@@ -9,6 +10,7 @@ type IndexYtdLike<TCode extends string = string> = {
   ytdChangePercent: number | null;
   asOf: string | null;
   points: number[];
+  pointDates: string[];
 };
 
 export function isTypingTarget(target: EventTarget | null): boolean {
@@ -24,9 +26,14 @@ function homeDashboardStorageKey(windowKey: SectorRotationWindow): string {
 export function readCachedHomeDashboard(windowKey: SectorRotationWindow): HomeDashboardPayload | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.sessionStorage.getItem(homeDashboardStorageKey(windowKey));
+    const key = homeDashboardStorageKey(windowKey);
+    const raw = window.sessionStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { payload?: HomeDashboardPayload };
+    if (!isUsableHomeDashboardPayload(parsed.payload ?? null)) {
+      window.sessionStorage.removeItem(key);
+      return null;
+    }
     return parsed.payload ?? null;
   } catch {
     return null;
@@ -35,6 +42,7 @@ export function readCachedHomeDashboard(windowKey: SectorRotationWindow): HomeDa
 
 export function writeCachedHomeDashboard(payload: HomeDashboardPayload): void {
   if (typeof window === "undefined") return;
+  if (!isUsableHomeDashboardPayload(payload)) return;
   try {
     window.sessionStorage.setItem(
       homeDashboardStorageKey(payload.sectorWindow),
@@ -65,7 +73,8 @@ export function mergeIndexRows<T extends IndexYtdLike>(primary: T[], fallback: T
       current: next.current ?? previous?.current ?? null,
       ytdChangePercent: next.ytdChangePercent ?? previous?.ytdChangePercent ?? null,
       asOf: next.asOf ?? previous?.asOf ?? null,
-      points: next.points.length > 0 ? next.points : previous?.points ?? []
+      points: next.points.length > 0 ? next.points : previous?.points ?? [],
+      pointDates: next.pointDates.length > 0 ? next.pointDates : previous?.pointDates ?? []
     };
   });
 }

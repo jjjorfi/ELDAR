@@ -6,6 +6,7 @@ import {
   readEnvToken,
   setUrlSearchParams
 } from "@/lib/market/adapter-utils";
+import { createProviderSuppression } from "@/lib/market/providers/provider-helpers";
 import { normalizeRatio } from "@/lib/utils";
 
 export interface FmpFallbackData {
@@ -40,12 +41,14 @@ export interface FmpEarningsItem {
 }
 
 const FMP_STABLE_BASE_URL = "https://financialmodelingprep.com/stable";
-const FMP_V3_BASE_URL = "https://financialmodelingprep.com/api/v3";
 const FMP_FETCH_TIMEOUT_MS = 4_500;
 const FMP_AUTH_DISABLE_TTL_MS = 10 * 60_000;
 const FMP_RATE_LIMIT_DISABLE_TTL_MS = 60_000;
-let fmpDisabledUntil = 0;
-let fmpWarnedAt = 0;
+const fmpSuppression = createProviderSuppression({
+  adapterLabel: "FMP",
+  formatMessage: (label, ttlMs) =>
+    `[FMP Adapter]: provider unavailable (${label}). Suppressing FMP requests for ${Math.round(ttlMs / 1000)}s.`
+});
 
 /**
  * Reads the configured FMP API key.
@@ -92,7 +95,7 @@ async function fetchFmp<T>(baseUrl: string, path: string, params: Record<string,
     return null;
   }
 
-  if (Date.now() < fmpDisabledUntil) {
+  if (fmpSuppression.isSuppressed()) {
     return null;
   }
 
@@ -118,13 +121,7 @@ async function fetchFmp<T>(baseUrl: string, path: string, params: Record<string,
 
   if (terminalStatus !== null) {
     const ttlMs = terminalStatus === 429 ? FMP_RATE_LIMIT_DISABLE_TTL_MS : FMP_AUTH_DISABLE_TTL_MS;
-    fmpDisabledUntil = Date.now() + ttlMs;
-    if (Date.now() - fmpWarnedAt > ttlMs) {
-      fmpWarnedAt = Date.now();
-      console.warn(
-        `[FMP Adapter]: provider unavailable (${terminalStatus}). Suppressing FMP requests for ${Math.round(ttlMs / 1000)}s.`
-      );
-    }
+    fmpSuppression.suppress(ttlMs, String(terminalStatus));
   }
 
   return payload;
@@ -251,7 +248,7 @@ function extractFirstQuoteSnapshot(payload: unknown): FmpQuoteSnapshot {
 }
 
 /**
- * Fetches best available FMP quote snapshot from stable then v3 quote endpoint.
+ * Fetches the best available FMP quote snapshot from the stable quote endpoint.
  *
  * @param symbol Input ticker symbol.
  * @returns Price snapshot.
@@ -261,17 +258,13 @@ export async function fetchFmpQuoteSnapshot(symbol: string): Promise<FmpQuoteSna
     return { price: null, asOfMs: null };
   }
 
-  const [stableQuotePayload, v3QuotePayload] = await Promise.all([
-    fetchFmp<unknown>(FMP_STABLE_BASE_URL, "/quote", { symbol }),
-    fetchFmp<unknown>(FMP_V3_BASE_URL, `/quote/${encodeURIComponent(symbol)}`)
-  ]);
-
+  const stableQuotePayload = await fetchFmp<unknown>(FMP_STABLE_BASE_URL, "/quote", { symbol });
   const stable = extractFirstQuoteSnapshot(stableQuotePayload);
   if (stable.price !== null) {
     return stable;
   }
 
-  return extractFirstQuoteSnapshot(v3QuotePayload);
+  return { price: null, asOfMs: null };
 }
 
 /**
@@ -296,11 +289,10 @@ export async function fetchFmpFallbackData(symbol: string): Promise<FmpFallbackD
     return emptyFallback();
   }
 
-  const [searchSymbol, stableProfilePayload, stableQuotePayload, v3QuotePayload] = await Promise.all([
+  const [searchSymbol, stableProfilePayload, stableQuotePayload] = await Promise.all([
     fetchSearchSymbol(symbol),
     fetchFmp<Array<Record<string, unknown>>>(FMP_STABLE_BASE_URL, "/profile", { symbol }),
-    fetchFmp<unknown>(FMP_STABLE_BASE_URL, "/quote", { symbol }),
-    fetchFmp<unknown>(FMP_V3_BASE_URL, `/quote/${encodeURIComponent(symbol)}`)
+    fetchFmp<unknown>(FMP_STABLE_BASE_URL, "/quote", { symbol })
   ]);
 
   // Premium FMP v3 endpoints are intentionally disabled for free-plan compatibility.
@@ -318,7 +310,7 @@ export async function fetchFmpFallbackData(symbol: string): Promise<FmpFallbackD
   const industry = asString(profile.industry) ?? asString(profile.industryName);
   const currency = asString(profile.currency) ?? asString(searchSymbol?.currency);
 
-  const currentPrice = extractFirstPrice(stableQuotePayload) ?? extractFirstPrice(v3QuotePayload) ?? asNumber(profile.price);
+  const currentPrice = extractFirstPrice(stableQuotePayload) ?? asNumber(profile.price);
   const marketCap = asNumber(profile.mktCap);
 
   // Strict contract: forwardPE only from explicit forward fields.
@@ -432,7 +424,7 @@ export async function fetchFmpEarningsCalendar(from: string, to: string): Promis
     return [];
   }
 
-  const payload = await fetchFmp<unknown>(FMP_V3_BASE_URL, "/earnings-calendar", { from, to });
+  const payload = await fetchFmp<unknown>(FMP_STABLE_BASE_URL, "/earnings-calendar", { from, to });
   return parseFmpEarningsRows(payload);
 }
 
@@ -448,7 +440,7 @@ export async function fetchFmpEarningsHistory(symbol: string, limit = 8): Promis
     return [];
   }
 
-  const payload = await fetchFmp<unknown>(FMP_V3_BASE_URL, "/earnings", { symbol });
+  const payload = await fetchFmp<unknown>(FMP_STABLE_BASE_URL, "/earnings", { symbol });
   return parseFmpEarningsRows(payload)
     .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
     .slice(0, Math.max(1, limit));

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { env } from "@/lib/env";
+
 interface RateLimitEntry {
   count: number;
   resetAtMs: number;
@@ -36,7 +38,7 @@ function firstHeaderToken(value: string | null): string | null {
  * @returns Stable request key segment.
  */
 function clientKey(request: Request): string {
-  const trustedHeaderName = (process.env.BOT_WAF_HEADER ?? "").trim();
+  const trustedHeaderName = env.BOT_WAF_HEADER;
   if (trustedHeaderName.length > 0) {
     const trustedValue = firstHeaderToken(request.headers.get(trustedHeaderName));
     return (trustedValue ?? "unknown").slice(0, 120);

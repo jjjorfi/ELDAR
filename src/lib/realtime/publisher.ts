@@ -22,6 +22,8 @@ import {
   type QuoteTicksPayload,
   type WatchlistDeltaPayload
 } from "@/lib/realtime/events";
+import { env } from "@/lib/env";
+import { log } from "@/lib/logger";
 
 interface PublishEnvelope {
   room: string;
@@ -32,11 +34,15 @@ interface PublishEnvelope {
 const DEFAULT_REALTIME_INTERNAL_URL = "http://127.0.0.1:4100";
 
 async function publish(envelope: PublishEnvelope): Promise<void> {
-  const realtimeUrl = process.env.REALTIME_SERVER_INTERNAL_URL ?? DEFAULT_REALTIME_INTERNAL_URL;
-  const publishSecret = process.env.REALTIME_PUBLISH_SECRET;
+  const realtimeUrl = env.REALTIME_SERVER_INTERNAL_URL || DEFAULT_REALTIME_INTERNAL_URL;
+  const publishSecret = env.REALTIME_PUBLISH_SECRET;
 
   if (!publishSecret || publishSecret.trim().length < 16) {
-    console.warn("[Realtime Publisher]: REALTIME_PUBLISH_SECRET missing/weak. Skipping publish.");
+    log({
+      level: "warn",
+      service: "realtime-publisher",
+      message: "Realtime publish skipped because REALTIME_PUBLISH_SECRET is missing or weak"
+    });
     return;
   }
 
@@ -57,16 +63,35 @@ async function publish(envelope: PublishEnvelope): Promise<void> {
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      console.error(`[Realtime Publisher]: Publish failed (${response.status}) ${body}`);
+      log({
+        level: "error",
+        service: "realtime-publisher",
+        message: "Realtime publish failed",
+        status: response.status,
+        body,
+        room: envelope.room,
+        event: envelope.event
+      });
       return;
     }
 
-    console.log(
-      `[Realtime Publisher]: Emitted ${envelope.event} to room ${envelope.room}`
-    );
+    log({
+      level: "info",
+      service: "realtime-publisher",
+      message: "Realtime publish emitted",
+      room: envelope.room,
+      event: envelope.event
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown publish error.";
-    console.error(`[Realtime Publisher]: Publish request error: ${message}`);
+    log({
+      level: "error",
+      service: "realtime-publisher",
+      message: "Realtime publish request error",
+      error: message,
+      room: envelope.room,
+      event: envelope.event
+    });
   } finally {
     clearTimeout(timeout);
   }

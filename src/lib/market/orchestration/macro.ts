@@ -1,3 +1,5 @@
+import { env } from "@/lib/env";
+
 interface MacroSignals {
   fedSignal: "DOVISH" | "HAWKISH" | "UNCHANGED" | "UNKNOWN";
   fedDelta: number | null;
@@ -502,6 +504,50 @@ function median(values: number[]): number {
 }
 
 async function fetchGdpSurpriseFromFred(): Promise<number | null> {
+  const apiKey = env.FRED_API_KEY;
+
+  if (apiKey) {
+    try {
+      const apiUrl = new URL("https://api.stlouisfed.org/fred/series/observations");
+      apiUrl.searchParams.set("series_id", "A191RL1Q225SBEA");
+      apiUrl.searchParams.set("api_key", apiKey);
+      apiUrl.searchParams.set("file_type", "json");
+      apiUrl.searchParams.set("sort_order", "asc");
+
+      const response = await fetch(apiUrl.toString(), { next: { revalidate: 21_600 } });
+      if (response.ok) {
+        const payload = (await response.json()) as {
+          observations?: Array<{
+            date?: string;
+            value?: string;
+          }>;
+        };
+        const values = (payload.observations ?? [])
+          .map((row) => {
+            if (!row.date || !row.value || row.value === ".") return null;
+            const numeric = Number.parseFloat(row.value);
+            if (!Number.isFinite(numeric)) return null;
+            const date = new Date(row.date);
+            if (!Number.isFinite(+date)) return null;
+            return { date, value: numeric };
+          })
+          .filter((item): item is { date: Date; value: number } => item !== null)
+          .sort((a, b) => +a.date - +b.date);
+
+        if (values.length >= 6) {
+          const latest = values[values.length - 1].value;
+          const trailing = values.slice(-9, -1).map((item) => item.value);
+          if (trailing.length >= 3) {
+            const consensusProxy = median(trailing);
+            return latest - consensusProxy;
+          }
+        }
+      }
+    } catch {
+      // Fall back to fredgraph CSV below.
+    }
+  }
+
   try {
     const response = await fetch(GDP_GROWTH_SERIES_URL, { next: { revalidate: 21_600 } });
 

@@ -1,16 +1,18 @@
-import { NextResponse } from "next/server";
+import type { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { analyzeStock } from "@/lib/analyze";
+import { errorResponse, okResponse } from "@/lib/api";
 import { getApiAuthContext } from "@/lib/api/auth-context";
-import { badRequest, jsonError, jsonNoStore, unauthorized } from "@/lib/api/responses";
 import { runRouteGuards } from "@/lib/api/route-security";
+import { AuthError, ValidationError } from "@/lib/errors";
+import { analyzeStock } from "@/lib/analyze";
 import { createJournalEntry, listJournalEntries } from "@/lib/journal/store";
+import { log } from "@/lib/logger";
 import type { TradeStatus } from "@/lib/journal/types";
 
 export const runtime = "nodejs";
 
-const createSchema = z.object({
+const CreateSchema = z.object({
   ticker: z.string().min(1).max(12),
   thesis: z.string().min(1).max(220)
 });
@@ -20,7 +22,11 @@ function parseStatus(raw: string | null): TradeStatus | null {
   return null;
 }
 
+/**
+ * Lists the requesting user's journal entries.
+ */
 export async function GET(request: Request): Promise<NextResponse> {
+  const startedAt = Date.now();
   const blocked = await runRouteGuards(request, {
     bucket: "api-journal-v1-entries-get",
     max: 120,
@@ -31,13 +37,14 @@ export async function GET(request: Request): Promise<NextResponse> {
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
-      return unauthorized();
+      throw new AuthError("Unauthenticated");
     }
-    const { userId } = authContext;
 
+    const { userId } = authContext;
     const { searchParams } = new URL(request.url);
     const status = parseStatus(searchParams.get("status"));
     const limitRaw = Number.parseInt(searchParams.get("limit") ?? "200", 10);
+
     const result = await listJournalEntries(userId, {
       status,
       ticker: searchParams.get("ticker") ?? searchParams.get("symbol"),
@@ -47,14 +54,26 @@ export async function GET(request: Request): Promise<NextResponse> {
       limit: Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 500) : 200
     });
 
-    return jsonNoStore(result);
+    log({
+      level: "info",
+      service: "api-journal",
+      message: "Journal entries loaded",
+      userId,
+      entryCount: result.items.length,
+      durationMs: Date.now() - startedAt
+    });
+
+    return okResponse(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    console.error("/api/journal/entries GET error", error);
-    return jsonError("Failed to load journal entries.", 500, { noStore: false });
+    return errorResponse(error, { route: "api-journal-entries-get" }, { "Cache-Control": "no-store" });
   }
 }
 
+/**
+ * Creates a journal entry with a captured Eldar analysis snapshot.
+ */
 export async function POST(request: Request): Promise<NextResponse> {
+  const startedAt = Date.now();
   const blocked = await runRouteGuards(request, {
     bucket: "api-journal-v1-entries-post",
     max: 60,
@@ -65,14 +84,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
-      return unauthorized();
+      throw new AuthError("Unauthenticated");
     }
-    const { userId } = authContext;
 
-    const raw = await request.json();
-    const parsed = createSchema.safeParse(raw);
+    const { userId } = authContext;
+    const parsed = CreateSchema.safeParse(await request.json());
     if (!parsed.success) {
-      return badRequest("Invalid payload.");
+      throw new ValidationError("Invalid journal payload.");
     }
 
     const analysis = await analyzeStock(parsed.data.ticker);
@@ -94,10 +112,17 @@ export async function POST(request: Request): Promise<NextResponse> {
       eldarSnapshot: snapshot
     });
 
-    return jsonNoStore({ entry }, { status: 201 });
+    log({
+      level: "info",
+      service: "api-journal",
+      message: "Journal entry created",
+      userId,
+      ticker: parsed.data.ticker.toUpperCase(),
+      durationMs: Date.now() - startedAt
+    });
+
+    return okResponse({ entry }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create journal entry.";
-    console.error("/api/journal/entries POST error", error);
-    return jsonError(message, 500, { noStore: false });
+    return errorResponse(error, { route: "api-journal-entries-post" }, { "Cache-Control": "no-store" });
   }
 }

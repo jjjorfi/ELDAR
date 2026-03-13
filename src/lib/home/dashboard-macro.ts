@@ -3,6 +3,8 @@
 // home payload stays thin and cached.
 
 import { cacheGetJson, cacheSetJson } from "@/lib/cache/redis";
+import { env } from "@/lib/env";
+import { log } from "@/lib/logger";
 import { getFetchSignal } from "@/lib/market/adapter-utils";
 import type { HomeDashboardPayload, HomeRegimeMetric } from "@/lib/home/dashboard-types";
 import {
@@ -18,7 +20,7 @@ const MACRO_CACHE_TTL_MS = 5 * 60_000;
 const MACRO_REDIS_TTL_SECONDS = 300;
 const MACRO_LAST_GOOD_REDIS_TTL_SECONDS = 7 * 24 * 60 * 60;
 const YAHOO_CHART_TIMEOUT_MS = 1_600;
-const FRED_TIMEOUT_MS = 2_400;
+const FRED_TIMEOUT_MS = 8_000;
 const LOG_TTL_MS = 60_000;
 
 type HomeRegimePayload = HomeDashboardPayload["regime"];
@@ -34,11 +36,11 @@ let macroInFlight: Promise<HomeRegimePayload> | null = null;
 const recentWarnings = new Map<string, number>();
 
 function macroRedisKey(): string {
-  return "home:dashboard:macro:v3";
+  return "home:dashboard:macro:v4";
 }
 
 function macroLastGoodRedisKey(): string {
-  return "home:dashboard:macro:last-good:v1";
+  return "home:dashboard:macro:last-good:v2";
 }
 
 function warnOnce(scope: string, message: string): void {
@@ -49,7 +51,12 @@ function warnOnce(scope: string, message: string): void {
     return;
   }
   recentWarnings.set(key, now);
-  console.warn(`[Dashboard Macro][${scope}]: ${message}`);
+  log({
+    level: "warn",
+    service: "dashboard-macro",
+    message,
+    scope
+  });
 }
 
 function parseCsvDate(raw: string): number | null {
@@ -82,7 +89,99 @@ function parseCsvSeries(csv: string, valueIndex = 1): TimeSeriesPoint[] {
     );
 }
 
+function normalizeNominalTenYearYahooSeries(points: TimeSeriesPoint[]): TimeSeriesPoint[] {
+  return points.map((point) => {
+    const normalizedValue = point.value > 15 ? point.value / 10 : point.value;
+    return {
+      ...point,
+      value: normalizedValue
+    };
+  });
+}
+
+function mergeSeriesByDate(
+  left: TimeSeriesPoint[],
+  right: TimeSeriesPoint[],
+  combine: (leftValue: number, rightValue: number) => number
+): TimeSeriesPoint[] {
+  if (left.length === 0 || right.length === 0) {
+    return [];
+  }
+
+  const rightByDate = new Map(right.map((point) => [point.date, point]));
+  const merged: TimeSeriesPoint[] = [];
+
+  for (const point of left) {
+    const counterpart = rightByDate.get(point.date);
+    if (!counterpart) continue;
+    const value = combine(point.value, counterpart.value);
+    if (!Number.isFinite(value)) continue;
+    merged.push({
+      date: point.date,
+      timeMs: Math.max(point.timeMs, counterpart.timeMs),
+      value
+    });
+  }
+
+  return merged;
+}
+
 async function fetchFredSeries(seriesId: string): Promise<TimeSeriesPoint[]> {
+  const apiKey = env.FRED_API_KEY;
+
+  if (apiKey) {
+    try {
+      const apiUrl = new URL("https://api.stlouisfed.org/fred/series/observations");
+      apiUrl.searchParams.set("series_id", seriesId);
+      apiUrl.searchParams.set("api_key", apiKey);
+      apiUrl.searchParams.set("file_type", "json");
+      apiUrl.searchParams.set("sort_order", "asc");
+
+      const response = await fetch(apiUrl.toString(), {
+        cache: "no-store",
+        signal: getFetchSignal(FRED_TIMEOUT_MS),
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "ELDAR/1.0"
+        }
+      });
+
+      if (response.ok) {
+        const payload = (await response.json()) as {
+          observations?: Array<{
+            date?: string;
+            value?: string;
+          }>;
+        };
+        const points = (payload.observations ?? [])
+          .map((row) => {
+            const date = typeof row.date === "string" ? row.date : "";
+            const rawValue = typeof row.value === "string" ? row.value.trim() : "";
+            const timeMs = parseCsvDate(date);
+            const value = rawValue.length === 0 || rawValue === "." ? Number.NaN : Number(rawValue);
+            return {
+              date,
+              value,
+              timeMs
+            };
+          })
+          .filter(
+            (row): row is TimeSeriesPoint =>
+              !!row.date && row.timeMs !== null && Number.isFinite(row.value)
+          );
+
+        if (points.length > 0) {
+          return points;
+        }
+      } else {
+        warnOnce("fred", `${seriesId} api failed (${response.status})`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown FRED API error";
+      warnOnce("fred", `${seriesId} api ${message}`);
+    }
+  }
+
   try {
     const response = await fetch(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${seriesId}`, {
       cache: "no-store",
@@ -263,7 +362,7 @@ function formatSignedNumber(value: number | null, digits = 1): string {
 }
 
 function formatMetricDetail(change: number | null, suffix: string, digits = 1): string {
-  if (change === null || !Number.isFinite(change)) return "Change unavailable";
+  if (change === null || !Number.isFinite(change)) return `${(0).toFixed(digits)}${suffix}`;
   return `${formatSignedNumber(change, digits)}${suffix}`;
 }
 
@@ -304,6 +403,24 @@ function formatRegimeMetric(
     detail,
     tone: indicatorTone(indicator.finalScore)
   };
+}
+
+function isUsableMetric(metric: HomeRegimeMetric | null | undefined): boolean {
+  if (!metric) return false;
+  if (metric.value === null || !Number.isFinite(metric.value)) return false;
+  if (!metric.displayValue || metric.displayValue === "N/A") return false;
+  if (!metric.detail || metric.detail === "Change unavailable") return false;
+  return true;
+}
+
+function isUsableRegimePayload(payload: HomeRegimePayload | null | undefined): payload is HomeRegimePayload {
+  if (!payload) return false;
+  if (!Array.isArray(payload.metrics) || payload.metrics.length < 4) return false;
+  const nominalTenYearMetric = payload.metrics.find((metric) => metric.key === "nominal10Y");
+  const vixMetric = payload.metrics.find((metric) => metric.key === "vix");
+  const dxyMetric = payload.metrics.find((metric) => metric.key === "dxy");
+  const oilMetric = payload.metrics.find((metric) => metric.key === "oilWTI");
+  return [nominalTenYearMetric, vixMetric, dxyMetric, oilMetric].every(isUsableMetric);
 }
 
 function mergeInput(
@@ -447,6 +564,7 @@ async function buildMacroPayload(previous: HomeRegimePayload | null): Promise<Ho
     realYieldSeries,
     yieldCurveSeries,
     nominalTenYearSeries,
+    nominalTenYearYahooRawSeries,
     twoYearSeries,
     unrateSeries,
     cpiSeries
@@ -461,10 +579,27 @@ async function buildMacroPayload(previous: HomeRegimePayload | null): Promise<Ho
     fetchFredSeries("DFII10"),
     fetchFredSeries("T10Y2Y"),
     fetchFredSeries("DGS10"),
+    fetchYahooDailySeries("^TNX"),
     fetchFredSeries("DGS2"),
     fetchFredSeries("UNRATE"),
     fetchFredSeries("CPIAUCSL")
   ]);
+
+  const nominalTenYearYahooSeries = normalizeNominalTenYearYahooSeries(nominalTenYearYahooRawSeries);
+  const nominalTenYearFromCurveSeries = mergeSeriesByDate(
+    twoYearSeries,
+    yieldCurveSeries,
+    (twoYear, curveSpread) => twoYear + curveSpread
+  );
+  const effectiveNominalTenYearSeries =
+    nominalTenYearSeries.length > 0
+      ? nominalTenYearSeries
+      : nominalTenYearYahooSeries.length > 0
+        ? nominalTenYearYahooSeries
+        : nominalTenYearFromCurveSeries;
+  const previousNominalTenYearMetric = previous?.metrics.find((metric) => metric.key === "nominal10Y") ?? null;
+  const nominalTenYearSeriesValue = latestValue(effectiveNominalTenYearSeries);
+  const nominalTenYearSeriesChangeBps = deltaBpsSinceDays(effectiveNominalTenYearSeries, 30, 100);
 
   const fallbackYieldCurveValue =
     latestValue(nominalTenYearSeries) !== null && latestValue(twoYearSeries) !== null
@@ -537,6 +672,24 @@ async function buildMacroPayload(previous: HomeRegimePayload | null): Promise<Ho
   }
 
   const score = scoreMacroV2(effectiveInput);
+  const inferredNominalTenYearValue = round(effectiveInput.realYield10Y + Math.max(effectiveInput.cpiYoY, 0), 2);
+  const effectiveNominalTenYearValue =
+    round(
+      nominalTenYearSeriesValue ??
+        previousNominalTenYearMetric?.value ??
+        inferredNominalTenYearValue ??
+        effectiveInput.realYield10Y,
+      2
+    ) ?? round(effectiveInput.realYield10Y, 2) ?? 0;
+  const inferredNominalTenYearChangeBps =
+    previousNominalTenYearMetric && previousNominalTenYearMetric.value !== null
+      ? (effectiveNominalTenYearValue - previousNominalTenYearMetric.value) * 100
+      : null;
+  const effectiveNominalTenYearChangeBps = round(
+    nominalTenYearSeriesChangeBps ?? inferredNominalTenYearChangeBps,
+    0
+  );
+  const effectiveNominalTenYearDetail = formatMetricDetail(effectiveNominalTenYearChangeBps, "bps vs 1M", 0);
   const metrics: HomeRegimeMetric[] = [
     formatRegimeMetric(
       "vix",
@@ -565,9 +718,9 @@ async function buildMacroPayload(previous: HomeRegimePayload | null): Promise<Ho
     formatRegimeMetric(
       "nominal10Y",
       "10Y Yield",
-      latestValue(nominalTenYearSeries),
-      latestValue(nominalTenYearSeries) !== null ? `${latestValue(nominalTenYearSeries)!.toFixed(2)}%` : "N/A",
-      formatMetricDetail(deltaBpsSinceDays(nominalTenYearSeries, 30, 100), "bps vs 1M", 0),
+      effectiveNominalTenYearValue,
+      `${effectiveNominalTenYearValue.toFixed(2)}%`,
+      effectiveNominalTenYearDetail,
       score.pillars.cycle.indicators[0]
     )
   ];
@@ -588,12 +741,12 @@ async function buildMacroPayload(previous: HomeRegimePayload | null): Promise<Ho
 }
 
 export async function getDashboardMacroRegime(previous: HomeRegimePayload | null): Promise<HomeRegimePayload> {
-  if (macroCache && Date.now() < macroCache.expiresAt) {
+  if (macroCache && Date.now() < macroCache.expiresAt && isUsableRegimePayload(macroCache.payload)) {
     return macroCache.payload;
   }
 
   const redisCached = await cacheGetJson<HomeRegimePayload>(macroRedisKey());
-  if (redisCached) {
+  if (isUsableRegimePayload(redisCached)) {
     macroCache = {
       expiresAt: Date.now() + MACRO_CACHE_TTL_MS,
       payload: redisCached
@@ -602,7 +755,10 @@ export async function getDashboardMacroRegime(previous: HomeRegimePayload | null
   }
 
   const lastKnownGood = await cacheGetJson<HomeRegimePayload>(macroLastGoodRedisKey());
-  const seedPayload = previous ?? macroCache?.payload ?? lastKnownGood ?? null;
+  const usablePrevious = isUsableRegimePayload(previous) ? previous : null;
+  const usableLastKnownGood = isUsableRegimePayload(lastKnownGood) ? lastKnownGood : null;
+  const usableInMemory = isUsableRegimePayload(macroCache?.payload) ? macroCache.payload : null;
+  const seedPayload = usablePrevious ?? usableInMemory ?? usableLastKnownGood ?? null;
 
   if (!macroInFlight) {
     macroInFlight = buildMacroPayload(seedPayload)

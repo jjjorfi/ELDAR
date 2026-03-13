@@ -1,3 +1,9 @@
+import clsx, { type ClassValue } from "clsx";
+
+export function cn(...inputs: ClassValue[]): string {
+  return clsx(inputs);
+}
+
 export function sanitizeSymbol(raw: string): string {
   return raw.trim().toUpperCase().replace(/[^A-Z.\-]/g, "");
 }

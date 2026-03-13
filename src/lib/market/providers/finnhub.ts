@@ -7,6 +7,7 @@ import {
   readEnvToken,
   setUrlSearchParams
 } from "@/lib/market/adapter-utils";
+import { log } from "@/lib/logger";
 
 const FINNHUB_FETCH_TIMEOUT_MS = 4_500;
 const FINNHUB_AUTH_DISABLE_TTL_MS = 10 * 60_000;
@@ -162,14 +163,20 @@ async function fetchFinnhub<T>(endpoint: string, query: Record<string, string>):
     finnhubAuthDisabledUntil = Date.now() + FINNHUB_AUTH_DISABLE_TTL_MS;
     if (Date.now() - finnhubAuthWarnedAt > FINNHUB_AUTH_DISABLE_TTL_MS) {
       finnhubAuthWarnedAt = Date.now();
-      console.warn("[Finnhub Adapter]: auth unavailable (401/403). Suppressing Finnhub requests for 10m.");
+      log({
+        level: "warn",
+        service: "provider-finnhub",
+        message: "Auth unavailable (401/403). Suppressing Finnhub requests for 10m."
+      });
     }
   }
 
   if (failureReasons.length > 0) {
-    console.warn(
-      `[Finnhub Adapter]: ${endpoint} exhausted ${tokens.length} key(s). Last failure: ${failureReasons[failureReasons.length - 1].kind}:${failureReasons[failureReasons.length - 1].message}`
-    );
+    log({
+      level: "warn",
+      service: "provider-finnhub",
+      message: `${endpoint} exhausted ${tokens.length} key(s). Last failure: ${failureReasons[failureReasons.length - 1].kind}:${failureReasons[failureReasons.length - 1].message}`
+    });
   }
 
   return null;

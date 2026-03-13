@@ -1,4 +1,4 @@
-import type { Mag7ScoreCard, PersistedAnalysis, WatchlistItem } from "@/lib/types";
+import type { PersistedAnalysis, WatchlistItem } from "@/lib/types";
 
 export type ViewMode = "home" | "results" | "watchlist" | "portfolio";
 export type ThemeMode = "dark" | "light";
@@ -9,7 +9,6 @@ export type PaletteAction = "analyze" | "portfolio-add" | "compare-add" | "watch
 export interface StockDashboardProps {
   initialHistory: PersistedAnalysis[];
   initialWatchlist: WatchlistItem[];
-  initialMag7Scores: Mag7ScoreCard[];
   currentUserId: string | null;
   initialSymbol?: string | null;
 }
@@ -66,6 +65,7 @@ export interface IndexYtdItem {
   ytdChangePercent: number | null;
   asOf: string | null;
   points: number[];
+  pointDates: string[];
 }
 
 export interface UpcomingEarningsItem {

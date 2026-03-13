@@ -12,6 +12,8 @@
 // - Keep event names stable; changing them will silently break realtime updates.
 // - Rooms are security boundaries. Always emit user-private data to user rooms only.
 
+export type { IndicesYtdPayload } from "@/lib/home/indices-ytd";
+
 export const SOCKET_EVENTS = {
   WATCHLIST_UPDATED: "watchlist:updated",
   MARKET_MOVERS_UPDATED: "market-movers:updated",
@@ -39,18 +41,6 @@ export interface MarketMoversPayload {
     companyName: string;
     currentPrice: number | null;
     changePercent: number | null;
-  }>;
-}
-
-export interface IndicesYtdPayload {
-  indices: Array<{
-    code: "US2000" | "US100" | "US500";
-    label: string;
-    symbol: string;
-    current: number | null;
-    ytdChangePercent: number | null;
-    asOf: string | null;
-    points: number[];
   }>;
 }
 

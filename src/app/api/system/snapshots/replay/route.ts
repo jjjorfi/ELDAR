@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { errorResponse, okResponse } from "@/lib/api";
 import { runRouteGuards } from "@/lib/api/route-security";
-import { isAuthorizedAdminRequest } from "@/lib/security/admin";
+import { verifyCronSecret } from "@/lib/auth";
+import { AuthError, ValidationError } from "@/lib/errors";
+import { log } from "@/lib/logger";
 import { replayDeadSnapshotJobs } from "@/lib/snapshots/service";
 import { sanitizeSymbol } from "@/lib/utils";
 
@@ -22,20 +25,18 @@ export async function POST(request: Request): Promise<NextResponse> {
   });
   if (blocked) return blocked;
 
-  if (!isAuthorizedAdminRequest(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    verifyCronSecret(request);
+
     const raw = await request.json().catch(() => ({}));
     const parsed = replayPayloadSchema.safeParse(raw);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
+      throw new ValidationError("Invalid payload.");
     }
 
     const symbol = parsed.data.symbol ? sanitizeSymbol(parsed.data.symbol) : null;
     if (parsed.data.symbol && !symbol) {
-      return NextResponse.json({ error: "Invalid symbol." }, { status: 400 });
+      throw new ValidationError("Invalid symbol.");
     }
 
     const result = await replayDeadSnapshotJobs({
@@ -44,12 +45,23 @@ export async function POST(request: Request): Promise<NextResponse> {
       jobIds: parsed.data.jobIds
     });
 
-    return NextResponse.json({
+    log({
+      level: "info",
+      service: "api-system-snapshot-replay",
+      message: "Dead-letter snapshot jobs replayed",
+      requeued: result.requeued,
+      symbol
+    });
+
+    return okResponse({
       ok: true,
       requeued: result.requeued
     });
   } catch (error) {
-    console.error("/api/system/snapshots/replay POST error", error);
-    return NextResponse.json({ error: "Failed to replay dead-letter snapshot jobs." }, { status: 500 });
+    if (error instanceof AuthError || error instanceof ValidationError) {
+      return errorResponse(error, { route: "api-system-snapshot-replay" });
+    }
+
+    return errorResponse(error, { route: "api-system-snapshot-replay" });
   }
 }

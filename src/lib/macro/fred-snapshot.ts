@@ -1,5 +1,7 @@
 import { getDashboardMacroRegime } from "@/lib/home/dashboard-macro";
 import type { HomeDashboardPayload } from "@/lib/home/dashboard-types";
+import { env } from "@/lib/env";
+import { log } from "@/lib/logger";
 
 const FRED_BASE_URL = "https://api.stlouisfed.org/fred/series/observations";
 
@@ -202,7 +204,14 @@ async function fetchIndicator(definition: MacroIndicatorDefinition, apiKey: stri
       change,
       changeMode: definition.changeMode
     };
-  } catch {
+  } catch (error) {
+    log({
+      level: "warn",
+      service: "macro-fred-snapshot",
+      message: "FRED indicator fetch degraded",
+      seriesId: definition.seriesId,
+      error: error instanceof Error ? error.message : String(error)
+    });
     return {
       key: definition.key,
       title: definition.title,
@@ -220,14 +229,22 @@ async function fetchIndicator(definition: MacroIndicatorDefinition, apiKey: stri
 }
 
 export async function buildFredMacroPayload(): Promise<MacroFredPayload> {
-  const key = (process.env.FRED_API_KEY ?? "").trim();
+  const key = env.FRED_API_KEY;
   if (!key) {
     throw new Error("FRED_API_KEY is not configured.");
   }
 
   const [indicators, macroRegime] = await Promise.all([
     Promise.all(INDICATORS.map((definition) => fetchIndicator(definition, key))),
-    getDashboardMacroRegime(null).catch(() => null)
+    getDashboardMacroRegime(null).catch((error) => {
+      log({
+        level: "warn",
+        service: "macro-fred-snapshot",
+        message: "Macro regime unavailable while building FRED payload",
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return null;
+    })
   ]);
 
   return {
@@ -236,4 +253,3 @@ export async function buildFredMacroPayload(): Promise<MacroFredPayload> {
     macroRegime
   };
 }
-

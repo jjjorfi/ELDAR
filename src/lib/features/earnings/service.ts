@@ -2,6 +2,7 @@ import { fetchFmpEarningsCalendar, type FmpEarningsItem } from "@/lib/market/pro
 import { fetchFinnhubEarningsCalendar, type FinnhubEarningsCalendarItem } from "@/lib/market/providers/finnhub";
 import { fetchSP500Directory } from "@/lib/market/universe/sp500";
 import { buildSp500SymbolUniverse } from "@/lib/market/universe/sp500-universe";
+import { log } from "@/lib/logger";
 import { publishEarnings } from "@/lib/realtime/publisher";
 
 export const EARNINGS_CACHE_HEADER = "public, max-age=1800, s-maxage=21600, stale-while-revalidate=43200";
@@ -316,7 +317,12 @@ export async function getEarningsPayload(): Promise<EarningsServiceResult> {
       cacheControl: EARNINGS_CACHE_HEADER
     };
   } catch (error) {
-    console.error("[Earnings Service] getEarningsPayload failed", error);
+    log({
+      level: "error",
+      service: "earnings-service",
+      message: "Failed to build earnings payload",
+      error: error instanceof Error ? error.message : String(error)
+    });
     if (earningsCache?.payload) {
       return {
         ok: true,

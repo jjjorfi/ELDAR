@@ -1,5 +1,6 @@
 import { analyzeStock } from "@/lib/analyze";
 import { withTimeoutFallback } from "@/lib/async/timeout";
+import { env } from "@/lib/env";
 import { getCompanyFinancials } from "@/lib/financials/eldar-financials-pipeline";
 import { GICS_SECTORS } from "@/lib/market/universe/gics-sectors";
 import { fetchFinnhubCompanyNews } from "@/lib/market/providers/finnhub";
@@ -26,16 +27,10 @@ import {
 } from "@/lib/snapshots/contracts";
 import type { PersistedAnalysis } from "@/lib/types";
 
-function readIntEnv(key: string, fallback: number): number {
-  const parsed = Number.parseInt(String(process.env[key] ?? ""), 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return parsed;
-}
-
-const SNAPSHOT_LOCK_TTL_MS = readIntEnv("SNAPSHOT_LOCK_TTL_MS", 90_000);
-const SNAPSHOT_MARKET_BUDGET_PER_MIN = readIntEnv("SNAPSHOT_MARKET_BUDGET_PER_MIN", 1_800);
-const SNAPSHOT_SEC_BUDGET_PER_MIN = readIntEnv("SNAPSHOT_SEC_BUDGET_PER_MIN", 360);
-const NEWS_FETCH_TIMEOUT_MS = readIntEnv("SNAPSHOT_NEWS_TIMEOUT_MS", 1_500);
+const SNAPSHOT_LOCK_TTL_MS = env.SNAPSHOT_LOCK_TTL_MS;
+const SNAPSHOT_MARKET_BUDGET_PER_MIN = env.SNAPSHOT_MARKET_BUDGET_PER_MIN;
+const SNAPSHOT_SEC_BUDGET_PER_MIN = env.SNAPSHOT_SEC_BUDGET_PER_MIN;
+const NEWS_FETCH_TIMEOUT_MS = env.SNAPSHOT_NEWS_TIMEOUT_MS;
 
 function normalizeSymbol(symbol: string): string {
   return symbol.trim().toUpperCase();

@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 
+import { errorResponse, okResponse } from "@/lib/api";
 import { runRouteGuards } from "@/lib/api/route-security";
+import { verifyCronSecret } from "@/lib/auth";
+import { AuthError } from "@/lib/errors";
+import { log } from "@/lib/logger";
 import { getDeadSnapshotJobs } from "@/lib/snapshots/service";
-import { isAuthorizedAdminRequest } from "@/lib/security/admin";
 
 export const runtime = "nodejs";
 
@@ -20,22 +23,30 @@ export async function GET(request: Request): Promise<NextResponse> {
   });
   if (blocked) return blocked;
 
-  if (!isAuthorizedAdminRequest(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    verifyCronSecret(request);
+
     const { searchParams } = new URL(request.url);
     const limit = parseLimit(searchParams);
     const jobs = await getDeadSnapshotJobs(limit);
-    return NextResponse.json({
+    log({
+      level: "info",
+      service: "api-system-snapshot-dead-letter",
+      message: "Dead-letter snapshot jobs loaded",
+      count: jobs.length,
+      limit
+    });
+
+    return okResponse({
       ok: true,
       count: jobs.length,
       jobs
     });
   } catch (error) {
-    console.error("/api/system/snapshots/dead-letter GET error", error);
-    return NextResponse.json({ error: "Failed to load dead-letter snapshot jobs." }, { status: 500 });
+    if (error instanceof AuthError) {
+      return errorResponse(error, { route: "api-system-snapshot-dead-letter" });
+    }
+
+    return errorResponse(error, { route: "api-system-snapshot-dead-letter" });
   }
 }
-

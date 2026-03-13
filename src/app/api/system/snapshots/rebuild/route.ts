@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { errorResponse, okResponse } from "@/lib/api";
 import { runRouteGuards } from "@/lib/api/route-security";
+import { verifyCronSecret } from "@/lib/auth";
+import { AuthError, ValidationError } from "@/lib/errors";
+import { log } from "@/lib/logger";
 import { AGGREGATE_SNAPSHOT_KEYS } from "@/lib/snapshots/contracts";
 import { requestAggregateSnapshotRefresh, requestSnapshotRefresh } from "@/lib/snapshots/service";
-import { isAuthorizedAdminRequest } from "@/lib/security/admin";
 import { sanitizeSymbol } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -24,38 +27,42 @@ export async function POST(request: Request): Promise<NextResponse> {
   });
   if (blocked) return blocked;
 
-  if (!isAuthorizedAdminRequest(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const raw = await request.json();
-    const parsed = payloadSchema.safeParse(raw);
-    if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
-    }
+    verifyCronSecret(request);
 
-    const hasSymbol = typeof parsed.data.symbol === "string";
-    const hasAggregateKey = typeof parsed.data.aggregateKey === "string";
+    const raw = await request.json();
+    const parsed = payloadSchema.parse(raw);
+
+    const hasSymbol = typeof parsed.symbol === "string";
+    const hasAggregateKey = typeof parsed.aggregateKey === "string";
     if ((hasSymbol && hasAggregateKey) || (!hasSymbol && !hasAggregateKey)) {
-      return NextResponse.json({ error: "Provide exactly one of symbol or aggregateKey." }, { status: 400 });
+      throw new ValidationError("Provide exactly one of symbol or aggregateKey.");
     }
 
     if (hasSymbol) {
-      const symbol = sanitizeSymbol(parsed.data.symbol ?? "");
+      const symbol = sanitizeSymbol(parsed.symbol ?? "");
       if (!symbol) {
-        return NextResponse.json({ error: "Invalid symbol." }, { status: 400 });
+        throw new ValidationError("Invalid symbol.");
       }
 
       const job = await requestSnapshotRefresh({
         symbol,
-        priority: parsed.data.priority ?? "repair",
-        reason: parsed.data.reason ?? "manual rebuild",
+        priority: parsed.priority ?? "repair",
+        reason: parsed.reason ?? "manual rebuild",
         requestedBy: "admin",
         payload: {}
       });
 
-      return NextResponse.json({
+      log({
+        level: "info",
+        service: "api-system-snapshot-rebuild",
+        message: "Snapshot rebuild enqueued",
+        kind: "symbol",
+        symbol,
+        created: job.created
+      });
+
+      return okResponse({
         ok: true,
         symbol,
         kind: "symbol",
@@ -64,21 +71,30 @@ export async function POST(request: Request): Promise<NextResponse> {
       });
     }
 
-    const key = parsed.data.aggregateKey?.trim() ?? "";
+    const key = parsed.aggregateKey?.trim() ?? "";
     const allowedKeys = new Set(Object.values(AGGREGATE_SNAPSHOT_KEYS));
     if (!allowedKeys.has(key as (typeof AGGREGATE_SNAPSHOT_KEYS)[keyof typeof AGGREGATE_SNAPSHOT_KEYS])) {
-      return NextResponse.json({ error: "Unsupported aggregateKey." }, { status: 400 });
+      throw new ValidationError("Unsupported aggregateKey.");
     }
 
     const job = await requestAggregateSnapshotRefresh({
       key,
-      priority: parsed.data.priority ?? "repair",
-      reason: parsed.data.reason ?? "manual aggregate rebuild",
+      priority: parsed.priority ?? "repair",
+      reason: parsed.reason ?? "manual aggregate rebuild",
       requestedBy: "admin",
       payload: {}
     });
 
-    return NextResponse.json({
+    log({
+      level: "info",
+      service: "api-system-snapshot-rebuild",
+      message: "Aggregate snapshot rebuild enqueued",
+      kind: "aggregate",
+      aggregateKey: key,
+      created: job.created
+    });
+
+    return okResponse({
       ok: true,
       aggregateKey: key,
       kind: "aggregate",
@@ -86,7 +102,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       created: job.created
     });
   } catch (error) {
-    console.error("/api/system/snapshots/rebuild POST error", error);
-    return NextResponse.json({ error: "Failed to enqueue snapshot rebuild." }, { status: 500 });
+    if (error instanceof AuthError || error instanceof ValidationError) {
+      return errorResponse(error, { route: "api-system-snapshot-rebuild" });
+    }
+
+    return errorResponse(error, { route: "api-system-snapshot-rebuild" });
   }
 }

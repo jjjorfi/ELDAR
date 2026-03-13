@@ -1,4 +1,5 @@
 import type { DataSource } from "@/lib/normalize/types/canonical";
+import { log } from "@/lib/logger";
 
 export const PRIORITY: Record<string, DataSource[]> = {
   revenue: ["edgar", "fmp", "simfin", "finnhub_fundamentals"],
@@ -73,7 +74,11 @@ export function resolveField(
         `[${field}] ${winner.source}=${winner.value} vs ` +
         `${candidate.source}=${candidate.value} ` +
         `(${(deviation * 100).toFixed(2)}% diff) — ${winner.source} wins`;
-      console.warn(`[ConflictResolver] ${conflictDetails}`);
+      log({
+        level: "warn",
+        service: "conflict-resolver",
+        message: conflictDetails
+      });
     }
     break;
   }

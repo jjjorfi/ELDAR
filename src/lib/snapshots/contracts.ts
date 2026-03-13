@@ -186,8 +186,12 @@ export const AGGREGATE_SNAPSHOT_KEYS = {
   HOME_DASHBOARD_1M: "home-dashboard:1M",
   HOME_DASHBOARD_3M: "home-dashboard:3M",
   HOME_DASHBOARD_6M: "home-dashboard:6M",
+  INDICES_YTD: "indices-ytd:v1",
+  MAG7_LIVE: "mag7:live:v1",
+  MAG7_HOME: "mag7:home:v1",
   SECTOR_SENTIMENT_YTD: "sector-sentiment:YTD",
   MOVERS_TOP3: "movers:top3",
+  EARNINGS: "earnings:v1",
   MACRO_FRED: "macro-fred:v1"
 } as const;
 

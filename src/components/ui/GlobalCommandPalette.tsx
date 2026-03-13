@@ -1,27 +1,51 @@
 "use client";
 
-import clsx from "clsx";
-import { BriefcaseBusiness, BookText, Home, Layers, LineChart, Plus, Search, Share2 } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  BookText,
+  BriefcaseBusiness,
+  Home,
+  Layers,
+  LineChart,
+  Plus,
+  Search,
+  TrendingUp,
+  X
+} from "lucide-react";
 
-import { usePopupWheelScroll } from "@/hooks/usePopupWheelScroll";
+import { cn } from "@/lib/utils";
 import { isPaletteOpenShortcut } from "@/lib/ui/command-palette";
+import { stashDashboardIntent } from "@/lib/ui/dashboard-intent";
 import { getRecentTickers } from "@/lib/ui/recent-tickers";
 
-const DASHBOARD_RETURN_STATE_KEY = "eldar:dashboard:return-state";
-
-type PaletteItem = {
+type Command = {
   id: string;
-  title: string;
-  subtitle: string;
-  icon: JSX.Element;
-  onSelect: () => void;
+  label: string;
+  description?: string;
+  icon: ReactNode;
+  action: () => void;
+  keywords?: string;
 };
 
 interface SearchSuggestion {
   symbol: string;
   companyName: string;
+}
+
+function fuzzy(str: string, pattern: string): boolean {
+  const normalizedPattern = pattern.toLowerCase();
+  const normalizedText = str.toLowerCase();
+  let patternIndex = 0;
+
+  for (let index = 0; index < normalizedText.length && patternIndex < normalizedPattern.length; index += 1) {
+    if (normalizedText[index] === normalizedPattern[patternIndex]) {
+      patternIndex += 1;
+    }
+  }
+
+  return patternIndex === normalizedPattern.length;
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -30,88 +54,222 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
 }
 
-function stashDashboardIntent(
-  view: "home" | "portfolio" | "watchlist",
-  ticker = "",
-  options?: {
-    openPalette?: boolean;
-    paletteAction?: "analyze" | "portfolio-add" | "compare-add" | "watchlist-add";
-    autoAnalyze?: boolean;
-  }
-): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(
-      DASHBOARD_RETURN_STATE_KEY,
-      JSON.stringify({
-        savedAt: Date.now(),
-        isAppOpen: true,
-        view,
-        ticker,
-        openPalette: Boolean(options?.openPalette),
-        paletteAction: options?.paletteAction ?? "analyze",
-        autoAnalyze: Boolean(options?.autoAnalyze)
-      })
-    );
-  } catch {
-    // no-op
-  }
-}
-
 export function GlobalCommandPalette(): JSX.Element | null {
   const pathname = usePathname();
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [recentTickers, setRecentTickers] = useState<string[]>([]);
   const [asyncSuggestions, setAsyncSuggestions] = useState<SearchSuggestion[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const close = useCallback(() => {
     setOpen(false);
     setQuery("");
-    setSelectedIndex(0);
+    setActiveIndex(0);
     setAsyncSuggestions([]);
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
-    setRecentTickers(getRecentTickers());
-    const timer = window.setTimeout(() => inputRef.current?.focus(), 0);
-    return () => window.clearTimeout(timer);
-  }, [open]);
+  const openDashboardHome = useCallback((ticker = "", paletteAction: "analyze" | "portfolio-add" | "watchlist-add" = "analyze"): void => {
+    stashDashboardIntent("home", ticker, {
+      openPalette: paletteAction !== "analyze",
+      paletteAction,
+      autoAnalyze: paletteAction === "analyze" && ticker.length > 0
+    });
+    router.push("/");
+    close();
+  }, [close, router]);
+
+  const commands = useMemo<Command[]>(() => [
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      description: "Overview and stock analysis",
+      icon: <Home size={16} />,
+      action: () => {
+        router.push("/");
+        close();
+      },
+      keywords: "home overview analysis"
+    },
+    {
+      id: "portfolio",
+      label: "Portfolio",
+      description: "Holdings and allocation",
+      icon: <BriefcaseBusiness size={16} />,
+      action: () => {
+        stashDashboardIntent("portfolio");
+        router.push("/");
+        close();
+      },
+      keywords: "holdings positions allocation"
+    },
+    {
+      id: "macro",
+      label: "Macro",
+      description: "Regime and market context",
+      icon: <TrendingUp size={16} />,
+      action: () => {
+        router.push("/macro");
+        close();
+      },
+      keywords: "regime macro markets"
+    },
+    {
+      id: "sectors",
+      label: "Sectors",
+      description: "Sector rotation and detail",
+      icon: <Layers size={16} />,
+      action: () => {
+        router.push("/sectors");
+        close();
+      },
+      keywords: "rotation heatmap sector"
+    },
+    {
+      id: "journal",
+      label: "Journal",
+      description: "Research log and reviews",
+      icon: <BookText size={16} />,
+      action: () => {
+        router.push("/journal");
+        close();
+      },
+      keywords: "notes research trade log"
+    },
+    {
+      id: "journal-new",
+      label: "New Journal Entry",
+      description: "Create a fresh note",
+      icon: <Plus size={16} />,
+      action: () => {
+        router.push("/journal?create=1");
+        close();
+      },
+      keywords: "create note entry"
+    },
+    {
+      id: "watchlist-add",
+      label: "Add to Watchlist",
+      description: "Open the watchlist add action",
+      icon: <Search size={16} />,
+      action: () => openDashboardHome("", "watchlist-add"),
+      keywords: "watchlist add ticker"
+    },
+    {
+      id: "portfolio-add",
+      label: "Add to Portfolio",
+      description: "Open the portfolio add action",
+      icon: <LineChart size={16} />,
+      action: () => openDashboardHome("", "portfolio-add"),
+      keywords: "portfolio add position"
+    }
+  ], [close, openDashboardHome, router]);
+
+  const dynamicCommands = useMemo<Command[]>(() => {
+    if (query.trim().length > 0) {
+      return asyncSuggestions.map((result) => ({
+        id: `ticker-${result.symbol}`,
+        label: result.symbol,
+        description: result.companyName,
+        icon: <Search size={16} />,
+        action: () => openDashboardHome(result.symbol, "analyze"),
+        keywords: `${result.symbol} ${result.companyName}`
+      }));
+    }
+
+    return recentTickers.map((ticker) => ({
+      id: `recent-${ticker}`,
+      label: ticker,
+      description: "Recent ticker",
+      icon: <Search size={16} />,
+      action: () => openDashboardHome(ticker, "analyze"),
+      keywords: `${ticker} recent`
+    }));
+  }, [asyncSuggestions, openDashboardHome, query, recentTickers]);
+
+  const filtered = useMemo(() => {
+    const trimmed = query.trim();
+    const pool = [...commands, ...dynamicCommands];
+    const filteredPool = trimmed.length === 0
+      ? pool
+      : pool.filter((command) =>
+          fuzzy(
+            `${command.label} ${command.keywords ?? ""} ${command.description ?? ""}`,
+            trimmed
+          )
+        );
+
+    const deduped = new Map<string, Command>();
+    for (const command of filteredPool) {
+      if (!deduped.has(command.id)) {
+        deduped.set(command.id, command);
+      }
+    }
+    return Array.from(deduped.values());
+  }, [commands, dynamicCommands, query]);
+
+  const runCommand = useCallback((command: Command) => {
+    command.action();
+  }, []);
 
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
+    const handler = (event: KeyboardEvent): void => {
       if (isPaletteOpenShortcut(event)) {
-        if (isTypingTarget(event.target)) return;
+        if (pathname === "/" || isTypingTarget(event.target)) return;
         event.preventDefault();
-        setOpen(true);
+        setOpen((value) => !value);
         return;
       }
 
-      if (!open) return;
-
       if (event.key === "Escape") {
-        event.preventDefault();
         close();
       }
     };
 
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, close]);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [close, pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+    setRecentTickers(getRecentTickers());
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 10);
+    return () => window.clearTimeout(timer);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (event: KeyboardEvent): void => {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setActiveIndex((index) => Math.min(index + 1, Math.max(filtered.length - 1, 0)));
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setActiveIndex((index) => Math.max(index - 1, 0));
+      }
+      if (event.key === "Enter" && filtered[activeIndex]) {
+        event.preventDefault();
+        runCommand(filtered[activeIndex]);
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [activeIndex, filtered, open, runCommand]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query]);
 
   useEffect(() => {
     if (!open) return;
     const trimmed = query.trim();
     if (trimmed.length < 1) {
       setAsyncSuggestions([]);
-      setLoading(false);
       return;
     }
 
@@ -119,7 +277,6 @@ export function GlobalCommandPalette(): JSX.Element | null {
     const controller = new AbortController();
     const timeout = window.setTimeout(async () => {
       try {
-        setLoading(true);
         const response = await fetch(`/api/search?query=${encodeURIComponent(trimmed)}`, {
           signal: controller.signal,
           cache: "no-store"
@@ -131,10 +288,6 @@ export function GlobalCommandPalette(): JSX.Element | null {
         if (!cancelled) {
           setAsyncSuggestions([]);
         }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
       }
     }, 120);
 
@@ -145,173 +298,6 @@ export function GlobalCommandPalette(): JSX.Element | null {
     };
   }, [open, query]);
 
-  const baseItems = useMemo<PaletteItem[]>(() => {
-    const openDashboardPalette = (
-      paletteAction: "analyze" | "portfolio-add" | "compare-add" | "watchlist-add",
-      ticker = ""
-    ): void => {
-      stashDashboardIntent("home", ticker, { openPalette: true, paletteAction });
-      router.push("/");
-      close();
-    };
-
-    return [
-      {
-        id: "nav-home",
-        title: "Go to Home",
-        subtitle: "Dashboard and stock analysis",
-        icon: <Home className="h-4 w-4" />,
-        onSelect: () => {
-          router.push("/");
-          close();
-        }
-      },
-      {
-        id: "nav-portfolio",
-        title: "Go to Portfolio",
-        subtitle: "Open portfolio health checker",
-        icon: <BriefcaseBusiness className="h-4 w-4" />,
-        onSelect: () => {
-          stashDashboardIntent("portfolio");
-          router.push("/");
-          close();
-        }
-      },
-      {
-        id: "nav-sectors",
-        title: "Go to Sectors",
-        subtitle: "Sector heatmap and sentiment",
-        icon: <Layers className="h-4 w-4" />,
-        onSelect: () => {
-          router.push("/sectors");
-          close();
-        }
-      },
-      {
-        id: "nav-journal",
-        title: "Go to Journal",
-        subtitle: "Investment log and reviews",
-        icon: <BookText className="h-4 w-4" />,
-        onSelect: () => {
-          router.push("/journal");
-          close();
-        }
-      },
-      {
-        id: "action-new-journal",
-        title: "New Journal Entry",
-        subtitle: "Create a fresh trade log",
-        icon: <Plus className="h-4 w-4" />,
-        onSelect: () => {
-          router.push("/journal?create=1");
-          close();
-        }
-      },
-      {
-        id: "action-share",
-        title: "Share Card",
-        subtitle: "Open dashboard share controls",
-        icon: <Share2 className="h-4 w-4" />,
-        onSelect: () => {
-          stashDashboardIntent("home");
-          router.push("/");
-          close();
-        }
-      },
-      {
-        id: "action-watchlist",
-        title: "Add to Watchlist",
-        subtitle: "Open watchlist add action",
-        icon: <Search className="h-4 w-4" />,
-        onSelect: () => openDashboardPalette("watchlist-add")
-      },
-      {
-        id: "action-portfolio",
-        title: "Add to Portfolio",
-        subtitle: "Open portfolio add action",
-        icon: <LineChart className="h-4 w-4" />,
-        onSelect: () => openDashboardPalette("portfolio-add")
-      }
-    ];
-  }, [router, close]);
-
-  const dynamicTickerItems = useMemo<PaletteItem[]>(() => {
-    const items: PaletteItem[] = [];
-
-    for (const recent of recentTickers) {
-      items.push({
-        id: `recent-${recent}`,
-        title: recent,
-        subtitle: "Recent ticker",
-        icon: <Search className="h-4 w-4" />,
-        onSelect: () => {
-          stashDashboardIntent("home", recent, { autoAnalyze: true });
-          router.push("/");
-          close();
-        }
-      });
-    }
-
-    for (const result of asyncSuggestions) {
-      items.push({
-        id: `remote-${result.symbol}`,
-        title: result.symbol,
-        subtitle: result.companyName,
-        icon: <Search className="h-4 w-4" />,
-        onSelect: () => {
-          stashDashboardIntent("home", result.symbol, { autoAnalyze: true });
-          router.push("/");
-          close();
-        }
-      });
-    }
-
-    return items;
-  }, [recentTickers, asyncSuggestions, router, close]);
-
-  const filteredBase = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return baseItems;
-    return baseItems.filter((item) => item.title.toLowerCase().includes(q) || item.subtitle.toLowerCase().includes(q));
-  }, [baseItems, query]);
-
-  const items = useMemo(() => {
-    const merged = [...filteredBase, ...dynamicTickerItems];
-    const deduped = new Map<string, PaletteItem>();
-    for (const item of merged) {
-      if (!deduped.has(item.id)) deduped.set(item.id, item);
-    }
-    return Array.from(deduped.values()).slice(0, 18);
-  }, [filteredBase, dynamicTickerItems]);
-  const handlePopupWheel = usePopupWheelScroll<HTMLDivElement>();
-
-  useEffect(() => {
-    if (selectedIndex >= items.length) {
-      setSelectedIndex(Math.max(0, items.length - 1));
-    }
-  }, [items, selectedIndex]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (!open) return;
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        setSelectedIndex((prev) => (items.length === 0 ? 0 : (prev + 1) % items.length));
-      } else if (event.key === "ArrowUp") {
-        event.preventDefault();
-        setSelectedIndex((prev) => (items.length === 0 ? 0 : (prev - 1 + items.length) % items.length));
-      } else if (event.key === "Enter") {
-        event.preventDefault();
-        const selected = items[selectedIndex];
-        selected?.onSelect();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, items, selectedIndex]);
-
   if (pathname === "/") {
     return null;
   }
@@ -321,60 +307,68 @@ export function GlobalCommandPalette(): JSX.Element | null {
   }
 
   return (
-    <div className="fixed inset-0 z-[140] flex items-start justify-center bg-black/55 px-4 pt-[12vh]" role="presentation">
-      <button type="button" aria-label="Close command palette" className="absolute inset-0" onClick={close} />
-      <div role="dialog" aria-modal="true" aria-labelledby="global-palette-title" className="relative z-10 w-full max-w-2xl border border-white/15 bg-[#0a0a0a] p-4 texture-card rough-border">
-        <div className="mb-3 flex items-center gap-3 border-b border-white/10 pb-3">
-          <Search className="h-4 w-4 text-white/55" aria-hidden="true" />
-          <label htmlFor="global-palette-input" id="global-palette-title" className="sr-only">
-            Search and actions
-          </label>
+    <div className="fixed inset-0 z-[140] flex items-start justify-center pt-[20vh]" onClick={close}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+      <div
+        className="relative mx-4 w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="global-command-palette-title"
+      >
+        <div className="flex items-center gap-3 border-b border-white/8 px-4">
+          <Search size={16} className="shrink-0 text-zinc-500" />
           <input
-            id="global-palette-input"
+            id="global-command-palette-title"
             ref={inputRef}
             value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setSelectedIndex(0);
-            }}
-            placeholder="Search ticker, navigate, or trigger action"
-            className="w-full border-0 bg-transparent text-sm text-white outline-none placeholder:text-white/40"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search commands..."
+            className="flex-1 bg-transparent py-4 text-sm text-zinc-100 outline-none placeholder:text-zinc-500"
           />
-          <span className="border border-white/20 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-white/50">Esc</span>
+          <button type="button" onClick={close} className="text-zinc-600 transition-colors hover:text-zinc-400" aria-label="Close command palette">
+            <X size={15} />
+          </button>
         </div>
 
-        <div onWheelCapture={handlePopupWheel} className="eldar-scrollbar max-h-[52vh] overflow-y-auto overscroll-contain" role="listbox" aria-label="Palette results">
-          {items.length === 0 ? (
-            <p className="px-2 py-6 text-center text-xs uppercase tracking-[0.12em] text-white/45">No matches</p>
+        <div className="max-h-80 overflow-y-auto py-2">
+          {filtered.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-zinc-600">
+              No results for &ldquo;{query}&rdquo;
+            </p>
           ) : (
-            items.map((item, index) => (
+            filtered.map((command, index) => (
               <button
-                key={item.id}
+                key={command.id}
                 type="button"
-                onMouseEnter={() => setSelectedIndex(index)}
-                onClick={item.onSelect}
-                role="option"
-                aria-selected={selectedIndex === index}
-                className={clsx(
-                  "flex w-full items-center gap-3 border-b border-white/10 px-2 py-3 text-left transition",
-                  selectedIndex === index ? "bg-white/[0.07]" : "hover:bg-white/[0.04]"
+                className={cn(
+                  "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors",
+                  index === activeIndex
+                    ? "bg-white/8 text-zinc-100"
+                    : "text-zinc-400 hover:bg-white/4 hover:text-zinc-200"
                 )}
+                onMouseEnter={() => setActiveIndex(index)}
+                onClick={() => runCommand(command)}
               >
-                <span className="text-white/65">{item.icon}</span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm text-white">{item.title}</span>
-                  <span className="block truncate text-[11px] text-white/55">{item.subtitle}</span>
-                </span>
+                <span className={index === activeIndex ? "text-zinc-300" : "text-zinc-600"}>{command.icon}</span>
+                <span className="flex-1 text-sm">{command.label}</span>
+                {command.description ? (
+                  <span className="text-xs text-zinc-600">{command.description}</span>
+                ) : null}
               </button>
             ))
           )}
         </div>
 
-        <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3 text-[10px] uppercase tracking-[0.12em] text-white/45">
-          <span>{loading ? "Searching..." : "Cmd/Ctrl+K to open"}</span>
-          <span>↑ ↓ Enter</span>
+        <div className="flex gap-4 border-t border-white/8 px-4 py-2.5 text-xs text-zinc-600">
+          <span><kbd className="font-mono">↑↓</kbd> navigate</span>
+          <span><kbd className="font-mono">↵</kbd> select</span>
+          <span><kbd className="font-mono">esc</kbd> close</span>
         </div>
       </div>
     </div>
   );
 }
+
+export { GlobalCommandPalette as CommandPalette };

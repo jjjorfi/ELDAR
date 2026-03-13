@@ -4,6 +4,8 @@ import path from "node:path";
 
 import { sql } from "@vercel/postgres";
 
+import { env } from "@/lib/env";
+import { log } from "@/lib/logger";
 import type {
   JournalCreateInput,
   JournalEntry,
@@ -15,7 +17,7 @@ import type {
   TradeStatus
 } from "@/lib/journal/types";
 
-const hasPostgres = Boolean(process.env.POSTGRES_URL);
+const hasPostgres = env.POSTGRES_URL.length > 0;
 let initialized = false;
 
 interface LocalJournalStore {
@@ -51,12 +53,16 @@ interface DbJournalRow {
 }
 
 function resolveLocalPath(): string {
-  const fallback = process.env.VERCEL ? "/tmp/journal-v1-store.json" : "./data/journal-v1.json";
-  const configured = process.env.LOCAL_JOURNAL_DB_PATH ?? fallback;
+  const fallback = env.VERCEL ? "/tmp/journal-v1-store.json" : "./data/journal-v1.json";
+  const configured = env.LOCAL_JOURNAL_DB_PATH || fallback;
   return path.isAbsolute(configured) ? configured : path.join(process.cwd(), configured);
 }
 
 const localStorePath = resolveLocalPath();
+
+function isMissingFileError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === "ENOENT";
+}
 
 function toNumberOrNull(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
@@ -196,7 +202,16 @@ async function readLocalStore(): Promise<LocalJournalStore> {
         ? parsed.entries.map((item) => hydrateEntry(item)).filter((item) => !item.deletedAt)
         : []
     };
-  } catch {
+  } catch (error) {
+    if (!isMissingFileError(error)) {
+      log({
+        level: "warn",
+        service: "journal-store",
+        message: "Failed to read local journal store",
+        path: localStorePath,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
     return { entries: [] };
   }
 }
