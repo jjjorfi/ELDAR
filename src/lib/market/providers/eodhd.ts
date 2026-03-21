@@ -1,13 +1,11 @@
 import {
-  fetchJsonOrNull,
   parseOptionalNumber,
   parseOptionalString,
   parseTimestampMs,
   readEnvToken,
-  setUrlSearchParams,
   toRecord
 } from "@/lib/market/adapter-utils";
-import { createProviderSuppression } from "@/lib/market/providers/provider-helpers";
+import { createProviderSuppression, fetchJsonWithSuppression } from "@/lib/market/providers/provider-helpers";
 import { normalizeRatio } from "@/lib/utils";
 
 export interface EodhdFallbackData {
@@ -110,49 +108,36 @@ function fromRecord(record: unknown): Record<string, unknown> {
  */
 async function fetchEodhd<T>(path: string, params: Record<string, string> = {}): Promise<T | null> {
   const apiKey = eodhdApiKey();
-  let terminalStatus: number | null = null;
 
   if (!apiKey) {
     return null;
   }
 
-  if (eodhdSuppression.isSuppressed()) {
-    return null;
-  }
-
-  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
-  const url = new URL(`${EODHD_BASE_URL}/${normalizedPath}`);
-  setUrlSearchParams(url, {
-    api_token: apiKey,
-    fmt: "json",
-    ...params
-  });
-
-  const payload = await fetchJsonOrNull<T>(url, {
+  return fetchJsonWithSuppression<T>({
+    adapterLabel: "EODHD",
+    service: "provider-eodhd",
+    baseUrl: EODHD_BASE_URL,
+    path,
+    params: {
+      api_token: apiKey,
+      fmt: "json",
+      ...params
+    },
     timeoutMs: EODHD_FETCH_TIMEOUT_MS,
     revalidateSeconds: 300,
     headers: {
       "User-Agent": "Mozilla/5.0",
       Accept: "application/json, text/plain, */*"
     },
+    suppression: eodhdSuppression,
+    authTtlMs: EODHD_AUTH_DISABLE_TTL_MS,
+    rateLimitTtlMs: EODHD_RATE_LIMIT_DISABLE_TTL_MS,
     isInvalidPayload: (payload) => {
       if (typeof payload !== "object" || payload === null) return false;
       const record = payload as Record<string, unknown>;
       return typeof record.message === "string" || typeof record.error === "string";
-    },
-    onError: (error) => {
-      if (error.status === 401 || error.status === 402 || error.status === 403 || error.status === 429) {
-        terminalStatus = error.status;
-      }
     }
   });
-
-  if (terminalStatus !== null) {
-    const ttlMs = terminalStatus === 429 ? EODHD_RATE_LIMIT_DISABLE_TTL_MS : EODHD_AUTH_DISABLE_TTL_MS;
-    eodhdSuppression.suppress(ttlMs, String(terminalStatus));
-  }
-
-  return payload;
 }
 
 /**

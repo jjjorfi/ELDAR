@@ -11,6 +11,14 @@ import type {
   EdgarParsedIncome
 } from "@/lib/normalize/types/providers";
 
+/**
+ * Normalizes an EDGAR-derived income statement into ELDAR's canonical income
+ * shape.
+ *
+ * @param raw Parsed EDGAR income payload.
+ * @param fetchedAt ISO fetch timestamp supplied by the caller.
+ * @returns Canonical income statement payload.
+ */
 export function normalizeEdgarIncome(raw: EdgarParsedIncome, fetchedAt: string): CanonicalIncomeStatement {
   const ticker = toUpperTicker(raw.ticker);
   const imputed: string[] = [];
@@ -82,6 +90,14 @@ export function normalizeEdgarIncome(raw: EdgarParsedIncome, fetchedAt: string):
   };
 }
 
+/**
+ * Normalizes an EDGAR-derived balance sheet into ELDAR's canonical balance
+ * shape.
+ *
+ * @param raw Parsed EDGAR balance-sheet payload.
+ * @param fetchedAt ISO fetch timestamp supplied by the caller.
+ * @returns Canonical balance sheet payload.
+ */
 export function normalizeEdgarBalance(raw: EdgarParsedBalance, fetchedAt: string): CanonicalBalanceSheet {
   const ticker = toUpperTicker(raw.ticker);
   const imputed: string[] = [];
@@ -162,6 +178,14 @@ export function normalizeEdgarBalance(raw: EdgarParsedBalance, fetchedAt: string
   };
 }
 
+/**
+ * Normalizes an EDGAR-derived cash-flow statement into ELDAR's canonical cash
+ * flow shape.
+ *
+ * @param raw Parsed EDGAR cash-flow payload.
+ * @param fetchedAt ISO fetch timestamp supplied by the caller.
+ * @returns Canonical cash-flow payload.
+ */
 export function normalizeEdgarCashFlow(raw: EdgarParsedCashFlow, fetchedAt: string): CanonicalCashFlow {
   const ticker = toUpperTicker(raw.ticker);
   const imputed: string[] = [];

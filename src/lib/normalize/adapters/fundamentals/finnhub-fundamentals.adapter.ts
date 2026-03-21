@@ -3,6 +3,14 @@ import { checkRevenue, checkTaxRate } from "@/lib/normalize/resolver/sanity-chec
 import type { CanonicalIncomeStatement } from "@/lib/normalize/types/canonical";
 import type { FinnhubFundamentalsRaw } from "@/lib/normalize/types/providers";
 
+/**
+ * Normalizes Finnhub's sparse fundamentals income payload into ELDAR's
+ * canonical income shape.
+ *
+ * @param raw Raw Finnhub fundamentals payload.
+ * @param fetchedAt ISO fetch timestamp supplied by the caller.
+ * @returns Canonical income statement payload.
+ */
 export function normalizeFinnhubFundamentalsIncome(
   raw: FinnhubFundamentalsRaw,
   fetchedAt: string

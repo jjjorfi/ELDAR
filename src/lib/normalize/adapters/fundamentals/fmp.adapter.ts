@@ -1,18 +1,21 @@
 import {
   AdapterError,
   defaultProvenance,
+  isAnnualPeriod,
+  toFiscalQuarter,
   toUpperTicker
 } from "@/lib/normalize/adapters/_utils";
 import { checkRevenue, checkTaxRate } from "@/lib/normalize/resolver/sanity-checker";
 import type { CanonicalIncomeStatement } from "@/lib/normalize/types/canonical";
 import type { FmpIncomeStatementRaw } from "@/lib/normalize/types/providers";
 
-function fmpPeriodToQuarter(period: string): 1 | 2 | 3 | 4 {
-  const normalized = period.toUpperCase();
-  const map: Record<string, 1 | 2 | 3 | 4> = { Q1: 1, Q2: 2, Q3: 3, Q4: 4, FY: 4 };
-  return map[normalized] ?? 4;
-}
-
+/**
+ * Normalizes an FMP income statement row into ELDAR's canonical income shape.
+ *
+ * @param raw Raw FMP income statement payload.
+ * @param fetchedAt ISO fetch timestamp supplied by the caller.
+ * @returns Canonical income statement payload.
+ */
 export function normalizeFMPIncome(raw: FmpIncomeStatementRaw, fetchedAt: string): CanonicalIncomeStatement {
   const ticker = toUpperTicker(raw.symbol);
   const imputed: string[] = [];
@@ -48,8 +51,8 @@ export function normalizeFMPIncome(raw: FmpIncomeStatementRaw, fetchedAt: string
     ticker,
     periodEnd: raw.date,
     fiscalYear: Number.parseInt(raw.calendarYear ?? raw.date.slice(0, 4), 10),
-    fiscalQuarter: fmpPeriodToQuarter(raw.period),
-    periodType: raw.period.toUpperCase() === "FY" ? "A" : "Q",
+    fiscalQuarter: toFiscalQuarter(raw.period),
+    periodType: isAnnualPeriod(raw.period) ? "A" : "Q",
     currency: raw.reportedCurrency ?? "USD",
 
     revenue: revenueCheck.value,

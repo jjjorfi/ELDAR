@@ -57,6 +57,34 @@ export interface CanonicalQuoteBuildInput {
 }
 
 /**
+ * Converts provider-specific fiscal period labels into canonical quarter
+ * numbers.
+ *
+ * @param rawPeriod Raw provider period token such as `Q1`, `FY`, or `2025Q3`.
+ * @param fallback Quarter returned when the token cannot be classified.
+ * @returns Canonical fiscal quarter.
+ */
+export function toFiscalQuarter(rawPeriod: string, fallback: 1 | 2 | 3 | 4 = 4): 1 | 2 | 3 | 4 {
+  const normalized = rawPeriod.trim().toUpperCase();
+  if (normalized === "Q1" || normalized.endsWith("Q1")) return 1;
+  if (normalized === "Q2" || normalized.endsWith("Q2")) return 2;
+  if (normalized === "Q3" || normalized.endsWith("Q3")) return 3;
+  if (normalized === "Q4" || normalized.endsWith("Q4") || normalized === "FY") return 4;
+  return fallback;
+}
+
+/**
+ * Indicates whether a provider period label represents a full fiscal year.
+ *
+ * @param rawPeriod Raw provider period token.
+ * @returns True when the token represents an annual period.
+ */
+export function isAnnualPeriod(rawPeriod: string): boolean {
+  const normalized = rawPeriod.trim().toUpperCase();
+  return normalized === "FY" || normalized === "A" || normalized === "ANNUAL";
+}
+
+/**
  * Parses a float-like provider value into a finite number.
  *
  * @param value Raw provider field.

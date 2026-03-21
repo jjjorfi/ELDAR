@@ -1,4 +1,5 @@
 import {
+  fetchJsonOrNull,
   getFetchSignal,
   setUrlSearchParams,
   toRecord,
@@ -114,6 +115,16 @@ export interface ProviderJsonRequestOptions {
   rateLimitTtlMs: number;
   authStatuses?: number[];
   rateLimitStatuses?: number[];
+  classifyPayloadFailure?: (payload: Record<string, unknown>) => ProviderSuppressionClassification | null;
+}
+
+/**
+ * Options for providers that rely on the generic `fetchJsonOrNull` helper and
+ * still want shared suppression and URL construction.
+ */
+export interface ProviderTypedJsonRequestOptions<T> extends Omit<ProviderJsonRequestOptions, "classifyPayloadFailure"> {
+  revalidateSeconds?: number;
+  isInvalidPayload?: (payload: unknown) => boolean;
   classifyPayloadFailure?: (payload: Record<string, unknown>) => ProviderSuppressionClassification | null;
 }
 
@@ -270,4 +281,62 @@ export async function fetchJsonRecordWithSuppression(
     });
     return null;
   }
+}
+
+/**
+ * Executes a typed JSON request for providers that already depend on
+ * `fetchJsonOrNull` and may return arrays or non-record payloads.
+ *
+ * @param options Request configuration and suppression rules.
+ * @returns Parsed payload or null when the request cannot be used.
+ */
+export async function fetchJsonWithSuppression<T>(
+  options: ProviderTypedJsonRequestOptions<T>
+): Promise<T | null> {
+  if (options.suppression.isSuppressed()) {
+    return null;
+  }
+
+  let terminalStatus: number | null = null;
+  const url = buildProviderUrl(options.baseUrl, options.path, options.params ?? {});
+
+  const payload = await fetchJsonOrNull<T>(url, {
+    timeoutMs: options.timeoutMs,
+    revalidateSeconds: options.revalidateSeconds,
+    headers: options.headers,
+    isInvalidPayload: options.isInvalidPayload,
+    onError: (error) => {
+      if (typeof error.status === "number") {
+        const didSuppress = suppressForHttpStatus({
+          status: error.status,
+          suppression: options.suppression,
+          authTtlMs: options.authTtlMs,
+          rateLimitTtlMs: options.rateLimitTtlMs,
+          authStatuses: options.authStatuses,
+          rateLimitStatuses: options.rateLimitStatuses
+        });
+        if (didSuppress) {
+          terminalStatus = error.status;
+        }
+      }
+    }
+  });
+
+  if (payload == null) {
+    return null;
+  }
+
+  if (typeof payload === "object" && payload !== null) {
+    const failure = options.classifyPayloadFailure?.(payload as Record<string, unknown>) ?? null;
+    if (failure) {
+      options.suppression.suppress(failure.ttlMs, failure.label);
+      return null;
+    }
+  }
+
+  if (terminalStatus !== null) {
+    return null;
+  }
+
+  return payload;
 }

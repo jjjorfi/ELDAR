@@ -1,16 +1,16 @@
-import { AdapterError, defaultProvenance, toUpperTicker } from "@/lib/normalize/adapters/_utils";
+import { AdapterError, defaultProvenance, toFiscalQuarter, toUpperTicker } from "@/lib/normalize/adapters/_utils";
 import { checkRevenue, checkTaxRate } from "@/lib/normalize/resolver/sanity-checker";
 import type { CanonicalIncomeStatement } from "@/lib/normalize/types/canonical";
 import type { SimfinIncomeStatementRaw } from "@/lib/normalize/types/providers";
 
-function simfinPeriodToQuarter(period: string): 1 | 2 | 3 | 4 {
-  const normalized = period.toUpperCase();
-  if (normalized.endsWith("Q1")) return 1;
-  if (normalized.endsWith("Q2")) return 2;
-  if (normalized.endsWith("Q3")) return 3;
-  return 4;
-}
-
+/**
+ * Normalizes a SimFin income statement row into ELDAR's canonical income
+ * shape.
+ *
+ * @param raw Raw SimFin income statement payload.
+ * @param fetchedAt ISO fetch timestamp supplied by the caller.
+ * @returns Canonical income statement payload.
+ */
 export function normalizeSimfinIncome(raw: SimfinIncomeStatementRaw, fetchedAt: string): CanonicalIncomeStatement {
   const ticker = toUpperTicker(raw.ticker);
 
@@ -40,7 +40,7 @@ export function normalizeSimfinIncome(raw: SimfinIncomeStatementRaw, fetchedAt: 
     ticker,
     periodEnd: raw.reportDate,
     fiscalYear: raw.fiscalYear,
-    fiscalQuarter: simfinPeriodToQuarter(raw.fiscalPeriod),
+    fiscalQuarter: toFiscalQuarter(raw.fiscalPeriod),
     periodType: raw.fiscalPeriod.toUpperCase().includes("Q") ? "Q" : "A",
     currency: raw.currency ?? "USD",
 

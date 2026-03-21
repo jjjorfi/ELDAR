@@ -1,6 +1,10 @@
 import type { DataSource } from "@/lib/normalize/types/canonical";
 import { log } from "@/lib/logger";
 
+/**
+ * Source-priority map used when multiple providers offer the same canonical
+ * field.
+ */
 export const PRIORITY: Record<string, DataSource[]> = {
   revenue: ["edgar", "fmp", "simfin", "finnhub_fundamentals"],
   costOfRevenue: ["edgar", "fmp", "simfin"],
@@ -44,6 +48,14 @@ export interface ResolvedValue {
   conflictDetails: string | null;
 }
 
+/**
+ * Resolves a canonical field from multiple provider candidates using the
+ * configured source priority and conflict thresholds.
+ *
+ * @param field Canonical field name being resolved.
+ * @param candidates Candidate values from different sources.
+ * @returns Winning value with provenance and conflict metadata.
+ */
 export function resolveField(
   field: string,
   candidates: { source: DataSource; value: number | null }[]
@@ -71,7 +83,7 @@ export function resolveField(
     if (deviation > threshold) {
       conflicted = true;
       conflictDetails =
-        `[${field}] ${winner.source}=${winner.value} vs ` +
+        `[ConflictResolver] [${field}] ${winner.source}=${winner.value} vs ` +
         `${candidate.source}=${candidate.value} ` +
         `(${(deviation * 100).toFixed(2)}% diff) — ${winner.source} wins`;
       log({

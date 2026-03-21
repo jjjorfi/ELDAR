@@ -1,12 +1,10 @@
 import {
-  fetchJsonOrNull,
   parseOptionalNumber,
   parseOptionalString,
   parseTimestampMs,
-  readEnvToken,
-  setUrlSearchParams
+  readEnvToken
 } from "@/lib/market/adapter-utils";
-import { createProviderSuppression } from "@/lib/market/providers/provider-helpers";
+import { createProviderSuppression, fetchJsonWithSuppression } from "@/lib/market/providers/provider-helpers";
 import { normalizeRatio } from "@/lib/utils";
 
 export interface FmpFallbackData {
@@ -89,42 +87,29 @@ function asString(value: unknown): string | null {
  */
 async function fetchFmp<T>(baseUrl: string, path: string, params: Record<string, string> = {}): Promise<T | null> {
   const apiKey = fmpApiKey();
-  let terminalStatus: number | null = null;
 
   if (!apiKey) {
     return null;
   }
 
-  if (fmpSuppression.isSuppressed()) {
-    return null;
-  }
-
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const url = new URL(`${baseUrl}${normalizedPath}`);
-  setUrlSearchParams(url, {
-    apikey: apiKey,
-    ...params
-  });
-
-  const payload = await fetchJsonOrNull<T>(url, {
+  return fetchJsonWithSuppression<T>({
+    adapterLabel: "FMP",
+    service: "provider-fmp",
+    baseUrl,
+    path,
+    params: {
+      apikey: apiKey,
+      ...params
+    },
     timeoutMs: FMP_FETCH_TIMEOUT_MS,
     revalidateSeconds: 300,
     headers: {
       "User-Agent": "Mozilla/5.0"
     },
-    onError: (error) => {
-      if (error.status === 401 || error.status === 402 || error.status === 403 || error.status === 429) {
-        terminalStatus = error.status;
-      }
-    }
+    suppression: fmpSuppression,
+    authTtlMs: FMP_AUTH_DISABLE_TTL_MS,
+    rateLimitTtlMs: FMP_RATE_LIMIT_DISABLE_TTL_MS
   });
-
-  if (terminalStatus !== null) {
-    const ttlMs = terminalStatus === 429 ? FMP_RATE_LIMIT_DISABLE_TTL_MS : FMP_AUTH_DISABLE_TTL_MS;
-    fmpSuppression.suppress(ttlMs, String(terminalStatus));
-  }
-
-  return payload;
 }
 
 interface FmpSearchRow {
