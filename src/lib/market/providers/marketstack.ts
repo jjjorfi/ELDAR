@@ -4,9 +4,12 @@
 // market-data quotas are available. Gotcha: free marketstack is EOD-oriented,
 // so it must never outrank true live providers when they are healthy.
 
-import { getFetchSignal, parseOptionalNumber, parseTimestampMs, readEnvToken, setUrlSearchParams } from "@/lib/market/adapter-utils";
-import { log } from "@/lib/logger";
-import { buildSymbolCandidates, createProviderSuppression } from "@/lib/market/providers/provider-helpers";
+import { parseOptionalNumber, parseTimestampMs, readEnvToken } from "@/lib/market/adapter-utils";
+import {
+  buildDashedSymbolCandidates,
+  createProviderSuppression,
+  fetchJsonRecordWithSuppression
+} from "@/lib/market/providers/provider-helpers";
 
 export interface MarketstackQuoteSnapshot {
   price: number | null;
@@ -60,7 +63,7 @@ function parseNumber(value: unknown): number | null {
  * @returns Candidate symbols in provider-friendly order.
  */
 function symbolCandidates(symbol: string): string[] {
-  return buildSymbolCandidates(symbol, [(upper) => upper.replace(/\./g, "-")]);
+  return buildDashedSymbolCandidates(symbol);
 }
 
 /**
@@ -97,52 +100,21 @@ async function fetchMarketstack(path: string, params: Record<string, string | nu
     return null;
   }
 
-  if (marketstackSuppression.isSuppressed()) {
-    return null;
-  }
-
-  const url = new URL(`${MARKETSTACK_BASE_URL}/${path}`);
-  setUrlSearchParams(url, {
-    ...params,
-    access_key: apiKey
+  return fetchJsonRecordWithSuppression({
+    adapterLabel: "Marketstack",
+    service: "provider-marketstack",
+    baseUrl: MARKETSTACK_BASE_URL,
+    path,
+    params: {
+      ...params,
+      access_key: apiKey
+    },
+    timeoutMs: MARKETSTACK_FETCH_TIMEOUT_MS,
+    suppression: marketstackSuppression,
+    authTtlMs: MARKETSTACK_AUTH_DISABLE_TTL_MS,
+    rateLimitTtlMs: MARKETSTACK_RATE_LIMIT_DISABLE_TTL_MS,
+    classifyPayloadFailure
   });
-
-  try {
-    const response = await fetch(url.toString(), {
-      cache: "no-store",
-      signal: getFetchSignal(MARKETSTACK_FETCH_TIMEOUT_MS),
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "Mozilla/5.0"
-      }
-    });
-
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        marketstackSuppression.suppress(MARKETSTACK_AUTH_DISABLE_TTL_MS, "auth");
-      } else if (response.status === 402 || response.status === 429) {
-        marketstackSuppression.suppress(MARKETSTACK_RATE_LIMIT_DISABLE_TTL_MS, "rate-limit");
-      }
-      return null;
-    }
-
-    const payload = (await response.json()) as Record<string, unknown>;
-    const failure = classifyPayloadFailure(payload);
-    if (failure) {
-      marketstackSuppression.suppress(failure.ttlMs, failure.label);
-      return null;
-    }
-
-    return payload;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown marketstack error.";
-    log({
-      level: "warn",
-      service: "provider-marketstack",
-      message
-    });
-    return null;
-  }
 }
 
 /**

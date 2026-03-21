@@ -3,9 +3,12 @@
 // continuity paths and should be reviewed once the long-term paid stack is
 // fully active.
 
-import { getFetchSignal, parseOptionalNumber, parseTimestampMs, readEnvToken, setUrlSearchParams } from "@/lib/market/adapter-utils";
-import { log } from "@/lib/logger";
-import { buildSymbolCandidates, createProviderSuppression } from "@/lib/market/providers/provider-helpers";
+import { parseOptionalNumber, parseTimestampMs, readEnvToken } from "@/lib/market/adapter-utils";
+import {
+  buildDashedAndDottedSymbolCandidates,
+  createProviderSuppression,
+  fetchJsonRecordWithSuppression
+} from "@/lib/market/providers/provider-helpers";
 
 export interface AlpacaQuoteSnapshot {
   price: number | null;
@@ -63,16 +66,6 @@ export function isAlpacaConfigured(): boolean {
 }
 
 /**
- * Applies temporary request suppression after auth or rate-limit failures.
- *
- * @param ttlMs Suppression duration.
- * @param label Failure class label.
- */
-function suppressTemporarily(ttlMs: number, label: "auth" | "rate-limit"): void {
-  alpacaSuppression.suppress(ttlMs, label);
-}
-
-/**
  * Parses numeric Alpaca fields.
  *
  * @param value Raw provider field.
@@ -89,7 +82,7 @@ function parseNumber(value: unknown): number | null {
  * @returns Deduplicated provider-friendly symbol candidates.
  */
 function symbolCandidates(symbol: string): string[] {
-  return buildSymbolCandidates(symbol, [(upper) => upper.replace(/\./g, "-"), (upper) => upper.replace(/-/g, ".")]);
+  return buildDashedAndDottedSymbolCandidates(symbol);
 }
 
 /**
@@ -137,49 +130,21 @@ function classifyPayloadFailure(payload: Record<string, unknown>): { ttlMs: numb
 async function fetchAlpaca(path: string, params: Record<string, string | number | null> = {}): Promise<Record<string, unknown> | null> {
   const authHeaders = getAuthHeaders();
   if (!authHeaders) return null;
-  if (alpacaSuppression.isSuppressed()) return null;
 
-  const cleanPath = path.startsWith("/") ? path.slice(1) : path;
-  const url = new URL(`${alpacaBaseUrl()}/${cleanPath}`);
-  setUrlSearchParams(url, params);
-
-  try {
-    const response = await fetch(url.toString(), {
-      cache: "no-store",
-      signal: getFetchSignal(ALPACA_FETCH_TIMEOUT_MS),
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "Mozilla/5.0",
-        ...authHeaders
-      }
-    });
-
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        suppressTemporarily(ALPACA_AUTH_DISABLE_TTL_MS, "auth");
-      } else if (response.status === 429) {
-        suppressTemporarily(ALPACA_RATE_LIMIT_DISABLE_TTL_MS, "rate-limit");
-      }
-      return null;
-    }
-
-    const payload = (await response.json()) as Record<string, unknown>;
-    const failure = classifyPayloadFailure(payload);
-    if (failure) {
-      suppressTemporarily(failure.ttlMs, failure.label);
-      return null;
-    }
-
-    return payload;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown Alpaca error.";
-    log({
-      level: "warn",
-      service: "provider-alpaca",
-      message
-    });
-    return null;
-  }
+  return fetchJsonRecordWithSuppression({
+    adapterLabel: "Alpaca",
+    service: "provider-alpaca",
+    baseUrl: alpacaBaseUrl(),
+    path,
+    params,
+    headers: authHeaders,
+    timeoutMs: ALPACA_FETCH_TIMEOUT_MS,
+    suppression: alpacaSuppression,
+    authTtlMs: ALPACA_AUTH_DISABLE_TTL_MS,
+    rateLimitTtlMs: ALPACA_RATE_LIMIT_DISABLE_TTL_MS,
+    rateLimitStatuses: [429],
+    classifyPayloadFailure
+  });
 }
 
 /**

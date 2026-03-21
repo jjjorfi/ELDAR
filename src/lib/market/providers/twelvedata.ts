@@ -4,9 +4,12 @@
 // provider quotas/entitlements are live. Gotcha: do not treat this as a full
 // fundamentals source; it is intentionally limited to price-oriented patches.
 
-import { getFetchSignal, parseOptionalNumber, parseTimestampMs, readEnvToken, setUrlSearchParams } from "@/lib/market/adapter-utils";
-import { log } from "@/lib/logger";
-import { buildSymbolCandidates, createProviderSuppression } from "@/lib/market/providers/provider-helpers";
+import { parseOptionalNumber, parseTimestampMs, readEnvToken } from "@/lib/market/adapter-utils";
+import {
+  buildDashedSymbolCandidates,
+  createProviderSuppression,
+  fetchJsonRecordWithSuppression
+} from "@/lib/market/providers/provider-helpers";
 
 export interface TwelveDataQuoteSnapshot {
   price: number | null;
@@ -60,7 +63,7 @@ function parseNumber(value: unknown): number | null {
  * @returns Candidate symbols in provider-friendly order.
  */
 function symbolCandidates(symbol: string): string[] {
-  return buildSymbolCandidates(symbol, [(upper) => upper.replace(/\./g, "-")]);
+  return buildDashedSymbolCandidates(symbol);
 }
 
 /**
@@ -86,17 +89,6 @@ function classifyPayloadFailure(payload: Record<string, unknown>): { ttlMs: numb
 }
 
 /**
- * Applies adapter suppression when the provider reports auth or rate-limit
- * issues.
- *
- * @param reason Suppression descriptor or null.
- */
-function suppressTemporarily(reason: { ttlMs: number; label: string } | null): void {
-  if (!reason) return;
-  twelveDataSuppression.suppress(reason.ttlMs, reason.label);
-}
-
-/**
  * Executes a Twelve Data request with common auth, timeout, and suppression
  * handling.
  *
@@ -110,52 +102,21 @@ async function fetchTwelveData(path: string, params: Record<string, string | num
     return null;
   }
 
-  if (twelveDataSuppression.isSuppressed()) {
-    return null;
-  }
-
-  const url = new URL(`${TWELVE_DATA_BASE_URL}/${path}`);
-  setUrlSearchParams(url, {
-    ...params,
-    apikey: apiKey
+  return fetchJsonRecordWithSuppression({
+    adapterLabel: "Twelve Data",
+    service: "provider-twelvedata",
+    baseUrl: TWELVE_DATA_BASE_URL,
+    path,
+    params: {
+      ...params,
+      apikey: apiKey
+    },
+    timeoutMs: TWELVE_DATA_FETCH_TIMEOUT_MS,
+    suppression: twelveDataSuppression,
+    authTtlMs: TWELVE_DATA_AUTH_DISABLE_TTL_MS,
+    rateLimitTtlMs: TWELVE_DATA_RATE_LIMIT_DISABLE_TTL_MS,
+    classifyPayloadFailure
   });
-
-  try {
-    const response = await fetch(url.toString(), {
-      cache: "no-store",
-      signal: getFetchSignal(TWELVE_DATA_FETCH_TIMEOUT_MS),
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "Mozilla/5.0"
-      }
-    });
-
-    if (!response.ok) {
-      const ttlMs =
-        response.status === 429 ? TWELVE_DATA_RATE_LIMIT_DISABLE_TTL_MS : response.status === 401 || response.status === 403
-          ? TWELVE_DATA_AUTH_DISABLE_TTL_MS
-          : 0;
-      suppressTemporarily(ttlMs > 0 ? { ttlMs, label: response.status === 429 ? "rate-limit" : "auth" } : null);
-      return null;
-    }
-
-    const payload = (await response.json()) as Record<string, unknown>;
-    suppressTemporarily(classifyPayloadFailure(payload));
-
-    if (classifyPayloadFailure(payload)) {
-      return null;
-    }
-
-    return payload;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown Twelve Data error.";
-    log({
-      level: "warn",
-      service: "provider-twelvedata",
-      message
-    });
-    return null;
-  }
 }
 
 /**

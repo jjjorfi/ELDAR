@@ -3,6 +3,15 @@ import { checkPrice } from "@/lib/normalize/resolver/sanity-checker";
 import type { CanonicalChartHistory, ChartInterval } from "@/lib/normalize/types/canonical";
 import type { YahooChartBarRaw } from "@/lib/normalize/types/providers";
 
+/**
+ * Normalizes Yahoo chart bars into canonical chart history.
+ *
+ * @param tickerInput Caller-supplied ticker symbol.
+ * @param interval Requested chart interval.
+ * @param rawBars Raw Yahoo chart bars.
+ * @param fetchedAt ISO fetch timestamp supplied by the caller.
+ * @returns Canonical chart history with normalized bars and provenance.
+ */
 export function normalizeYahooChartHistory(
   tickerInput: string,
   interval: ChartInterval,

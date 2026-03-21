@@ -8,11 +8,15 @@ import {
   setUrlSearchParams
 } from "@/lib/market/adapter-utils";
 import { log } from "@/lib/logger";
+import { createProviderSuppression } from "@/lib/market/providers/provider-helpers";
 
 const FINNHUB_FETCH_TIMEOUT_MS = 4_500;
 const FINNHUB_AUTH_DISABLE_TTL_MS = 10 * 60_000;
-let finnhubAuthDisabledUntil = 0;
-let finnhubAuthWarnedAt = 0;
+const finnhubSuppression = createProviderSuppression({
+  adapterLabel: "Finnhub",
+  formatMessage: (_label, ttlMs) =>
+    `[Finnhub Adapter]: auth unavailable. Suppressing Finnhub requests for ${Math.round(ttlMs / 1000)}s.`
+});
 
 interface FinnhubRecommendationRow {
   buy?: number;
@@ -129,7 +133,7 @@ async function fetchFinnhub<T>(endpoint: string, query: Record<string, string>):
     return null;
   }
 
-  if (Date.now() < finnhubAuthDisabledUntil) {
+  if (finnhubSuppression.isSuppressed()) {
     return null;
   }
 
@@ -160,15 +164,7 @@ async function fetchFinnhub<T>(endpoint: string, query: Record<string, string>):
   }
 
   if (failureReasons.some((failure) => failure.status === 401 || failure.status === 403)) {
-    finnhubAuthDisabledUntil = Date.now() + FINNHUB_AUTH_DISABLE_TTL_MS;
-    if (Date.now() - finnhubAuthWarnedAt > FINNHUB_AUTH_DISABLE_TTL_MS) {
-      finnhubAuthWarnedAt = Date.now();
-      log({
-        level: "warn",
-        service: "provider-finnhub",
-        message: "Auth unavailable (401/403). Suppressing Finnhub requests for 10m."
-      });
-    }
+    finnhubSuppression.suppress(FINNHUB_AUTH_DISABLE_TTL_MS, "auth");
   }
 
   if (failureReasons.length > 0) {

@@ -1,61 +1,50 @@
 import {
-  AdapterError,
-  defaultProvenance,
+  buildCanonicalQuote,
   parseFloatOrNull,
-  parseIntOrNull,
-  toISODate,
-  toUpperTicker
+  parseIntOrNull
 } from "@/lib/normalize/adapters/_utils";
-import { checkChangePct, checkPrice } from "@/lib/normalize/resolver/sanity-checker";
+import { checkChangePct } from "@/lib/normalize/resolver/sanity-checker";
 import type { CanonicalQuote } from "@/lib/normalize/types/canonical";
 import type { TwelveDataQuoteRaw } from "@/lib/normalize/types/providers";
 
+/**
+ * Normalizes a Twelve Data quote payload into ELDAR's canonical quote shape.
+ *
+ * @param raw Raw Twelve Data quote payload.
+ * @param fetchedAt ISO fetch timestamp supplied by the caller.
+ * @returns Canonical quote payload.
+ */
 export function normalizeTwelveData(raw: TwelveDataQuoteRaw, fetchedAt: string): CanonicalQuote {
-  const ticker = toUpperTicker(raw.symbol);
-  const price = parseFloatOrNull(raw.close);
-  const prevClose = parseFloatOrNull(raw.previous_close);
-
-  if (prevClose == null || prevClose <= 0) {
-    throw new AdapterError(`TwelveData ${ticker}: prevClose missing/invalid`);
-  }
-
-  const priceCheck = checkPrice(price, { ticker });
-  if (!priceCheck.ok || priceCheck.value == null) {
-    throw new AdapterError(`TwelveData ${ticker}: price failed sanity (${priceCheck.reason ?? "unknown"})`);
-  }
-
   const warnings: string[] = [];
   const rawPct = parseFloatOrNull(raw.percent_change);
-  const parsedPct = rawPct != null ? rawPct / 100 : (priceCheck.value - prevClose) / prevClose;
-  const changePctCheck = checkChangePct(parsedPct);
+  const changePctCheck = checkChangePct(rawPct != null ? rawPct / 100 : null);
   if (!changePctCheck.ok) {
     warnings.push(`changePct: ${changePctCheck.reason ?? "invalid"}`);
   }
 
-  const parsedTimestamp =
-    toISODate(raw.timestamp ?? null) ??
-    toISODate(raw.datetime ?? null) ??
-    fetchedAt;
-
-  return {
-    ticker,
+  return buildCanonicalQuote({
+    source: "twelve_data",
+    adapterLabel: "TwelveData",
+    tickerInput: raw.symbol,
+    fetchedAt,
     exchange: raw.exchange ?? null,
-    price: priceCheck.value,
+    price: parseFloatOrNull(raw.close),
+    prevClose: parseFloatOrNull(raw.previous_close),
+    rawChange: parseFloatOrNull(raw.change),
+    rawChangePct: rawPct,
+    rawChangePctScale: "percent",
     open: parseFloatOrNull(raw.open),
     high: parseFloatOrNull(raw.high),
     low: parseFloatOrNull(raw.low),
-    prevClose,
-    change: parseFloatOrNull(raw.change) ?? (priceCheck.value - prevClose),
-    changePct: changePctCheck.value ?? 0,
     volume: parseIntOrNull(raw.volume),
     avgVolume: null,
     marketCap: null,
     sharesOut: null,
     marketState: raw.is_market_open ? "regular" : "closed",
-    timestamp: parsedTimestamp,
-    meta: defaultProvenance("twelve_data", fetchedAt, {
+    timestamp: raw.timestamp ?? raw.datetime ?? null,
+    provenance: {
       delayMins: 15,
       warnings
-    })
-  };
+    }
+  });
 }

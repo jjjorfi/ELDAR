@@ -1,3 +1,9 @@
+import {
+  getFetchSignal,
+  setUrlSearchParams,
+  toRecord,
+  type QueryParamValue
+} from "@/lib/market/adapter-utils";
 import { log } from "@/lib/logger";
 
 /**
@@ -6,6 +12,15 @@ import { log } from "@/lib/logger";
 export interface ProviderSuppressionOptions {
   adapterLabel: string;
   formatMessage?: (label: string, ttlMs: number) => string;
+}
+
+/**
+ * Classification returned when a provider payload should trigger a temporary
+ * suppression window.
+ */
+export interface ProviderSuppressionClassification {
+  ttlMs: number;
+  label: string;
 }
 
 /**
@@ -71,6 +86,41 @@ export function createProviderSuppression(
 }
 
 /**
+ * Options for mapping HTTP statuses into provider suppression windows.
+ */
+export interface ProviderHttpSuppressionOptions {
+  status: number;
+  suppression: ProviderSuppressionController;
+  authTtlMs: number;
+  rateLimitTtlMs: number;
+  authStatuses?: number[];
+  rateLimitStatuses?: number[];
+}
+
+/**
+ * Options for the shared JSON request helper used by provider adapters that
+ * expose object-like payloads.
+ */
+export interface ProviderJsonRequestOptions {
+  adapterLabel: string;
+  service: string;
+  baseUrl: string;
+  path: string;
+  params?: Record<string, QueryParamValue>;
+  headers?: Record<string, string>;
+  timeoutMs: number;
+  suppression: ProviderSuppressionController;
+  authTtlMs: number;
+  rateLimitTtlMs: number;
+  authStatuses?: number[];
+  rateLimitStatuses?: number[];
+  classifyPayloadFailure?: (payload: Record<string, unknown>) => ProviderSuppressionClassification | null;
+}
+
+const DEFAULT_AUTH_STATUSES = [401, 403];
+const DEFAULT_RATE_LIMIT_STATUSES = [402, 429];
+
+/**
  * Builds a stable candidate symbol list for providers that accept multiple
  * ticker shapes for the same security.
  *
@@ -94,4 +144,130 @@ export function buildSymbolCandidates(
         .filter((value) => value.length > 0)
     )
   );
+}
+
+/**
+ * Builds candidate symbols for providers that prefer dash-separated class-share
+ * tickers such as `BRK-B`.
+ *
+ * @param symbol Raw input ticker.
+ * @returns Deduplicated uppercase candidates in priority order.
+ */
+export function buildDashedSymbolCandidates(symbol: string): string[] {
+  return buildSymbolCandidates(symbol, [(upper) => upper.replace(/\./g, "-")]);
+}
+
+/**
+ * Builds candidate symbols for providers that may expect either dashed or
+ * dotted class-share tickers.
+ *
+ * @param symbol Raw input ticker.
+ * @returns Deduplicated uppercase candidates in priority order.
+ */
+export function buildDashedAndDottedSymbolCandidates(symbol: string): string[] {
+  return buildSymbolCandidates(symbol, [
+    (upper) => upper.replace(/\./g, "-"),
+    (upper) => upper.replace(/-/g, ".")
+  ]);
+}
+
+/**
+ * Applies provider suppression for HTTP statuses that indicate auth or
+ * rate-limit failures.
+ *
+ * @param options Status mapping inputs and TTL configuration.
+ * @returns True when a suppression window was applied.
+ */
+export function suppressForHttpStatus(options: ProviderHttpSuppressionOptions): boolean {
+  const authStatuses = options.authStatuses ?? DEFAULT_AUTH_STATUSES;
+  const rateLimitStatuses = options.rateLimitStatuses ?? DEFAULT_RATE_LIMIT_STATUSES;
+
+  if (authStatuses.includes(options.status)) {
+    options.suppression.suppress(options.authTtlMs, "auth");
+    return true;
+  }
+
+  if (rateLimitStatuses.includes(options.status)) {
+    options.suppression.suppress(options.rateLimitTtlMs, "rate-limit");
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Builds a provider URL from a base URL, relative path, and query parameters.
+ *
+ * @param baseUrl Provider base URL.
+ * @param path Relative endpoint path.
+ * @param params Query parameter map.
+ * @returns Fully hydrated URL instance.
+ */
+function buildProviderUrl(
+  baseUrl: string,
+  path: string,
+  params: Record<string, QueryParamValue>
+): URL {
+  const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  const normalizedPath = path.replace(/^\/+/, "");
+  const url = new URL(normalizedPath, normalizedBaseUrl);
+  setUrlSearchParams(url, params);
+  return url;
+}
+
+/**
+ * Executes a JSON request for providers that return top-level object payloads
+ * and share the same timeout/suppression/logging flow.
+ *
+ * @param options Request configuration and suppression rules.
+ * @returns Parsed object payload or null when the request cannot be used.
+ */
+export async function fetchJsonRecordWithSuppression(
+  options: ProviderJsonRequestOptions
+): Promise<Record<string, unknown> | null> {
+  if (options.suppression.isSuppressed()) {
+    return null;
+  }
+
+  const url = buildProviderUrl(options.baseUrl, options.path, options.params ?? {});
+
+  try {
+    const response = await fetch(url.toString(), {
+      cache: "no-store",
+      signal: getFetchSignal(options.timeoutMs),
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0",
+        ...options.headers
+      }
+    });
+
+    if (!response.ok) {
+      suppressForHttpStatus({
+        status: response.status,
+        suppression: options.suppression,
+        authTtlMs: options.authTtlMs,
+        rateLimitTtlMs: options.rateLimitTtlMs,
+        authStatuses: options.authStatuses,
+        rateLimitStatuses: options.rateLimitStatuses
+      });
+      return null;
+    }
+
+    const payload = toRecord(await response.json());
+    const failure = options.classifyPayloadFailure?.(payload) ?? null;
+    if (failure) {
+      options.suppression.suppress(failure.ttlMs, failure.label);
+      return null;
+    }
+
+    return payload;
+  } catch (error) {
+    log({
+      level: "warn",
+      service: options.service,
+      message: error instanceof Error ? error.message : `Unknown ${options.adapterLabel} error.`
+    });
+    return null;
+  }
 }
